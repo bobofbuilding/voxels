@@ -1,0 +1,655 @@
+{
+  "id": 637524,
+  "parcel_id": 3792,
+  "content": {
+    "features": [
+      {
+        "type": "image",
+        "scale": [
+          1,
+          1,
+          0
+        ],
+        "url": "https://public.stojg.se/notes/test.png",
+        "position": [
+          -0.3,
+          2.25,
+          7.75
+        ],
+        "rotation": [
+          0,
+          1.5707963267948966,
+          0
+        ],
+        "uuid": "e1898510-b219-45a1-b862-8060609f970a",
+        "animation": {
+          "keyframes": []
+        },
+        "script": "",
+        "blendMode": "Multiply",
+        "stretch": false,
+        "transparent": false,
+        "updateDaily": false,
+        "uScale": 1,
+        "vScale": 1
+      },
+      {
+        "type": "image",
+        "scale": [
+          1,
+          1,
+          0
+        ],
+        "url": "https://media.giphy.com/media/55rK0m0pzyUbyyicrs/giphy.gif",
+        "position": [
+          0.25,
+          2.25,
+          -3.75
+        ],
+        "rotation": [
+          0,
+          4.71238898038469,
+          0
+        ],
+        "uuid": "52bd51bf-b846-49dd-832f-4cf536be6b2d",
+        "animation": {
+          "keyframes": []
+        },
+        "script": "",
+        "blendMode": "Combine",
+        "stretch": false,
+        "transparent": false,
+        "updateDaily": true,
+        "uScale": 1,
+        "vScale": 1
+      },
+      {
+        "type": "particles",
+        "scale": [
+          1,
+          1,
+          1
+        ],
+        "position": [
+          0,
+          4.3,
+          1
+        ],
+        "rotation": [
+          4.71,
+          6.28,
+          0
+        ],
+        "uuid": "25004a01-e781-4ef7-80f4-816a8c132e82",
+        "animation": {
+          "destination": "",
+          "keyframes": []
+        },
+        "script": "",
+        "emitRate": 146,
+        "minSize": 0.1,
+        "maxSize": 0.98,
+        "color1": "#b3ff00",
+        "color2": "#37ff00"
+      },
+      {
+        "type": "polytext",
+        "scale": [
+          0.2,
+          0.2,
+          0.2
+        ],
+        "text": "ghostfarm",
+        "position": [
+          -3.3,
+          3.25,
+          6.8
+        ],
+        "rotation": [
+          0,
+          3.14,
+          0
+        ],
+        "uuid": "68a69aab-cf49-45d6-93ed-029a59153799",
+        "animation": {
+          "keyframes": []
+        },
+        "script": "",
+        "color": "#9346af"
+      },
+      {
+        "type": "nft-image",
+        "scale": [
+          2,
+          1,
+          1.5
+        ],
+        "url": "https://opensea.io/assets/0x60f80121c31a0d46b5279700f9df786054aa5ee5/53376",
+        "position": [
+          -0.25,
+          2.25,
+          5.75
+        ],
+        "rotation": [
+          0,
+          1.5707963267948966,
+          0
+        ],
+        "uuid": "7904256f-2357-4a73-85f7-a4a5c99382c9",
+        "script": "",
+        "inverted": false,
+        "color": false,
+        "stretch": false
+      },
+      {
+        "type": "youtube",
+        "scale": [
+          2,
+          1,
+          0
+        ],
+        "url": "https://www.youtube.com/watch?v=8N3dvQoS1j8",
+        "position": [
+          0.25,
+          2.25,
+          -1.75
+        ],
+        "rotation": [
+          0,
+          4.71238898038469,
+          0
+        ],
+        "uuid": "1cb604d8-2c3a-48d5-84ba-8146e6f4d44e",
+        "screenRatio": "169",
+        "script": "",
+        "id": "kwad1",
+        "inverted": false
+      },
+      {
+        "type": "richtext",
+        "scale": [
+          2,
+          1,
+          0
+        ],
+        "text": "Bro! Tell me we still know how to talk about kings!\n\nIn the old days, everyone knew what men were: brave, bold, glory-bound.\n\nOnly stories now, but I'll sound the Spear-Danes' song, hoarded for hungry times.\n\nBeowulf - Maria Dahvana Headley\n\n",
+        "position": [
+          -0.25,
+          2.25,
+          -1.75
+        ],
+        "rotation": [
+          0,
+          1.5707963267948966,
+          0
+        ],
+        "uuid": "a53c80f6-a61d-4fcc-83b3-196bea936508",
+        "script": "",
+        "inverted": false
+      },
+      {
+        "type": "sign",
+        "scale": [
+          1,
+          0.5,
+          0.5
+        ],
+        "text": "can you feel?",
+        "position": [
+          -0.25,
+          2.3,
+          -8.25
+        ],
+        "rotation": [
+          0,
+          1.5707963267948966,
+          0
+        ],
+        "uuid": "7694bcc1-4c73-405f-aaf1-fa5808b23965",
+        "animation": {
+          "keyframes": []
+        },
+        "script": "",
+        "blendMode": "Multiply",
+        "color": "#000000",
+        "background": "#ffffff"
+      },
+      {
+        "type": "vox-model",
+        "scale": [
+          1,
+          1,
+          1
+        ],
+        "url": "https://public.stojg.se/notes/ZP5ccNYBmDFm4G6n10ppZsFLTqteqMMyOv61GUy34om2fsnNLXAhf9E2m474BUKKgUTNF6JsaDKswcKlyTeYbAnrMqIv5cEiYn5T.vox",
+        "flipX": true,
+        "position": [
+          0,
+          0.75,
+          0
+        ],
+        "rotation": [
+          0,
+          1.57,
+          0
+        ],
+        "uuid": "0951b9bc-c64e-4d83-a936-afb3780d536e",
+        "animation": {
+          "keyframes": []
+        },
+        "script": "",
+        "cubescale": true
+      },
+      {
+        "type": "image",
+        "scale": [
+          1,
+          1,
+          0
+        ],
+        "url": "https://public.stojg.se/notes/CL1eLoNDzGaO6ozq1KvBTTNnqLOvXKadlsAxE8LXKKajJJuzslGF3jvzVPHr8bhXoTySLe9tc1RuVMFB5fiuH0XzzYJ41bqr16do.png",
+        "position": [
+          -0.25,
+          2.25,
+          -3.75
+        ],
+        "rotation": [
+          0,
+          1.5707963267948966,
+          0
+        ],
+        "uuid": "a313e412-c5ac-4f1b-91f2-dd427184af0a",
+        "animation": {
+          "keyframes": []
+        },
+        "script": "",
+        "blendMode": "Combine",
+        "stretch": false,
+        "transparent": false,
+        "updateDaily": false,
+        "uScale": "1",
+        "vScale": "1",
+        "id": ""
+      },
+      {
+        "type": "vox-model",
+        "scale": [
+          1,
+          1,
+          1
+        ],
+        "url": "https://public.stojg.se/notes/ZP5ccNYBmDFm4G6n10ppZsFLTqteqMMyOv61GUy34om2fsnNLXAhf9E2m474BUKKgUTNF6JsaDKswcKlyTeYbAnrMqIv5cEiYn5T.vox",
+        "flipX": true,
+        "position": [
+          0,
+          0.75,
+          2
+        ],
+        "rotation": [
+          0,
+          1.5707963267948966,
+          0
+        ],
+        "uuid": "fcadb543-5502-4bcc-bd3e-bba41a11801c",
+        "animation": {
+          "keyframes": []
+        },
+        "script": "",
+        "cubescale": true
+      },
+      {
+        "type": "lantern",
+        "scale": [
+          1,
+          0.1,
+          1
+        ],
+        "rotation": [
+          0,
+          4.71238898038469,
+          0
+        ],
+        "color": "#11ff00",
+        "position": [
+          0,
+          3.25,
+          1
+        ],
+        "uuid": "e3cf69e2-cced-4a03-9762-74abc52fe630",
+        "strength": 50
+      },
+      {
+        "type": "vid-screen",
+        "scale": [
+          1,
+          1,
+          0
+        ],
+        "position": [
+          0.25,
+          2.25,
+          7.75
+        ],
+        "rotation": [
+          0,
+          4.71238898038469,
+          0
+        ],
+        "uuid": "a623ad79-fb2d-487d-be94-56053ed593f9",
+        "script": "let ball, paddle, frame, blocks\n\nfeature.on('keys', e => {\n  if (e.keys.left) {\n    paddle.moveLeft()\n  } else if (e.keys.right) {\n    paddle.moveRight()\n  }\n})\n\nfeature.on('start', e => {\n  reset()\n})\n\nfeature.on('frame', e => {\n  frame += 1\n  update()\n  draw()\n})\n\nfunction update() {\n  ball.update()\n}\n\nfunction draw() {\n  feature.screen.fill(0)\n  \n  ball.draw()\n  paddle.draw()\n  for (j = 0; j < blocks.length; j ++) {\n    blocks[j].draw()\n  }\n}\n\nfunction reset() {\n  ball = new Ball(Math.round(Math.random() * 64), 32)\n  paddle = new Paddle(29, 60, 6)\n  frame = 0\n  blocks = []\n  for (y = 0; y < 5; y ++) {\n    for (z = 0; z < 8; z ++) {\n      blocks.push(new Block(Math.floor(feature.screenWidth / 8 * z + 2), y * 4 + 2, 5, 3))\n    }\n  }\n  draw()\n}\n\n// classes\n\nclass Ball {\n  constructor(x, y) {\n    this.xPos = x\n    this.yPos = y\n    \n    this.xVel = Math.random() > 0.5 ? 1 : -1\n    this.yVel = 1\n  }\n  \n  update() {\n    if (frame % 2 != 0) {\n      return\n    }\n    \n    // wall collision detection\n    \n    if (this.xPos + this.xVel > 63 || this.xPos + this.xVel < 0) {\n      this.xVel *= -1\n    }\n    if (this.yPos + this.yVel < 0) {\n      this.yVel *= -1\n    }\n    if (this.yPos + this.yVel > 63) {\n      reset()\n    }\n    \n    // paddle collision detection\n    \n    if ((this.yPos + this.yVel == paddle.yPos)) {\n      let nextX = this.xPos + this.xVel\n      if (nextX >= paddle.xPos && nextX <= paddle.xPos + paddle.width) {\n        this.yVel *= -1\n      }\n    }\n    \n    // block collision detection\n    \n    for (let i = 0; i < blocks.length; i ++) {\n      let block = blocks[i]\n      let nextX = this.xPos + this.xVel\n      let nextY = this.yPos + this.yVel\n      \n      if (nextX >= block.x && nextX < block.x + block.width && nextY >= block.y && nextY < block.y + block.height) {\n        if (this.xPos < block.x || this.xPos > block.x + block.width - 1) {\n          this.xVel *= -1\n        }\n        if (this.yPos < block.y || this.yPos > block.y + block.height - 1) {\n          this.yVel *= -1\n        }\n        \n        blocks.splice(i, 1)\n        break\n      }\n    }\n    \n    // update position\n        \n    this.xPos += this.xVel\n    this.yPos += this.yVel\n  }\n  \n  draw() {\n    for (let i = 0; i < 3; i ++) {\n      feature.screen[this.yPos * feature.screenWidth * 3 + this.xPos * 3 + i] = 255\n    }\n  }\n}\n\nclass Paddle {\n  constructor(x, y, w) {\n    this.xPos = x\n    this.yPos = y\n    this.width = w\n  }\n  \n  draw() {\n    for (let i = this.yPos * feature.screenWidth * 3 + this.xPos * 3; i < this.yPos * feature.screenWidth * 3 + (this.xPos + this.width) * 3 + 3; i ++) {\n      feature.screen[i] = 255\n    }\n  }\n  \n  moveLeft() {\n    if (this.xPos > 0) {\n      this.xPos -= 1\n      draw()\n    }\n  }\n  \n  moveRight() {\n    if (this.xPos + this.width < 63) {\n      this.xPos += 1\n      draw()\n    }\n  }\n}\n\nclass Block {\n  constructor(x, y, w, h) {\n    this.x = x\n    this.y = y\n    this.width = w\n    this.height = h\n  }\n  \n  draw() {\n    // horizontal lines\n    for (let i = 0; i < this.width; i++) {\n      feature.screen[this.y * feature.screenWidth * 3 + (this.x + i) * 3] = 255\n      feature.screen[(this.y + this.height - 1) * feature.screenWidth * 3 + (this.x + i) * 3] = 255\n    }\n    \n    // vertical lines\n    for (let i = 0; i < this.height; i++) {\n      feature.screen[(this.y + i) * feature.screenWidth * 3 + this.x * 3] = 255\n      feature.screen[(this.y + i) * feature.screenWidth * 3 + (this.x + this.width - 1) * 3] = 255\n    }\n  }\n}"
+      },
+      {
+        "type": "video",
+        "scale": [
+          2,
+          1,
+          0
+        ],
+        "url": "https://public.stojg.se/notes/vmWJb62CrrcJLFbFQvLhJaHRIxP4aCzkSeIRdWHuJVkAZlDhxRhz1WnUv6dakIBgLQLIJsJMlaFwSYUMIGJfc4FCZm71qfPcQQ4l.mp4",
+        "position": [
+          0.25,
+          2.25,
+          5.75
+        ],
+        "rotation": [
+          0,
+          4.71238898038469,
+          0
+        ],
+        "uuid": "95efb262-37be-42dc-b7bf-5bbccbaf1c52",
+        "script": "",
+        "blendMode": "Combine",
+        "previewUrl": "https://public.stojg.se/notes/gRGH1eCEcbboGn6EqNZZ1cBpJ61CiXxJXrSp7RzjzVEGG7jUW7P6cSSQaCaAGipE1TTCoAn0I8ZOOjJjTGHCbZSeEMWwdXJ6rt13.png"
+      },
+      {
+        "type": "image",
+        "scale": [
+          1,
+          1,
+          0
+        ],
+        "url": "https://i.redd.it/9smknjh5v1o31.jpg",
+        "position": [
+          -0.25,
+          2.25,
+          3.75
+        ],
+        "rotation": [
+          0,
+          1.5707963267948966,
+          0
+        ],
+        "uuid": "2e31462c-f606-4142-9494-e7ca8c2ef66b",
+        "animation": {
+          "keyframes": []
+        },
+        "script": "",
+        "blendMode": "Combine",
+        "stretch": false,
+        "transparent": false,
+        "updateDaily": false,
+        "uScale": 1,
+        "vScale": 1,
+        "id": "sssssssss"
+      },
+      {
+        "type": "image",
+        "scale": [
+          1,
+          1,
+          0
+        ],
+        "url": "https://cdn.discordapp.com/attachments/620836162986049552/724293301515321444/flashes.gif",
+        "position": [
+          0.25,
+          2.25,
+          -8.25
+        ],
+        "rotation": [
+          0,
+          4.71238898038469,
+          0
+        ],
+        "uuid": "4dc7070d-5546-4aea-9c20-52ddea127559",
+        "animation": {
+          "keyframes": []
+        },
+        "script": "",
+        "blendMode": "Combine",
+        "stretch": false,
+        "transparent": false,
+        "updateDaily": false,
+        "uScale": 1,
+        "vScale": 1
+      },
+      {
+        "type": "image",
+        "scale": [
+          1,
+          1,
+          0
+        ],
+        "url": "https://public.stojg.se/notes/traKYJBAD6lHkCQvVSHJgBCLSZTpEGYYTjV1zJzsvSa7gqGNk8GN5UstWch9ioMb9PbTOplie0sXomLaFsdWD33f8MDG27dUHfZE.gif",
+        "position": [
+          0.25,
+          2.25,
+          -6.75
+        ],
+        "rotation": [
+          0,
+          4.71238898038469,
+          0
+        ],
+        "uuid": "f8794427-59ab-4717-baa6-0301e32df7b9",
+        "animation": {
+          "keyframes": []
+        },
+        "script": "",
+        "blendMode": "Combine",
+        "stretch": true,
+        "transparent": false,
+        "updateDaily": false,
+        "uScale": 1,
+        "vScale": 1
+      },
+      {
+        "type": "image",
+        "scale": [
+          1,
+          1,
+          0
+        ],
+        "url": "https://cdn.discordapp.com/attachments/497035348904378380/585830988593233958/ethwhale.gif",
+        "position": [
+          0.25,
+          2.25,
+          -5.25
+        ],
+        "rotation": [
+          0,
+          4.71238898038469,
+          0
+        ],
+        "uuid": "3507b934-262a-4082-8a78-0260344eb97c",
+        "animation": {
+          "keyframes": []
+        },
+        "script": "",
+        "blendMode": "Combine",
+        "stretch": true,
+        "transparent": false,
+        "updateDaily": false,
+        "uScale": 1,
+        "vScale": 1
+      },
+      {
+        "type": "image",
+        "scale": [
+          1,
+          1,
+          0
+        ],
+        "url": "https://public.stojg.se/notes/86laGUU9UaBUZLIBnlFA35z8Zvmq88sj9pOAIioZtngzeeMaW9u3nGI5mgA0aD4R5q2jrOkVdDpaROj2SXxQk41d86Nd5PAWfj1v.png",
+        "position": [
+          -0.25,
+          2.25,
+          -6.75
+        ],
+        "rotation": [
+          0,
+          1.5707963267948966,
+          0
+        ],
+        "uuid": "84a8629c-0c1c-41a1-b1f2-dc658d33ad24",
+        "animation": {
+          "keyframes": []
+        },
+        "script": "",
+        "blendMode": "Combine",
+        "stretch": false,
+        "transparent": false,
+        "updateDaily": false,
+        "uScale": 1,
+        "vScale": 1
+      },
+      {
+        "type": "image",
+        "scale": [
+          1,
+          1,
+          0
+        ],
+        "url": "https://public.stojg.se/notes/LS1O4U5Y92SMNBNsC6GCERTK39p0Mmm6mOR176cGimlCpaCmoCj8QaxUt6Yl3LSrLxwofPvgbNf4WtRC6F0JF3PisNyH5tBdQBQJ.png",
+        "position": [
+          -0.25,
+          2.25,
+          -5.25
+        ],
+        "rotation": [
+          0,
+          1.5707963267948966,
+          0
+        ],
+        "uuid": "70f0727f-0284-4857-b7dd-8e5ab8b956ef",
+        "animation": {
+          "keyframes": []
+        },
+        "script": "",
+        "link": "",
+        "blendMode": "Combine",
+        "stretch": false,
+        "transparent": false,
+        "updateDaily": false,
+        "uScale": 1,
+        "vScale": 1
+      },
+      {
+        "type": "image",
+        "scale": [
+          1,
+          1,
+          0
+        ],
+        "url": "https://media.giphy.com/media/HUkOv6BNWc1HO/giphy.gif",
+        "position": [
+          0.25,
+          2.25,
+          3.75
+        ],
+        "rotation": [
+          0,
+          4.71238898038469,
+          0
+        ],
+        "uuid": "2d821253-8f3d-48f6-a01d-9240ed893e4c",
+        "animation": {
+          "keyframes": []
+        },
+        "script": "",
+        "blendMode": "Combine",
+        "stretch": false,
+        "transparent": false,
+        "updateDaily": false,
+        "uScale": 1,
+        "vScale": 1
+      },
+      {
+        "type": "spawn-point",
+        "scale": [
+          1,
+          1,
+          1
+        ],
+        "position": [
+          -3.75,
+          0.75,
+          -9.25
+        ],
+        "rotation": [
+          0,
+          1.5707963267948966,
+          0
+        ],
+        "uuid": "fef0a11e-4fa4-4b8a-99b7-f0df24a17c65"
+      },
+      {
+        "type": "richtext",
+        "scale": [
+          1.9,
+          0.2,
+          0
+        ],
+        "text": "video (click to play)",
+        "position": [
+          0.3,
+          2.75,
+          5.7
+        ],
+        "rotation": [
+          0,
+          4.71238898038469,
+          0
+        ],
+        "uuid": "c5ff0687-2156-4180-94bc-0050bb0b4dc8",
+        "script": "",
+        "inverted": false
+      },
+      {
+        "type": "audio",
+        "scale": [
+          2,
+          0.5,
+          0
+        ],
+        "url": "",
+        "position": [
+          4.25,
+          2.5,
+          -1.75
+        ],
+        "rotation": [
+          0,
+          1.5707963267948966,
+          0
+        ],
+        "uuid": "c607b67c-9104-4dd2-b8e8-b5ebac8c9426"
+      }
+    ],
+    "voxels": "eJztnA1ygjAQhaEOYZQpPYRH8SS9Sa7Ss3mRhqxLCP5uedTUvm+Hv0p3iiNfX4xj7WtoNVntJuvHq4317rdhvyKE/Fmwdkl+6cdSw8hRF/a6eKRnNeNZuhW/9OG3nH/280MI+Tnr+2UX/ZJcM/dKP8stWh/BQ61/9vNDcjYeWc++GrI2a/ilGx2ymyyaXpqYTdQ2bpJzdMvxUbkMTqhBC/3y+qzlFzfLL7J04biNj7pTZnET1/RZjuH4qESYX4gFvF+2sZJBxCZudIe74pc0YuL4qFyYX4gFtF/ELk1cLs8NqXH6k3fcZGTE+aPSYX4hFtbySxfWMk5qsiwj9tBt8sv5/DTHRyXC/EIsoP1SVWqYqWOSX45ZtTfyi4yP9sb/g7fO2ofz9v6tul+JW2dpv6H3tbXs5f3mj37FNa7fxn9m/ZDXy/xCLKD9MjfIsmqiE1DI/cZ+S/oxvxAL+PER0i+OfimsH/MLsYD2C9IuR84fFQfzC7FQtl84f1QatnxSM7/8c8r2C+ePSoP5hVgo2y8cH5WGJbvcSy/0y+uD9gt+/ujgq+oQ10tJ73ciup2/f7q0q/STLnLViH56tPw55PwRsVK2X2T+aLgzsPcbxlnJB9h+2g3596H6cf6IWMD75ZHvj3rk+6X083XIGu6Rdfvln0e79rNLZ/1Ov6XXuwG+VuiX1+cbCF6zbw==",
+    "scripting": false,
+    "tileset": "/uploads/atlas/76c22ad645702ff8028af09926fd0b852e6e2a77.png",
+    "palette": [
+      "#ffffff",
+      "#888888",
+      "#000000",
+      "#ff71ce",
+      "#01cdfe",
+      "#05ffa1",
+      "#b967ff",
+      "#49525f"
+    ]
+  },
+  "name": "Ghostfarm",
+  "updated_at": "2021-01-14T20:01:34.958Z",
+  "created_at": null
+}

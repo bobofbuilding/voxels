@@ -1,0 +1,18 @@
+export const regions = {
+  ams: 'Amsterdam',
+  atl: 'Atlanta',
+  dfw: 'Dallas',
+  ewr: 'Parsippany',
+  fra: 'Frankfurt',
+  hkg: 'Hong Kong',
+  iad: 'Ashburn',
+  lax: 'Los Angeles',
+  mrs: 'Marseille',
+  nrt: 'Tokyo',
+  ord: 'Chicago',
+  sea: 'Seattle',
+  sin: 'Singapore',
+  sjc: 'Sunnyvale',
+  syd: 'Sydney',
+  yyz: 'Toronto',
+}

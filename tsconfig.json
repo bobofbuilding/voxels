@@ -1,0 +1,28 @@
+{
+  "compilerOptions": {
+    "skipLibCheck": true,
+    "sourceMap": true,
+    "lib": ["es2017", "dom", "webworker.importscripts"],
+    "jsx": "react-jsx",
+    "jsxImportSource": "preact",
+
+    "target": "ES6",
+    "typeRoots": ["./node_modules/@types", "./node_modules"],
+    "types": ["babylonjs", "babylonjs-gui", "node"],
+    "experimentalDecorators": true,
+    "strict": true,
+    "module": "ES2022",
+    "moduleResolution": "node",
+    "resolveJsonModule": true,
+    "importHelpers": true,
+    "allowSyntheticDefaultImports": true,
+  },
+  "ts-node": {
+    "transpileOnly": true,
+    "compilerOptions": {
+      "module": "commonjs"
+    }
+  },
+  "exclude": ["render"]
+
+}

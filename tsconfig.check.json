@@ -1,0 +1,26 @@
+{
+  "extends": "./tsconfig.json",
+  "include": [
+    "src/**/*",
+    "server/**/*", 
+    "multiplayer/**/*", 
+    "web/**/*",
+    "common/**/*",
+    "test/**/*",
+    "decls.d.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "packages",
+    "dist",
+    ".build",
+    "server/bundle_server.js",
+    "**/*.js",
+    "**/*.map"
+  ],
+  "compilerOptions": {
+    "noFallthroughCasesInSwitch": true,
+    "allowUnreachableCode": false,
+    "allowUnusedLabels": false
+  }
+}

@@ -1,0 +1,70 @@
+{
+  "id": 679833,
+  "parcel_id": 3792,
+  "content": {
+    "features": [
+      {
+        "type": "button",
+        "scale": [
+          0.5,
+          0.5,
+          0.5
+        ],
+        "text": "A",
+        "position": [
+          -4,
+          0.75,
+          -9.5
+        ],
+        "rotation": [
+          0,
+          1.5707963267948966,
+          0
+        ],
+        "version": "5.19.1",
+        "uuid": "7ff60ba3-3f7d-4cc0-8a82-ac9f6b6c9ab8",
+        "script": "",
+        "id": "at_edge"
+      },
+      {
+        "type": "button",
+        "scale": [
+          0.5,
+          0.5,
+          0.5
+        ],
+        "text": "A",
+        "position": [
+          -5,
+          0.75,
+          -20.9
+        ],
+        "rotation": [
+          0,
+          1.5707963267948966,
+          0
+        ],
+        "version": "5.19.1",
+        "uuid": "78725ab5-2d1e-4fd2-8279-8f82c7217673",
+        "script": "",
+        "id": "outside"
+      }
+    ],
+    "voxels": "eJztnA1ygjAQhaEOYZQpPYRH8SS9Sa7Ss3mRhqxLCP5uedTUvm+Hv0p3iiNfX4xj7WtoNVntJuvHq4317rdhvyKE/Fmwdkl+6cdSw8hRF/a6eKRnNeNZuhW/9OG3nH/280MI+Tnr+2UX/ZJcM/dKP8stWh/BQ61/9vNDcjYeWc++GrI2a/ilGx2ymyyaXpqYTdQ2bpJzdMvxUbkMTqhBC/3y+qzlFzfLL7J04biNj7pTZnET1/RZjuH4qESYX4gFvF+2sZJBxCZudIe74pc0YuL4qFyYX4gFtF/ELk1cLs8NqXH6k3fcZGTE+aPSYX4hFtbySxfWMk5qsiwj9tBt8sv5/DTHRyXC/EIsoP1SVWqYqWOSX45ZtTfyi4yP9sb/g7fO2ofz9v6tul+JW2dpv6H3tbXs5f3mj37FNa7fxn9m/ZDXy/xCLKD9MjfIsmqiE1DI/cZ+S/oxvxAL+PER0i+OfimsH/MLsYD2C9IuR84fFQfzC7FQtl84f1QatnxSM7/8c8r2C+ePSoP5hVgo2y8cH5WGJbvcSy/0y+uD9gt+/ujgq+oQ10tJ73ciup2/f7q0q/STLnLViH56tPw55PwRsVK2X2T+aLgzsPcbxlnJB9h+2g3596H6cf6IWMD75ZHvj3rk+6X083XIGu6Rdfvln0e79rNLZ/1Ov6XXuwG+VjQLkdflG/m+s/A=",
+    "scripting": false,
+    "tileset": "/uploads/atlas/76c22ad645702ff8028af09926fd0b852e6e2a77.png",
+    "palette": [
+      "#ffffff",
+      "#888888",
+      "#000000",
+      "#ff71ce",
+      "#01cdfe",
+      "#05ffa1",
+      "#b967ff",
+      "#49525f"
+    ]
+  },
+  "name": "Ghostfarm",
+  "updated_at": "2021-02-17T11:41:46.469Z",
+  "created_at": null
+}

@@ -1,0 +1,26 @@
+# ABOUTME: Docker Compose for local testing of the texture compressor.
+# ABOUTME: Run with: docker compose up --build
+
+services:
+  compressor:
+    build:
+      context: ..
+      dockerfile: compressor/Dockerfile
+    ports:
+      - '9473:9473'
+    environment:
+      - NODE_ENV=production
+      - PORT=9473
+      - DO_SPACE_REGION=${DO_SPACE_REGION}
+      - DO_SPACE_NAME=${DO_SPACE_NAME}
+      - DO_SPACE_KEY=${DO_SPACE_KEY}
+      - DO_SPACE_SECRET=${DO_SPACE_SECRET}
+      - DO_SPACE_ENDPOINT=${DO_SPACE_ENDPOINT}
+      - DO_CDN_HOST=${DO_CDN_HOST}
+    volumes:
+      - /tmp/generated:/tmp/generated
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://localhost:9473/health']
+      interval: 30s
+      timeout: 3s
+      retries: 3

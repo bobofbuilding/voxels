@@ -1,0 +1,14 @@
+# ABOUTME: Files to exclude from Docker build context.
+# ABOUTME: Keeps image size small and build times fast.
+
+node_modules
+.env
+.env.*
+*.log
+.git
+.gitignore
+docker-compose.yml
+Dockerfile
+tests
+*.test.ts
+*.spec.ts
