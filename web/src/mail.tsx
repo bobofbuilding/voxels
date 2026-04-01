@@ -1,0 +1,26 @@
+import { Component } from 'preact'
+import MailboxUI from './components/mailbox/mailbox-ui'
+
+export function PlayButton(props: { url: string }) {
+  return <a href={props.url}>Play</a>
+}
+
+export interface Props {
+  to?: string
+}
+
+export interface State {
+  to?: string
+}
+
+export default class Mailbox extends Component<Props, State> {
+  render() {
+    return (
+      <section class="columns">
+        <h1>Mailbox</h1>
+
+        <MailboxUI addressTo={this.props.to ?? null} />
+      </section>
+    )
+  }
+}

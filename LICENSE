@@ -1,0 +1,93 @@
+Business Source License 1.1
+
+Parameters
+
+Licensor: Nolan Consulting Limited
+
+Licensed Work: The Cryptovoxels software, source code, and internal assets
+contained within this repository, excluding any User Generated Content (UGC)
+as defined below.
+
+Change Date: For any specific commit to the Licensed Work, the
+third anniversary of the date on which such commit
+is publicly available.
+
+Change License: MIT License
+
+Additional Use Grant:
+
+You may use the Licensed Work for any purpose, provided that:
+
+    1. Non-Competition: Your use does not include providing a commercial
+       "Metaverse," "Virtual World," or 3D social platform that competes
+        directly with Cryptovoxels; and
+
+    2. Protocol Integrity: The Licensed Work only interacts with official
+       Nolan Consulting smart contracts; and
+
+    3. Privacy & Monetization: You do not track, analyze, gather metadata,
+       record, or perform any kind of surveillance, marketing, or advertising
+       on your users. Ad-supported platforms are explicitly not allowed.
+
+License Text:
+
+The Licensor hereby grants you the right to copy, modify, create
+derivative works, redistribute, and make available the Licensed Work,
+but only in compliance with the Additional Use Grant and all other
+terms of this License.
+
+Each time you receive a copy of the Licensed Work or a derivative
+work, the Licensor offers you a license to the Licensed Work or the
+derivative work on these terms, provided that you comply with all the
+terms of this License.
+
+You must include a copy of this License in every copy of the Licensed
+Work and any derivative work you distribute. A derivative work of the
+Licensed Work may be subject to the terms of this License, and you
+must make it available under this License.
+
+The Licensed Work is provided "as is" and without any warranty. The
+Licensor is not liable for any damages arising out of your use of the
+Licensed Work.
+
+Effective on the Change Date, as defined in the Parameters above, the
+Licensor hereby grants you rights under the Change License (MIT) for
+the specific version or portion of the code that has met the
+three-year age requirement. At that point, the restrictive terms of
+this License (including the Additional Use Grant) shall no longer
+apply to that specific code.
+
+If you are using the Licensed Work under the Change License, the
+terms of the Change License apply to your use.
+
+Contributor Agreement:
+
+By contributing to this repository, you agree that your contributions
+are licensed under this Business Source License 1.1, including the
+rolling transition to the MIT License three years after the date your
+contribution is made public. You represent that you have the right to
+license your contributions under these terms.
+
+Governing Law and Jurisdiction:
+
+This License and any disputes or claims arising out of or in connection
+with it or its subject matter shall be governed by and construed in
+accordance with the laws of New Zealand. The parties irrevocably agree
+that the courts of New Zealand shall have exclusive jurisdiction to settle
+any dispute or claim that arises out of or in connection with this License.
+
+Definitions:
+
+- "Official Nolan Consulting contracts" refers to the smart contracts
+  deployed and maintained by Nolan Consulting for the operation of the
+  Cryptovoxels ecosystem (including but not limited to land parcels,
+  wearables and fungible tokens).
+- "Publicly Available" refers to the moment code is pushed to a
+  public GitHub repository.
+- "User Generated Content" or "UGC" refers to any art, 3D models, textures,
+  or data created or uploaded by users. UGC is expressly excluded from the
+  "Licensed Work" and is not subject to the terms of this License or the
+  Change License, regardless of how or where such content is stored or hosted.
+
+All other terms shall be interpreted in accordance with the Business
+Source License 1.1.

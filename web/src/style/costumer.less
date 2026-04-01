@@ -1,0 +1,360 @@
+// Gizmos
+@gizmo_size: 32px;
+
+.costumer {
+  @active_color: #507;
+  @active_hover_color: #307;
+  @dark_grey: #333;
+  @danger: rgb(165, 54, 48);
+
+  a.pending {
+    opacity: 0.5;
+  }
+
+  ul {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+
+    li {
+      margin: 0;
+      padding: 0;
+
+      a {
+        display: block;
+        padding: 0.5rem;
+
+        &:hover {
+          background: @linkColorLight;
+        }
+
+        &.active {
+          background: @active_color;
+        }
+      }
+    }
+  }
+
+  // main columns for the costumer
+  .columns {
+    display: flex;
+    justify-content: left;
+
+    > div {
+      flex: 1 0;
+      padding-right: 0.5rem;
+      overflow-y: auto;
+    }
+
+    .column-header {
+      display: flex;
+      margin-bottom: 0.5rem;
+      height: 1.5rem;
+
+      button,
+      input,
+      select {
+        margin-right: 4px;
+      }
+
+      button {
+        border-width: 1px;
+        padding: 2px 4px;
+        border-radius: 2px;
+        cursor: pointer;
+
+        &:disabled {
+          color: #999;
+          cursor: not-allowed;
+        }
+
+        &.danger {
+          color: @danger;
+        }
+      }
+    }
+
+    .costume-column {
+      flex: 0 1 auto;
+
+      overflow: hidden;
+      text-overflow: ellipsis;
+      // hide the 'select file' input form and hack around so we only have one 'submit' button, see the JSX
+      form.upload {
+        position: relative;
+        cursor: pointer;
+
+        button {
+          pointer-events: none;
+        }
+
+        input {
+          position: absolute;
+          cursor: pointer;
+          left: 0;
+          top: 0;
+          right: 0;
+          bottom: 0;
+          opacity: 0;
+        }
+      }
+    }
+
+    .avatar-column {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+
+      .editable-name {
+        .action {
+          font-size: 0.85em;
+        }
+
+        .action::before {
+          content: ' ';
+        }
+      }
+
+      .viewer {
+        position: relative;
+        flex-grow: 1;
+
+        canvas {
+          width: 100%;
+          height: ~'calc(min(1200px, 100vh) - 190px)';
+          max-height: 680px;
+          outline: none !important;
+        }
+      }
+
+      #gizmos {
+        position: absolute;
+        top: 2px;
+        right: 0;
+
+        &.active {
+          display: flex;
+        }
+
+        &.inactive {
+          display: none;
+        }
+
+        button {
+          margin: 0 1px;
+        }
+      }
+    }
+
+    .editor-column {
+      flex: 0 1 auto;
+      width: 13rem;
+
+      .costumer-wearable-editor {
+        padding: 0.25rem;
+        margin-bottom: 1rem;
+        border-radius: 0.2rem;
+
+        h4 {
+          margin: 0;
+        }
+
+        label {
+          font-weight: bold;
+        }
+
+        .editor-field {
+          margin: 0.25rem 0;
+
+          .fields {
+            input {
+              width: 28%;
+              margin-right: 2px;
+            }
+
+            input:last-child {
+              margin-right: 0;
+            }
+          }
+
+          &.scale {
+            input {
+              width: 22%;
+            }
+          }
+        }
+
+        .action {
+          text-align: right;
+          padding-top: 0.25rem;
+        }
+
+        .bones {
+          display: flex;
+          justify-content: space-between;
+
+          label {
+            flex: 1;
+          }
+
+          select {
+            flex: 1;
+          }
+        }
+      }
+
+      summary {
+        cursor: pointer;
+        font-weight: bold;
+        padding: 0.5rem;
+      }
+
+      ul.tree {
+        li {
+          //a {
+          //  padding: 0.5rem;
+          //}
+
+          ul.attachment-list {
+            //.active {
+            //  background: #507;
+            //  a {
+            //
+            //  }
+            //}
+
+            //a:hover {
+            //  background: @light_grey;
+            //  color: inherit;
+            //}
+            //
+            //.active :hover {
+            //  background: @active_hover_color !important;
+            //
+            //}
+          }
+
+          ul.skin-list {
+            li {
+              padding: 2px 0;
+              display: flex;
+              justify-content: flex-start;
+              align-items: center;
+              flex-wrap: nowrap;
+
+              &.everything {
+                input {
+                  margin-left: 1.2rem;
+                }
+              }
+            }
+
+            input[type='checkbox'] {
+              width: 0.75rem;
+              height: 0.75rem;
+              margin-right: 2px;
+            }
+
+            input[type='color'] {
+              -webkit-appearance: none;
+              -moz-appearance: none;
+              appearance: none;
+              background-color: transparent;
+              border: 0;
+              cursor: pointer;
+
+              width: 1rem;
+              height: 1rem;
+              margin: 0 1px;
+              padding: 0;
+
+              &::-webkit-color-swatch {
+                padding: 0;
+                margin: 0;
+              }
+
+              &::-moz-color-swatch {
+                padding: 0;
+                margin: 0;
+              }
+            }
+
+            label {
+              cursor: pointer;
+            }
+          }
+        }
+      }
+    }
+
+    .wearables-column {
+      flex: 1;
+      max-height: 780px;
+
+      .navigation {
+        text-align: center;
+        height: 1.5rem;
+      }
+
+      &:hover {
+        ul::-webkit-scrollbar {
+          -webkit-appearance: none;
+          background-color: #f3f3f3; /* or add it to the track */
+        }
+      }
+
+      .wearables-list {
+        display: flex;
+        flex-wrap: wrap;
+        overflow-x: hidden;
+
+        .draggable-wearable,
+        .dragging-wearable {
+          & > div {
+            display: block;
+            margin: 0;
+            padding: 0;
+          }
+
+          cursor: grab;
+        }
+
+        .dragging-wearable {
+          & > div {
+            img {
+              mix-blend-mode: multiply;
+              isolation: isolate;
+            }
+
+            opacity: 0.5;
+          }
+        }
+
+        li {
+          text-align: center;
+          width: 100px;
+
+          img {
+            width: 94px;
+            height: 94px;
+            object-fit: cover;
+            user-select: none;
+            touch-action: none;
+            pointer-events: none;
+          }
+
+          div {
+            text-overflow: ellipsis;
+            overflow: hidden;
+            font-size: small;
+          }
+
+          &:hover div {
+            text-overflow: initial;
+            overflow: visible;
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,29 @@
+# IDE and build artifacts
+.github
+.idea
+docker
+dist
+vendor
+GPU
+munge
+
+# Generated files
+server/bundle_server.js
+server/report.html
+src/fonts
+
+# Documentation and data files
+*.md
+*.sql
+*.txt
+*.log
+*.csv
+
+# Configuration and data
+*.json
+common/contracts/
+procgen/
+
+# Prettier itself
+.prettierignore
+.prettierrc*
