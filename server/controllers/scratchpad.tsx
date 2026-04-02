@@ -6,33 +6,33 @@ import { Express } from 'express'
 
 const space = {
   id: 0,
-  spaceId: 'sandbox',
-  name: 'Dev Sandbox',
+  spaceId: 'scratchpad',
+  name: 'Scratchpad',
   owner: 'dev',
   owner_name: '',
-  width: 24,
-  height: 16,
-  depth: 24,
+  width: 14,
+  height: 12,
+  depth: 20,
   x1: 0,
   y1: 0,
   z1: 0,
-  x2: 24,
-  y2: 16,
-  z2: 24,
+  x2: 14,
+  y2: 12,
+  z2: 20,
   settings: { sandbox: true },
   content: { features: [], voxels: '' },
-  hash: 'sandbox',
+  hash: 'scratchpad',
   lightmap_url: null,
   parcel_users: [],
   is_common: false,
-  kind: 'sandbox',
+  kind: 'scratchpad',
 }
 
-export default function SandboxController(app: Express) {
-  app.get('/spaces/sandbox/play', (_req, res) => {
+export default function ScratchpadController(app: Express) {
+  app.get('/scratchpad', (_req, res) => {
     const html = (
-      <ClientRoot title="Voxels Dev Sandbox" ogTitle="Dev Sandbox" ogDescription="Build stuff">
-        <JsonData id="space" data={{ ...space, voxels: '' }} dataId="sandbox" />
+      <ClientRoot title="Voxels Scratchpad" ogTitle="Scratchpad" ogDescription="Build stuff">
+        <JsonData id="space" data={{ ...space, voxels: '' }} dataId="scratchpad" />
       </ClientRoot>
     )
     res.send(renderRoot(html))
