@@ -208,17 +208,18 @@ if (config.isDevelopment) {
 } else {
   // Redirect root domain to www.
   app.use((req, res, next) => {
+    const CANONICAL = 'www.voxels.com'
     const host = req.hostname.toLowerCase()
 
     if (host === 'cryptovoxels.com' || host === 'www.cryptovoxels.com') {
       res.setHeader('Cache-Control', 'max-age=3600')
-      res.redirect(302, 'https://retro.voxels.com' + req.originalUrl)
+      res.redirect(302, `https://${CANONICAL}` + req.originalUrl)
       return
     }
 
-    if (host === 'voxels.com' || host === 'www.voxels.com') {
+    if (host === 'voxels.com') {
       res.setHeader('Cache-Control', 'max-age=3600')
-      res.redirect(302, 'https://retro.voxels.com' + req.originalUrl)
+      res.redirect(302, `https://${CANONICAL}` + req.originalUrl)
       return
     }
 
