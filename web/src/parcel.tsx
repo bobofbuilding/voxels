@@ -523,9 +523,6 @@ export default class Parcel extends Component<Props, State> {
               </div>
             </figcaption>
           </figure>
-
-          {this.state.parcel ? <ParcelEventPanel parcel={this.state.parcel} /> : <div />}
-          {this.state.parcel ? <ParcelDescription parcel={this.state.parcel} path={`/parcels/${this.state.parcelId}`} /> : <div />}
         </article>
 
         <div class="postscript">
@@ -557,9 +554,12 @@ export default class Parcel extends Component<Props, State> {
           {this.state.parcel ? <Collaborators parcel={this.state.parcel} /> : <div />}
           {this.complete && this.state.parcel ? <ParcelAdminPanel parcelOrSpace={this.state.parcel as any as FullParcelRecord} onSave={this.onSave} onEventCreate={this.eventCreate.bind(this)} /> : <div />}
           <div>{this.isOwner && this.state.parcel ? <Build parcel={this.state.parcel} callback={this.refreshIframe.bind(this)} /> : <div />}</div>
-          <h3>Nearby</h3>
-          <ul>{nearby && nearby.length > 0 ? nearby : <Spinner size={16} />}</ul>
-          <p title="Refresh the parcel state from the blockchain">{this.state.querying ? <a>🐙 Update</a> : <button onClick={() => this.updateStateFromBlockChain()}>🦑 Update</button>}</p>
+
+          {this.state.parcel ? <ParcelEventPanel parcel={this.state.parcel} /> : <div />}
+
+          <h3>Description</h3>
+
+          {this.state.parcel ? <ParcelDescription parcel={this.state.parcel} path={`/parcels/${this.state.parcelId}`} /> : <div />}
         </aside>
       </section>
     )
