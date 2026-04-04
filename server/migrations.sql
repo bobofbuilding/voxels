@@ -46,6 +46,101 @@ END
 $body$;
 
 --------------------------------------------------------------------------------
--- Migrations begin here...
+-- Lots of migrations removed
 --------------------------------------------------------------------------------
 
+
+-- select apply_migration('remove-postgis-footprint-bounds-json',
+-- $$
+--   CREATE EXTENSION IF NOT EXISTS cube;
+
+--   ALTER TABLE islands ADD COLUMN IF NOT EXISTS holes_geometry_json jsonb;
+--   ALTER TABLE islands ADD COLUMN IF NOT EXISTS lakes_geometry_json jsonb;
+--   ALTER TABLE islands ADD COLUMN IF NOT EXISTS content json;
+--   ALTER TABLE islands ADD COLUMN IF NOT EXISTS other_name text;
+
+--   ALTER TABLE properties ADD COLUMN IF NOT EXISTS geometry_json jsonb;
+--   UPDATE properties
+--   SET geometry_json = (COALESCE(geometry_json::jsonb, ST_AsGeoJSON(geometry)::jsonb))::json
+--   WHERE geometry IS NOT NULL;
+
+--   ALTER TABLE properties ADD COLUMN IF NOT EXISTS x1 integer;
+--   ALTER TABLE properties ADD COLUMN IF NOT EXISTS x2 integer;
+--   ALTER TABLE properties ADD COLUMN IF NOT EXISTS z1 integer;
+--   ALTER TABLE properties ADD COLUMN IF NOT EXISTS z2 integer;
+
+--   UPDATE properties
+--   SET
+--     x1 = round(ST_XMin(geometry) * 100)::integer,
+--     x2 = round(ST_XMax(geometry) * 100)::integer,
+--     z1 = round(ST_YMin(geometry) * 100)::integer,
+--     z2 = round(ST_YMax(geometry) * 100)::integer
+--   WHERE geometry IS NOT NULL;
+
+--   ALTER TABLE properties ADD COLUMN IF NOT EXISTS bounds cube;
+--   UPDATE properties
+--   SET bounds = cube(
+--     ARRAY[x1::float8, y1::float8, z1::float8],
+--     ARRAY[x2::float8, y2::float8, z2::float8]
+--   )
+--   WHERE x1 IS NOT NULL AND y1 IS NOT NULL AND y2 IS NOT NULL;
+
+--   ALTER TABLE islands ADD COLUMN IF NOT EXISTS geometry_json jsonb;
+--   UPDATE islands
+--   SET geometry_json = (COALESCE(geometry_json::jsonb, ST_AsGeoJSON(geometry)::jsonb))::json
+--   WHERE geometry IS NOT NULL;
+
+--   ALTER TABLE islands ADD COLUMN IF NOT EXISTS position_json jsonb;
+--   UPDATE islands
+--   SET position_json = (COALESCE(position_json::jsonb, ST_AsGeoJSON(ST_Centroid(geometry))::jsonb))::json
+--   WHERE geometry IS NOT NULL;
+
+--   ALTER TABLE suburbs ADD COLUMN IF NOT EXISTS position_json jsonb;
+--   UPDATE suburbs
+--   SET position_json = (COALESCE(position_json::jsonb, ST_AsGeoJSON("position")::jsonb))::json
+--   WHERE "position" IS NOT NULL;
+
+--   DROP TABLE IF EXISTS streets CASCADE;
+
+--   DROP INDEX IF EXISTS idx_properties_geometry;
+
+--   ALTER TABLE properties DROP COLUMN IF EXISTS geometry;
+--   ALTER TABLE islands DROP COLUMN IF EXISTS geometry;
+--   ALTER TABLE suburbs DROP COLUMN IF EXISTS "position";
+
+--   DROP EXTENSION IF EXISTS postgis CASCADE;
+-- $$
+-- );
+
+
+-- select apply_migration('drop-legacy-plpgsql-parcel-island-holes-hash',
+-- $$
+--   DO $d$
+--   DECLARE r record;
+--   BEGIN
+--     FOR r IN
+--       SELECT t.tgname
+--       FROM pg_trigger t
+--       JOIN pg_proc p ON p.oid = t.tgfoid
+--       WHERE t.tgrelid = 'public.properties'::regclass
+--         AND NOT t.tgisinternal
+--         AND p.proname IN (
+--           'recompute_island_holes_geometry_on_insert',
+--           'recompute_island_holes_geometry_on_update',
+--           'recompute_island_holes_geometry_on_truncate',
+--           'update_properties_hash'
+--         )
+--     LOOP
+--       EXECUTE format('DROP TRIGGER IF EXISTS %I ON public.properties', r.tgname);
+--     END LOOP;
+--   END $d$;
+
+--   DROP FUNCTION IF EXISTS public.recompute_island_holes_geometry_on_truncate();
+--   DROP FUNCTION IF EXISTS public.recompute_island_holes_geometry_on_insert();
+--   DROP FUNCTION IF EXISTS public.recompute_island_holes_geometry_on_update();
+--   DROP FUNCTION IF EXISTS public.compute_island_holes_geometry_json(text);
+--   DROP FUNCTION IF EXISTS public.add_inner_parcels_to_arch_island();
+--   DROP FUNCTION IF EXISTS public.move_inner_features_to_inner_parcels();
+--   DROP FUNCTION IF EXISTS public.update_properties_hash();
+-- $$
+-- );
