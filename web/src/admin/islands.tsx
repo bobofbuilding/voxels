@@ -1,7 +1,6 @@
 import { Component, createRef, Fragment } from 'preact'
 import { ParcelMetaCodec, type ParcelMeta } from '../../../common/types'
 import ndarray, { NdArray } from 'ndarray'
-import * as t from 'io-ts'
 import { ethers } from 'ethers'
 import { contours } from 'd3-contour'
 

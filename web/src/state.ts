@@ -2,8 +2,7 @@ import { signal } from '@preact/signals'
 import { EventEmitter } from 'events'
 import Cookies from 'js-cookie'
 import { decodeJwt } from 'jose'
-import { ApiAvatar, ApiAvatarMessage } from '../../common/messages/api-avatars'
-import { validateMessageResponse } from '../../common/messages/validate'
+import { ApiAvatar, type ApiAvatarMessage } from '../../common/messages/api-avatars'
 import Snackbar from './components/snackbar'
 import { fetchAPI } from './utils'
 
@@ -270,7 +269,8 @@ export class Appstate extends State {
     }
 
     const res = await fetch(url)
-    const data = await validateMessageResponse(ApiAvatarMessage)(res)
+    if (!res.ok) throw res
+    const data = (await res.json()) as ApiAvatarMessage
 
     const name = data.avatar?.name ?? undefined // || (data.avatar?.owner && data.avatar?.owner?.slice(0, 10) + '...') || 'anonymous'
     const moderator = (data.avatar && data.avatar.moderator) || false
