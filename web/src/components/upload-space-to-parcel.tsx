@@ -1,6 +1,4 @@
 import { useEffect, useRef, useState } from 'preact/hooks'
-import { ParcelContentRecord } from '../../../common/messages/parcel'
-import { validateMessageDataHarsh } from '../../../common/messages/validate'
 import type Parcel from '../../../src/parcel'
 import { ParcelVersionValidator } from '../helpers/parcel-version-validator'
 import { AssetType, saveAsset } from '../helpers/save-helper'
@@ -99,14 +97,6 @@ export function SpacesToUpload({ parcel, onSuccess }: { parcel: Parcel; onSucces
       app.showSnackbar(`Parcel content is invalid`, PanelType.Danger)
       return
     }
-    // Very harsh content validation: Check all features are indeed features and also makes sure feature data is valid.
-    const contentValidation = validateMessageDataHarsh(ParcelContentRecord, json.content)
-    if (!contentValidation) {
-      setLoading(false)
-      setError('Some features are either invalid or have invalid data. Please make sure your features have valid types and data.')
-      return
-    }
-
     let p
     try {
       // save asset
