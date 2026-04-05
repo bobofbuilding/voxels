@@ -1,6 +1,6 @@
 import * as createAOMesh from 'ao-mesher'
 import fill from '../voxels/ndarray-fill'
-import * as ndarray from 'ndarray'
+import ndarray from 'ndarray'
 import { VertexData } from 'babylonjs'
 const VoxReader = require('@sh-dave/format-vox').VoxReader
 

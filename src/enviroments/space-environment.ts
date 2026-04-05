@@ -3,13 +3,7 @@ import { Environment } from './environment'
 import type { Scene } from '../scene'
 import { createEvent } from '../utils/EventEmitter'
 
-type SpaceScene = Scene & {
-  config: {
-    isGrid: false
-    isSpace: true
-    spaceId: string
-  }
-}
+type SpaceScene = Scene
 
 export class SpacesEnvironment extends Environment<SpaceScene> {
   skybox?: BABYLON.Mesh

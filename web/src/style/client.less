@@ -4,6 +4,9 @@
 
 @import 'common';
 
+// Import leaflet css
+@import (inline) '../../../dist/leaflet.css';
+
 a {
   text-decoration: none;
   color: white;
@@ -204,114 +207,38 @@ main.chat {
   margin: 0 0 4px 0;
   padding: 4px;
   overflow-y: auto;
-  background: var(--tinge);
-  flex: 1;
+  max-height: 30vh;
   display: flex;
   flex-direction: column;
 
-  b {
-    margin-right: 6px;
-    font-weight: normal;
-    color: #aaa;
+  .chat-messages {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin-bottom: 2px;
   }
 
-  a {
-    color: inherit;
-    text-decoration: none;
-  }
-
-  div.chat-messages {
-    margin-left: 1rem;
-    margin-bottom: 0.5rem;
-
-    & > div {
-      margin-bottom: 0.25rem;
-    }
-  }
-  div {
-    &:first-child {
-      margin-top: auto !important;
-    }
-
-    &.-helper {
-      > i {
-        display: block;
-        margin-right: 5px;
-
-        padding: 4px;
-      }
-
-      > div {
-        font-weight: bold;
-        color: #cc92da;
-        font-size: 90%;
-        flex: 1;
-      }
-
-      display: flex;
-      margin: 10px 0;
-    }
-
-    &.-you {
-      font-style: italic;
-    }
-
-    // Show tags in a different color
-    span.-chat-user-tag {
-      color: #f860ff;
-      cursor: pointer;
-
-      &:hover {
-        color: #f64bff;
-        text-decoration: underline;
-      }
-    }
-
-    &.broadcast {
-      background: #35246933;
-    }
-
-    font-size: 14px;
-
-    p {
-      line-height: 18px;
-      text-shadow:
-        -1px -1px 0 #000,
-        1px -1px 0 #000,
-        -1px 1px 0 #000,
-        1px 1px 0 #000;
-      display: inline;
-      color: #fff;
-      font-weight: normal;
-      margin: 0;
-      user-select: text;
-      word-break: break-word;
-
-      b a {
-        color: #eee;
-      }
-
-      span {
-        flex: 1;
-      }
-
-      &.action {
-        opacity: 0.6;
-      }
+  p {
+    margin: 0 0.6rem;
+    span {
+      padding: 2px 0.4rem;
+      text-shadow: 1px 1px 1px black;
+      background: #0005;
+      border-radius: 2px;
     }
   }
 
-  a.teleport {
-    margin-left: 10px;
-    color: #aaa;
-  }
+  form {
+    padding: 0 0.5rem;
+    display: flex;
+    flex-direction: row;
+    gap: 0.5rem;
 
-  > div {
-  }
-
-  > div > p {
-    padding: 2px;
-    display: inline-block;
+    button,
+    input {
+      padding: 0.3rem;
+    }
   }
 }
 
@@ -753,6 +680,19 @@ main.chat {
     }
   }
 }
+
+// Iconish button
+button.iconish {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 10px;
+  font-weight: 400;
+  line-height: 1;
+  aspect-ratio: 1/1;
+  display: inline-block;
+  text-align: center;
+  text-shadow: 2px 2px black;
+}
+
 /**
 * Voxel Tool Belt; which is a minecraft-like bottom toolbar for selecting voxel types
 */
@@ -763,17 +703,6 @@ main.chat {
   transform: translateX(-50%);
   padding: 20px;
   max-height: 100px;
-
-  button.iconish {
-    font-family: 'Press Start 2P', monospace;
-    font-size: 10px;
-    font-weight: 400;
-    line-height: 1;
-    aspect-ratio: 1/1;
-    display: inline-block;
-    text-align: center;
-    text-shadow: 2px 2px black;
-  }
 
   .add-menu-anchor {
     position: relative;
@@ -1023,64 +952,15 @@ main.chat {
     }
   }
 
-  div.tool-modes {
+  div.dem-buttons {
     display: flex;
-    gap: 0;
+    flex-direction: row;
 
-    > button:not(:last-child) {
-      border-right: 1px solid #555;
-    }
+    gap: 4px;
 
     button {
-      height: 38px;
-      margin-right: 0;
-      padding-right: 6px;
-      padding-left: 6px;
-      border: none;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      -webkit-appearance: none;
-      appearance: none;
-      @r: 4px !important;
-
-      svg {
-        width: 24px;
-        height: 24px;
-      }
-
-      &:hover {
-        background-color: rgba(0, 0, 0, 0.15);
-      }
-
-      &:active {
-        background-color: rgba(0, 0, 0, 0.35);
-      }
-
-      &.-selected {
-        background-color: rgba(0, 0, 0, 0.4);
-        color: #fff;
-        box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.4);
-      }
-
-      &.-erase {
-        border-bottom-right-radius: @r;
-        border-bottom-left-radius: 0;
-        border-top-left-radius: 0;
-        border-top-right-radius: @r;
-      }
-      &.-paint {
-        border-top-left-radius: @r;
-        border-top-right-radius: 0;
-        border-bottom-right-radius: 0;
-        border-bottom-left-radius: @r;
-      }
-
-      img {
-        width: 20px;
-        height: 20px;
-      }
+      height: 40px;
+      width: 40px;
     }
   }
 
@@ -1787,54 +1667,6 @@ dialog.editor {
     &:first-child {
       margin-top: auto !important;
     }
-  }
-}
-
-div.ChatInput {
-  display: flex;
-  width: 100%;
-  align-items: center;
-
-  input {
-    flex: 1;
-
-    background: rgba(0, 0, 0, 0.3);
-    border: 2px solid white;
-    border-radius: 2rem;
-    color: white;
-
-    font: inherit;
-
-    padding: 0.8rem 1.4rem;
-    outline: none;
-    box-sizing: border-box;
-  }
-
-  .react-autocomplete-input {
-    background-clip: padding-box;
-    color: #fff;
-    background-color: #363636;
-    border: 1px solid rgba(0, 0, 0, 0.15);
-    bottom: auto;
-    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.175);
-    display: block;
-    font-size: 14px;
-    list-style: none;
-    padding: 1px;
-    position: absolute;
-    text-align: left;
-  }
-
-  .react-autocomplete-input > li {
-    cursor: pointer;
-    padding: 10px;
-    min-width: 100px;
-  }
-
-  .react-autocomplete-input > li.active {
-    background-color: #6d6d6e;
-    color: #fff;
-    text-shadow: 1px 1px 0 black;
   }
 }
 
@@ -3594,6 +3426,34 @@ button[accesskey] {
 .codeflask ::-webkit-scrollbar-thumb {
   background: #2c2e31;
   border-radius: 4px;
+}
+
+/* Minimap expand button -- sits inside the top-right corner of the Babylon minimap viewport */
+.minimap-expand {
+  position: fixed;
+  bottom: calc(15vw - 26px);
+  right: 4px;
+  z-index: 10;
+  background: rgba(0, 0, 0, 0.4);
+  border: none;
+  color: rgba(255, 255, 255, 0.75);
+  padding: 5px 4px;
+  cursor: pointer;
+  border-radius: 3px;
+  line-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: auto;
+
+  &:hover {
+    background: rgba(0, 0, 0, 0.75);
+    color: #fff;
+  }
+
+  @media @mobile {
+    display: none;
+  }
 }
 
 /* Aside sidebar */

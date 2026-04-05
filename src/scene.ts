@@ -8,36 +8,28 @@ import { wantsAudio } from '../common/helpers/detector'
 import { FOV } from './graphic/field-of-view'
 import { CameraSettings } from './controls/user-control-settings'
 
-export type SceneConfig = BABYLON.DeepImmutableObject<
-  (
-    | {
-        // legacy naming, the main world is called 'the grid'
-        isGrid: true // if we are on grid then we are not in space
-        isSpace: false
-        spaceId: null
-      }
-    | {
-        isGrid: false // if we are not on grid then well we are clearly in a space
-        isSpace: true
-        spaceId: string
-      }
-  ) & {
-    isOrbit: boolean
-    isBot: boolean
-    coords?: string
-    isNight: boolean
-    wantsAudio?: boolean
-    wantsURL: boolean
-    isMultiuser: boolean
-    wantsUI: boolean
-  }
->
+export type SceneConfig = BABYLON.DeepImmutableObject<{
+  isGrid: boolean
+  isSpace: boolean
+  spaceId?: string
+  isOrbit: boolean
+  isBot: boolean
+  coords?: string
+  isNight: boolean
+  wantsAudio?: boolean
+  wantsURL: boolean
+  isMultiuser: boolean
+  wantsUI: boolean
+}>
 
-export const isSpace = (scene: Scene): scene is Scene & { config: SceneConfig & { isSpace: true; isGrid: false; spaceId: string } } => {
+export const isScratchpad = () => {
+  return document.location.pathname.includes('scratchpad')
+}
+export const isSpace = (scene: Scene) => {
   return scene.config.isSpace
 }
 
-export const isWorld = (scene: Scene): scene is Scene & { config: SceneConfig & { isSpace: false; isGrid: true; spaceId: null } } => {
+export const isWorld = (scene: Scene) => {
   return scene.config.isGrid
 }
 
@@ -189,7 +181,7 @@ export class Scene extends BABYLON.Scene {
 const defaultConfig: SceneConfig = {
   isGrid: true,
   isSpace: false,
-  spaceId: null,
+  spaceId: undefined,
   isBot: false,
   isNight: false,
   wantsAudio: true,
@@ -226,8 +218,16 @@ export const sceneConfigFromURL = (): SceneConfig => {
     return !isOrbit() && !['off', 'false', '0'].includes(searchParams.get('ui') ?? 'on')
   }
 
+  let isGrid = true
+
+  if (isSpace()) {
+    isGrid = false
+  } else if (isScratchpad()) {
+    isGrid = false
+  }
+
   return Object.assign({}, defaultConfig, {
-    isGrid: !isSpace(),
+    isGrid,
     isSpace: isSpace(),
     spaceId: getSpaceId(),
     isBot: isBot(),
