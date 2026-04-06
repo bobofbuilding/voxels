@@ -1,9 +1,8 @@
 import { debounce } from 'lodash'
 import { Component, createRef, render, useRef } from 'preact/compat'
 import { getParcelHelper } from '../../common/helpers/parcel-helper'
-import { ApiParcelMapMessage, MapParcelRecord } from '../../common/messages/api-parcels'
+import type { ApiParcelMapMessage, MapParcelRecord } from '../../common/messages/api-parcels'
 import type { Event } from '../../common/messages/event'
-import { validateMessageResponse } from '../../common/messages/validate'
 import { generateWompMarkers } from '../../web/src/map'
 import { mapEventMarkerPopup, mapParcelPopup, mapTeleportPopup } from '../../web/src/map-parcel-popup'
 import { app, AppEvent } from '../../web/src/state'
@@ -233,7 +232,11 @@ export default class MapOverlayUI {
 
     try {
       const abortSignal = this.abort?.signal
-      const parcelsFetched = await retryPolicy.execute(() => fetch(`${process.env.API}/parcels/map.json`, fetchOptions()).then(validateMessageResponse(ApiParcelMapMessage)), abortSignal)
+      const parcelsFetched = await retryPolicy.execute(async () => {
+        const res = await fetch(`${process.env.API}/parcels/map.json`, fetchOptions())
+        if (!res.ok) throw res
+        return (await res.json()) as ApiParcelMapMessage
+      }, abortSignal)
       if (abortSignal?.aborted) {
         return [] // Abort was called
       }

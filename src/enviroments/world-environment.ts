@@ -11,12 +11,8 @@ import { DAY_BRIGHTNESS, DAY_FOG_COLOR, DAY_SUN_POSITION, NIGHT_BRIGHTNESS, NIGH
 import { createEvent } from '../utils/EventEmitter'
 import { GraphicLevels } from '../graphic/graphic-engine'
 import { OCEAN_HEIGHT_OFFSET } from '../constants'
-type WorldScene = Scene & {
-  config: {
-    isGrid: true
-    isSpace: false
-  }
-}
+
+type WorldScene = Scene
 
 export class WorldEnvironment extends Environment<WorldScene> {
   terrain?: Terrain
