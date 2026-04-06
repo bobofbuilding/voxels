@@ -64,7 +64,7 @@ const Location = (props: { scene: Scene; signedIn: any }) => {
   const link = `/parcels/${currentOrNearestParcel.id}`
 
   return (
-    <a key={currentOrNearestParcel.id} class="address" href={link}>
+    <a key={currentOrNearestParcel.id} class="address" href={link} target="_top">
       {currentOrNearestParcel.name || currentOrNearestParcel.address}
     </a>
   )
@@ -281,7 +281,7 @@ export default class UserInterface extends Component<UserInterfaceProps, UserInt
         { code: 'KeyL', handleEvent: () => this.setState({ pane: 'add' }) },
         { code: 'KeyG', handleEvent: () => this.setState({ pane: 'emote' }) },
         { code: 'KeyZ', handleEvent: () => this.connector.controls.toggleZoom() },
-        { code: 'Enter', handleEvent: () => this.toggleChatFocus() },
+        { code: 'Enter', handleEvent: this.focusChat },
         { code: 'Escape', handleEvent: () => this.closeInteractOverlay() },
         { code: 'Backquote', ctrlKey: true, handleEvent: () => this.toggleFeaturePumpDebug() },
         {
@@ -349,10 +349,22 @@ export default class UserInterface extends Component<UserInterfaceProps, UserInt
     this.setState({ pane: undefined, active: false })
   }
 
-  toggleChatFocus() {
+  focusChat = (e: KeyboardEvent) => {
     exitPointerLock()
 
-    ChatOverlay.instance?.focusInput()
+    const input = document.querySelector('main.chat input') as HTMLInputElement
+
+    if (!input) {
+      return
+    }
+
+    if (document.activeElement === input) {
+      // input.blur()
+    } else {
+      setTimeout(() => {
+        input.focus()
+      })
+    }
   }
 
   setTool(tool: Tool | null) {
@@ -411,19 +423,16 @@ export default class UserInterface extends Component<UserInterfaceProps, UserInt
   }
 
   deleteFeature() {
-    if (!app.signedIn && !this.grid.nearestEditableParcel()?.sandbox) return
-
     const feature = this.featureTool?.selection?.feature as Feature | undefined
+    if (!feature?.parcel?.canEdit) return
 
-    if (feature) {
-      feature.delete()
-      this.featureTool.unHighlight()
-      this.hide()
-    }
+    feature.delete()
+    this.featureTool.unHighlight()
+    this.hide()
   }
 
   editFeatureIfHasLock(): void {
-    if (!app.signedIn && !this.grid.nearestEditableParcel()?.sandbox) return
+    if (!this.grid.nearestEditableParcel()) return
     if (hasPointerLock()) {
       this.editFeature()
     }
@@ -431,7 +440,6 @@ export default class UserInterface extends Component<UserInterfaceProps, UserInt
 
   editFeature(feature?: Feature): void {
     if (!this.grid.nearestEditableParcel()) return
-    if (!app.signedIn && !this.grid.nearestEditableParcel()?.sandbox) return
 
     this.setFirstPersonPerspective()
     this.featureTool.setMode('edit')
@@ -448,7 +456,6 @@ export default class UserInterface extends Component<UserInterfaceProps, UserInt
 
   editFeatureThenMove() {
     if (!this.grid.nearestEditableParcel()) return
-    if (!app.signedIn && !this.grid.nearestEditableParcel()?.sandbox) return
 
     this.setFirstPersonPerspective()
     this.featureTool.setMode('edit')
@@ -459,7 +466,6 @@ export default class UserInterface extends Component<UserInterfaceProps, UserInt
 
   editFeatureThenCopy() {
     if (!this.grid.nearestEditableParcel()) return
-    if (!app.signedIn && !this.grid.nearestEditableParcel()?.sandbox) return
 
     this.setFirstPersonPerspective()
     this.featureTool.setMode('edit')
@@ -726,6 +732,11 @@ export default class UserInterface extends Component<UserInterfaceProps, UserInt
                   Summon
                 </a>
               </li> */}
+              <li class={active('info')}>
+                <a href="#info" onMouseOver={onHover('info')} onClick={onClick('info')}>
+                  Info
+                </a>
+              </li>
               <li class={active('add', !canEdit)}>
                 <a title="Add things to your thing" href="#add" onMouseOver={onHover('add')} onClick={onClick('add')} accessKey="a">
                   Add
@@ -806,6 +817,11 @@ export default class UserInterface extends Component<UserInterfaceProps, UserInt
 
           <UploadStatusUI onCompleteUpload={onCompleteUpload} onFailUpload={onFailUpload} onBeginUpload={onBeginUpload} ref={this.uploadStatusRef} />
           <ConnectionStatusUI connector={this.connector} grid={this.grid} scene={this.props.scene} />
+          {this.props.minimapSettings.enabled && !this.props.scene.config.isOrbit && !this.props.scene.config.isSpace && (
+            <button class="iconish minimap-expand" onClick={() => this.showExplorerMap()} title="Open map">
+              M
+            </button>
+          )}
           <OnlyMobile>
             <MobileButtons connector={this.connector} scene={this.props.scene} minimapSettings={this.props.minimapSettings} />
           </OnlyMobile>
