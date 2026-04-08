@@ -49,7 +49,7 @@ export async function fetchUsersCollectiblesData(wallet: string | undefined, cac
 //   const params = new URLSearchParams({ token_ids: `${Array.from(groupLookup.keys()).join(',')}` })
 //   if (cacheBust) params.set('force_update', 'true')
 //   return fetch(`/api/collections/${chain}/${address}/collectibles.json?${params}`)
-//     .then((p) => validateMessageResponse(CollectibleBatchMessage)(p))
+//     .then(async (p) => ((await p.json()) as CollectibleBatchMessage))
 //     .then((r) => {
 //       current++
 //       progressCB?.(current / itemByCollections.length)
