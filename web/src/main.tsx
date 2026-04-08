@@ -44,7 +44,6 @@ import WompsPage from './womps'
 import { useEffect, useState } from 'preact/hooks'
 import { JSXInternal } from 'preact/src/jsx'
 import IslandsAdmin from './admin/islands'
-import { NewParcels } from './new-parcels'
 import NotFound from './not-found'
 import { app, AppEvent } from './state'
 
@@ -85,7 +84,7 @@ const Main = () => {
   // Have server handle path="/parcels/:id/:visit"
   function handleRoute(e: RouterOnChangeArgs) {
     if (/^\/parcels\/\d+\/visit$/.test(e.url)) {
-      window.location.href = `${process.env.ASSET_PATH + e.url}`
+      window.location.href = e.url
     }
 
     setCurrentPath(e.url)
@@ -119,7 +118,6 @@ const Main = () => {
           <Parcels path="/parcels" />
           <Parcel path="/parcels/:id" />
           <Parcel path="/parcels/:id/:section" />
-          <NewParcels path="/new" />
 
           <Spaces path="/spaces" />
           <NewSpace path="/spaces/new" />

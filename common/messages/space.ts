@@ -1,6 +1,6 @@
 import * as t from 'io-ts'
 import { FeatureRecord, NullableStr } from './feature'
-import { LightmapStatus, ParcelSettings, pickType } from './parcel'
+import { ParcelSettings } from './parcel'
 
 export const SpaceRecord = t.type(
   {
@@ -49,7 +49,16 @@ export type SpaceRecord = t.TypeOf<typeof SpaceRecord>
 
 // used for the /spaces endpoint etc
 export const SimpleSpaceRecord = t.intersection([
-  pickType(SpaceRecord, undefined, ['id', 'owner', 'name', 'x2', 'y2', 'z2', 'height', 'created_at']),
+  t.type({
+    id: SpaceRecord.props.id,
+    owner: SpaceRecord.props.owner,
+    name: SpaceRecord.props.name,
+    x2: SpaceRecord.props.x2,
+    y2: SpaceRecord.props.y2,
+    z2: SpaceRecord.props.z2,
+    height: SpaceRecord.props.height,
+    created_at: SpaceRecord.props.created_at,
+  }),
   t.type({
     owner_name: t.string,
     visits: t.number,

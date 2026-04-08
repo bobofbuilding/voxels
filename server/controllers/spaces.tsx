@@ -4,8 +4,9 @@ import ClientRoot from '../../web/src/client-root'
 import JsonData from '../../web/src/components/json-data'
 import renderRoot from '../handlers/render-root'
 import Space from '../space'
-import { validateMessageDataHarsh } from '../../common/messages/validate'
 import { ParcelContentRecord } from '../../common/messages/parcel'
+import { isLeft } from 'fp-ts/lib/Either'
+import { PathReporter } from 'io-ts/lib/PathReporter'
 import updateSpace from '../handlers/update-space'
 import { Db } from '../pg'
 import { Express, Response } from 'express'
@@ -41,11 +42,20 @@ export default function SpacesController(db: Db, passport: PassportStatic, app: 
     }
 
     if ('content' in req.body) {
-      const contentValidation = validateMessageDataHarsh(ParcelContentRecord, req.body.content)
-      if (!contentValidation) {
+      const r = ParcelContentRecord.decode(req.body.content)
+
+      if (isLeft(r)) {
+        const errors = PathReporter.report(r)
+        console.warn(`validation error in ParcelContentRecord ${errors.length} errors`, req.body.content)
+
+        for (const e of errors) {
+          console.warn(` * ${e}`)
+        }
+
         res.json({ success: false, message: 'Content is invalid' })
         return
       }
+
       content = req.body.content
     }
     // We only clamp size if it's a new Space.
