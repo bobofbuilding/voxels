@@ -40,6 +40,9 @@ export default class WebHeader extends Component<Props, State> {
             <li>
               <Link href="https://github.com/cryptovoxels/retro">Github</Link>
             </li>
+            <li>
+              <Link href="https://plausible.io/voxels.com">Traffic</Link>
+            </li>
           </ul>
         </nav>
 

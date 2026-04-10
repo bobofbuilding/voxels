@@ -1,6 +1,6 @@
-import * as ndarray from 'ndarray'
+import type { NdArray } from 'ndarray'
 
-export default function fill(field: ndarray.NdArray<Uint16Array>, func: (x: number, y: number, z: number) => number) {
+export default function fill(field: NdArray<Uint16Array>, func: (x: number, y: number, z: number) => number) {
   let { shape } = field
 
   for (let x = 0; x < shape[0]; x++) {
