@@ -1,7 +1,6 @@
 import { Component } from 'preact'
 import { render, unmountComponentAtNode } from 'preact/compat'
-import { FullParcelRecord, ParcelContentRecord } from '../../../common/messages/parcel'
-import { validateMessageDataHarsh } from '../../../common/messages/validate'
+import type { FullParcelRecord, ParcelContentRecord } from '../../../common/messages/parcel'
 import { ParcelVersionValidator } from '../helpers/parcel-version-validator'
 import { AssetType, saveAsset } from '../helpers/save-helper'
 import { app } from '../state'
@@ -104,17 +103,6 @@ export default class UploadParcelVersion extends Component<Props, State> {
   private async saveVersion(json: Partial<{ id: string; content: ParcelContentRecord }>) {
     if (!json.id || !json.content) {
       app.showSnackbar(`Content is invalid`, PanelType.Danger)
-      return
-    }
-
-    // Very harsh content validation: Check all features are indeed features and also makes sure feature data is valid.
-    const contentValidation = validateMessageDataHarsh(ParcelContentRecord, json.content)
-    if (!contentValidation) {
-      this.setState({
-        loading: false,
-        isOk: false,
-        error: 'Some features are either invalid or have invalid data. Please make sure your features have valid types and data.',
-      })
       return
     }
 

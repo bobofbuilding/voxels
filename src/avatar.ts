@@ -1,5 +1,4 @@
-import { ApiAvatarMessage } from '../common/messages/api-avatars'
-import { validateMessageResponse } from '../common/messages/validate'
+import type { ApiAvatarMessage } from '../common/messages/api-avatars'
 import { app } from '../web/src/state'
 import { stringEllipsisInCanvas } from '../web/src/utils'
 import { AvatarAttachmentManager } from './attachment-manager'
@@ -619,7 +618,8 @@ export default class Avatar extends Entity {
     }
 
     const p = await fetch(url)
-    const r = await validateMessageResponse(ApiAvatarMessage)(p)
+    if (!p.ok) throw p
+    const r = (await p.json()) as ApiAvatarMessage
 
     const name = (r.avatar && r.avatar.name) || r.avatar?.owner?.slice(0, 10) + '...' || ANONYMOUS_NAME
     const costume = (r.avatar && r.avatar.costume) || {}
