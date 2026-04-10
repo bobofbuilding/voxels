@@ -1,6 +1,6 @@
 import { performance } from 'perf_hooks'
 import { authFeature, authParcelByNFT } from '../auth-parcel'
-import { AbstractParcel, IParcelRef, LightmapStatus } from '../parcel'
+import { ParcelAuthRef } from '../parcel'
 import log from '../lib/logger'
 import { sendNerfLogToSlack } from '../jobs/send-slack-log'
 import {
@@ -34,14 +34,13 @@ export default class GridShard {
   private clientsByParcelId: Map<number, Set<string>> = new Map<number, Set<string>>()
 
   public constructor(
-    private tryLoadParcel: (parcelId: number) => Promise<AbstractParcel | null>,
-    private tryLoadParcelRef: (parcelId: number) => Promise<IParcelRef | null>,
-    private tryLoadParcelFeatures: (parcelId: number) => Promise<Record<string, unknown> | null>,
-    private tryLoadParcelState: (parcelId: number) => Promise<Record<string, unknown> | null>,
-    private publishShardMessage: (message: GridShardMessage) => Promise<void>, // Also schedules DB update in <= 1s when client sends a patch
+    private getParcel: (parcelId: number) => Promise<ParcelAuthRef | null>,
+    private getFeature: (parcel: ParcelAuthRef, featureId: string) => Promise<unknown | null>,
+    private getState: (parcelId: number) => Promise<Record<string, unknown> | null>,
+    private publishShardMessage: (message: GridShardMessage) => Promise<void>,
     private startLightmapBake: (parcelId: number) => Promise<void>,
     private cancelLightmapBake: (parcelId: number) => Promise<void>,
-    private authParcel: (parcel: IParcelRef, user: VoxelsUser | null) => Promise<ParcelAuthResult>,
+    private authParcel: (parcel: ParcelAuthRef, user: VoxelsUser | null) => Promise<ParcelAuthResult>,
   ) {}
 
   public get clients(): GridClient[] {
@@ -236,7 +235,7 @@ export default class GridShard {
    * @returns
    */
   private async broadcastParcelMeta(parcelId: number) {
-    const parcel = await this.tryLoadParcelRef(parcelId)
+    const parcel = await this.getParcel(parcelId)
 
     if (parcel) {
       this.forEachClientInParcel('broadcastParcelMeta', parcelId, (client) => {
@@ -271,7 +270,7 @@ export default class GridShard {
     if (typeof msg.parcelId != 'number') return
 
     if (msg.subscribed) {
-      const parcel = await this.tryLoadParcelRef(msg.parcelId)
+      const parcel = await this.getParcel(msg.parcelId)
 
       if (parcel) {
         client.parcelSubscriptions.add(parcel.id)
@@ -294,7 +293,7 @@ export default class GridShard {
         this.sendAuth(parcel, client)
 
         // TODO: Why this as well as hash?
-        sendParcelState(client, parcel.id, (await this.tryLoadParcelState(parcel.id)) || {})
+        sendParcelState(client, parcel.id, (await this.getState(parcel.id)) || {})
       }
     } else {
       client.parcelSubscriptions.delete(msg.parcelId)
@@ -302,7 +301,7 @@ export default class GridShard {
     }
   }
 
-  private async sendAuth(parcel: IParcelRef, client: StatefulGridClient) {
+  private async sendAuth(parcel: ParcelAuthRef, client: StatefulGridClient) {
     const auth = await this.authParcel(parcel, client.user)
 
     // Send a separate message including both the auth and NFT auth
@@ -323,7 +322,7 @@ export default class GridShard {
 
   private async handlePatch(client: StatefulGridClient, msg: PatchMessage) {
     if (typeof msg.parcelId != 'number') return
-    const parcel = await this.tryLoadParcelRef(msg.parcelId)
+    const parcel = await this.getParcel(msg.parcelId)
     if (!parcel) {
       this.sendPatchError(client, msg, 'Invalid parcel')
       log.warn(`user tried to patch an invalid parcel "${msg.parcelId}"`)
@@ -396,36 +395,31 @@ export default class GridShard {
   private async handlePatchState(client: StatefulGridClient, msg: PatchStateMessage) {
     if (typeof msg.parcelId != 'number') return
 
-    const features = (await this.tryLoadParcelFeatures(msg.parcelId))!
-    const broadcastResult = {}
+    const parcel = await this.getParcel(msg.parcelId)
+    if (!parcel || !msg.patch) return
 
-    if (msg.patch) {
-      Object.entries(msg.patch).forEach(([uuid, value]) => {
-        const feature = features[uuid]
-
-        // TODO check feature for auth settings
-        // only broadcast state changes for features that exist
-        if (feature) {
-          ;(broadcastResult as any)[uuid] = value
-          // TODO save result to state db
-        }
-      })
-
-      if (Object.keys(broadcastResult).length) {
-        this.publishShardMessage({
-          type: 'patchStateCreate',
-          payload: {
-            parcelId: msg.parcelId,
-            patch: broadcastResult,
-            sender: client.id,
-          },
-        })
+    const broadcastResult: Record<string, unknown> = {}
+    for (const [uuid, value] of Object.entries(msg.patch)) {
+      const feature = await this.getFeature(parcel, uuid)
+      if (feature) {
+        broadcastResult[uuid] = value
       }
+    }
+
+    if (Object.keys(broadcastResult).length) {
+      this.publishShardMessage({
+        type: 'patchStateCreate',
+        payload: {
+          parcelId: msg.parcelId,
+          patch: broadcastResult,
+          sender: client.id,
+        },
+      })
     }
   }
 
   private async handleLightmap(client: StatefulGridClient, msg: LightmapActionMessage) {
-    const parcel = await this.tryLoadParcelRef(msg.parcelId)
+    const parcel = await this.getParcel(msg.parcelId)
     if (!parcel) {
       // should probably tell the client something went wrong here.
       return
@@ -434,7 +428,7 @@ export default class GridShard {
 
     if (authResult) {
       await (msg.requestBake ? this.startLightmapBake(msg.parcelId) : this.cancelLightmapBake(msg.parcelId))
-      const newParcel = await this.tryLoadParcelRef(msg.parcelId)
+      const newParcel = await this.getParcel(msg.parcelId)
       if (!newParcel) {
         return
       }
