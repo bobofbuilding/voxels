@@ -4,7 +4,6 @@
 import * as t from 'io-ts'
 
 import { NullableNum, NullableStr } from './feature'
-import { pickType } from './parcel'
 
 export const ContractRecord = t.type(
   {
@@ -36,7 +35,17 @@ export const ContractRecord = t.type(
 )
 export type ContractRecord = t.TypeOf<typeof ContractRecord>
 
-export const MinimalContractRecord = pickType(ContractRecord, 'MinimalContractRecord', ['address', 'chain', 'asset_contract_type', 'name', 'schema_name', 'symbol'])
+export const MinimalContractRecord = t.type(
+  {
+    address: ContractRecord.props.address,
+    chain: ContractRecord.props.chain,
+    asset_contract_type: ContractRecord.props.asset_contract_type,
+    name: ContractRecord.props.name,
+    schema_name: ContractRecord.props.schema_name,
+    symbol: ContractRecord.props.symbol,
+  },
+  'MinimalContractRecord',
+)
 
 export type MinimalContractRecord = t.TypeOf<typeof MinimalContractRecord>
 
@@ -122,26 +131,43 @@ export const ApiAssetOpensea = t.type(
 )
 export type ApiAssetOpensea = t.TypeOf<typeof ApiAssetOpensea>
 
-export const MinimalAssetOpensea = pickType(ApiAssetOpensea, 'MinimalAssetOpensea', ['token_id', 'traits', 'image_url', 'animation_url', 'name', 'description', 'external_link', 'asset_contract', 'owner', 'creator'])
+export const MinimalAssetOpensea = t.type(
+  {
+    token_id: ApiAssetOpensea.props.token_id,
+    traits: ApiAssetOpensea.props.traits,
+    image_url: ApiAssetOpensea.props.image_url,
+    animation_url: ApiAssetOpensea.props.animation_url,
+    name: ApiAssetOpensea.props.name,
+    description: ApiAssetOpensea.props.description,
+    external_link: ApiAssetOpensea.props.external_link,
+    asset_contract: ApiAssetOpensea.props.asset_contract,
+    owner: ApiAssetOpensea.props.owner,
+    creator: ApiAssetOpensea.props.creator,
+  },
+  'MinimalAssetOpensea',
+)
 
 export type MinimalAssetOpensea = t.TypeOf<typeof MinimalAssetOpensea>
 
-export const ProxyAssetOpensea = pickType(ApiAssetOpensea, 'ImageAssetOpensea', [
-  'token_id',
-  'image_url',
-  'animation_url',
-  'name',
-  'description',
-  'external_link',
-  'asset_contract',
-  'owner',
-  'creator',
-  'ownership',
-  'image_original_url',
-  'image_preview_url',
-  'top_ownerships',
-  'permalink',
-])
+export const ProxyAssetOpensea = t.type(
+  {
+    token_id: ApiAssetOpensea.props.token_id,
+    image_url: ApiAssetOpensea.props.image_url,
+    animation_url: ApiAssetOpensea.props.animation_url,
+    name: ApiAssetOpensea.props.name,
+    description: ApiAssetOpensea.props.description,
+    external_link: ApiAssetOpensea.props.external_link,
+    asset_contract: ApiAssetOpensea.props.asset_contract,
+    owner: ApiAssetOpensea.props.owner,
+    creator: ApiAssetOpensea.props.creator,
+    ownership: ApiAssetOpensea.props.ownership,
+    image_original_url: ApiAssetOpensea.props.image_original_url,
+    image_preview_url: ApiAssetOpensea.props.image_preview_url,
+    top_ownerships: ApiAssetOpensea.props.top_ownerships,
+    permalink: ApiAssetOpensea.props.permalink,
+  },
+  'ImageAssetOpensea',
+)
 
 export type ProxyAssetOpensea = t.TypeOf<typeof ProxyAssetOpensea>
 

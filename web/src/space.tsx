@@ -173,19 +173,19 @@ export default class Space extends Component<Props, State> {
             </script>
           </Head>
 
+          <figcaption>
+            <PlayButton url={this.helper!.visitUrl} />
+          </figcaption>
+
           <figure>
             <iframe
               id="ParcelorbitView"
-              onLoad={frameLoaded}
               ref={(c) => {
                 this.iframe = c!
               }}
               scrolling="no"
               src={this.helper?.orbitUrl}
             />
-            <figcaption>
-              <PlayButton url={this.helper!.visitUrl} />
-            </figcaption>
           </figure>
 
           {(this.isOwner && (
@@ -225,11 +225,5 @@ export default class Space extends Component<Props, State> {
         </aside>
       </section>
     )
-  }
-}
-
-function frameLoaded(e: Event) {
-  if (e.target instanceof HTMLIFrameElement) {
-    e.target.classList.add('-loaded')
   }
 }
