@@ -753,6 +753,19 @@ main.chat {
     }
   }
 }
+
+// Iconish button
+button.iconish {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 10px;
+  font-weight: 400;
+  line-height: 1;
+  aspect-ratio: 1/1;
+  display: inline-block;
+  text-align: center;
+  text-shadow: 2px 2px black;
+}
+
 /**
 * Voxel Tool Belt; which is a minecraft-like bottom toolbar for selecting voxel types
 */
@@ -763,17 +776,6 @@ main.chat {
   transform: translateX(-50%);
   padding: 20px;
   max-height: 100px;
-
-  button.iconish {
-    font-family: 'Press Start 2P', monospace;
-    font-size: 10px;
-    font-weight: 400;
-    line-height: 1;
-    aspect-ratio: 1/1;
-    display: inline-block;
-    text-align: center;
-    text-shadow: 2px 2px black;
-  }
 
   .add-menu-anchor {
     position: relative;
@@ -1023,64 +1025,15 @@ main.chat {
     }
   }
 
-  div.tool-modes {
+  div.dem-buttons {
     display: flex;
-    gap: 0;
+    flex-direction: row;
 
-    > button:not(:last-child) {
-      border-right: 1px solid #555;
-    }
+    gap: 4px;
 
     button {
-      height: 38px;
-      margin-right: 0;
-      padding-right: 6px;
-      padding-left: 6px;
-      border: none;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      -webkit-appearance: none;
-      appearance: none;
-      @r: 4px !important;
-
-      svg {
-        width: 24px;
-        height: 24px;
-      }
-
-      &:hover {
-        background-color: rgba(0, 0, 0, 0.15);
-      }
-
-      &:active {
-        background-color: rgba(0, 0, 0, 0.35);
-      }
-
-      &.-selected {
-        background-color: rgba(0, 0, 0, 0.4);
-        color: #fff;
-        box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.4);
-      }
-
-      &.-erase {
-        border-bottom-right-radius: @r;
-        border-bottom-left-radius: 0;
-        border-top-left-radius: 0;
-        border-top-right-radius: @r;
-      }
-      &.-paint {
-        border-top-left-radius: @r;
-        border-top-right-radius: 0;
-        border-bottom-right-radius: 0;
-        border-bottom-left-radius: @r;
-      }
-
-      img {
-        width: 20px;
-        height: 20px;
-      }
+      height: 40px;
+      width: 40px;
     }
   }
 
@@ -3594,6 +3547,67 @@ button[accesskey] {
 .codeflask ::-webkit-scrollbar-thumb {
   background: #2c2e31;
   border-radius: 4px;
+}
+
+/* Minimap corner: online count (left) + map expand M (right). Not .iconish on online count -- iconish uses aspect-ratio 1/1 and blows up width. */
+.minimap-corner-controls {
+  position: fixed;
+  bottom: calc(15vw - 26px);
+  right: 4px;
+  z-index: 10;
+  display: flex;
+  flex-direction: row-reverse;
+  align-items: flex-end;
+  gap: 4px;
+  pointer-events: none;
+
+  > button {
+    pointer-events: auto;
+  }
+
+  @media @mobile {
+    display: none;
+  }
+}
+
+@minimap-corner-h: 22px;
+
+.minimap-expand,
+.minimap-online-count {
+  box-sizing: border-box;
+  height: @minimap-corner-h;
+  min-height: @minimap-corner-h;
+  background: rgba(0, 0, 0, 0.4);
+  border: none;
+  color: rgba(255, 255, 255, 0.75);
+  padding: 0 5px;
+  cursor: pointer;
+  border-radius: 3px;
+  line-height: @minimap-corner-h;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+
+  &:hover {
+    background: rgba(0, 0, 0, 0.75);
+    color: #fff;
+  }
+}
+
+.minimap-expand {
+  width: @minimap-corner-h;
+  padding: 0;
+  line-height: 0;
+  font-size: inherit;
+}
+
+.minimap-online-count {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 7px;
+  line-height: 1;
+  text-shadow: 1px 1px black;
+  aspect-ratio: auto;
 }
 
 /* Aside sidebar */
