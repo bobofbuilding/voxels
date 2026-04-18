@@ -2,7 +2,7 @@
 // Types for /api/parcels and /grid/parcels messages
 
 import * as t from 'io-ts'
-import { FullParcelRecord, pickType, SimpleParcelRecord, SingleParcelRecord } from './parcel'
+import { FullParcelRecord, SimpleParcelRecord, SingleParcelRecord } from './parcel'
 
 /**
  * /api/parcels/cached.json
@@ -44,7 +44,27 @@ export type ApiStatusResponse = t.TypeOf<typeof ApiStatusResponse>
 /**
  * Parcel included in /api/parcels/map.json
  */
-export const MapParcelRecord = pickType(FullParcelRecord, 'MapParcelRecord', ['id', 'address', 'name', 'parcel_users', 'geometry', 'owner', 'owner_name', 'x1', 'x2', 'label', 'y2', 'z1', 'z2', 'is_common', 'suburb', 'settings'])
+export const MapParcelRecord = t.type(
+  {
+    id: FullParcelRecord.props.id,
+    address: FullParcelRecord.props.address,
+    name: FullParcelRecord.props.name,
+    parcel_users: FullParcelRecord.props.parcel_users,
+    geometry: FullParcelRecord.props.geometry,
+    owner: FullParcelRecord.props.owner,
+    owner_name: FullParcelRecord.props.owner_name,
+    x1: FullParcelRecord.props.x1,
+    x2: FullParcelRecord.props.x2,
+    label: FullParcelRecord.props.label,
+    y2: FullParcelRecord.props.y2,
+    z1: FullParcelRecord.props.z1,
+    z2: FullParcelRecord.props.z2,
+    is_common: FullParcelRecord.props.is_common,
+    suburb: FullParcelRecord.props.suburb,
+    settings: FullParcelRecord.props.settings,
+  },
+  'MapParcelRecord',
+)
 export type MapParcelRecord = t.TypeOf<typeof MapParcelRecord>
 
 /**

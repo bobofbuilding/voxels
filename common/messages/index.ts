@@ -17,6 +17,7 @@ export enum MessageType {
   anon = 42,
   loginComplete = 43,
   chat = 48,
+  metric = 49,
 
   // Parts of the users avatar
   createAvatar = 50,
@@ -152,11 +153,28 @@ extensionCodec.register({
   },
 })
 
-export type TrafficMessage = {
-  type: MessageType.traffic
-  parcel: number
+export enum Action {
+  Login = 'L',
+  Logout = 'O',
+  Chat = 'C',
+  Enter = 'E',
+  Exit = 'X',
+  Build = 'B',
+  Womp = 'W',
+  Dance = 'D',
+  Emote = 'M',
+  Inspect = 'I',
+  Teleport = 'T',
 }
-export const TrafficEncoder = encoderCreator<TrafficMessage>()
+
+export type vec3 = [number, number, number]
+export type MetricMessage = {
+  type: MessageType.metric
+  action: Action
+  parcel?: number
+  position?: vec3
+}
+export const MetricEncoder = encoderCreator<MetricMessage>()
 
 export type ChatMessage = {
   type: MessageType.chat
@@ -301,6 +319,9 @@ export type UpdateAvatarMessage = {
   position: number[]
   orientation: Quaternion
   animation: number
+  inConga?: boolean
+  /** Person in front of this avatar in the conga chain; leader omits. Used to sync whole line (e.g. fly) to head. */
+  congaFollowsUuid?: string | null
 }
 
 export const UpdateAvatarEncoder = encoderCreator<UpdateAvatarMessage>()
@@ -310,17 +331,29 @@ extensionCodec.register({
     if (input.type != MessageType.updateAvatar) {
       return null
     }
-    return encodeAlias([encodeUUID(input.uuid), Float32Array.from(input.position), compressQuaternion(input.orientation), input.animation])
+    return encodeAlias([
+      encodeUUID(input.uuid),
+      Float32Array.from(input.position),
+      compressQuaternion(input.orientation),
+      input.animation,
+      input.inConga ? 1 : 0,
+      input.congaFollowsUuid ? encodeUUID(input.congaFollowsUuid) : null,
+    ])
   },
   decode: (data): UpdateAvatarMessage => {
     const res = decodeAlias(data) as any[]
-    return {
+    const m: UpdateAvatarMessage = {
       type: MessageType.updateAvatar,
       uuid: decodeUUID(res[0]),
       position: uint8ToFloat32(res[1]),
       orientation: decompressQuaternion(res[2]),
       animation: res[3],
+      inConga: !!res[4],
     }
+    if (res.length > 5 && res[5] != null) {
+      m.congaFollowsUuid = decodeUUID(res[5])
+    }
+    return m
   },
 })
 
@@ -484,7 +517,7 @@ export namespace Message {
   /**
    * A type of message that is sent by a client to update the avatar's state in-world.
    */
-  export type ClientStateMessage = StateRelayMessage | UpdateAvatarMessage | TrafficMessage
+  export type ClientStateMessage = StateRelayMessage | UpdateAvatarMessage | MetricMessage
 
   export const isClientStateMessage = makeIsMessageOfType<ClientStateMessage>({
     [MessageType.newCostume]: null,
@@ -493,7 +526,7 @@ export namespace Message {
     [MessageType.voiceStateAvatar]: null,
     [MessageType.emoteAvatar]: null,
     [MessageType.updateAvatar]: null,
-    [MessageType.traffic]: null,
+    [MessageType.metric]: null,
     [MessageType.point]: null,
   })
 

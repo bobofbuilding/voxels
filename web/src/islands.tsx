@@ -94,6 +94,10 @@ export default class Islands extends Component<Props, State> {
           <p>List of islands.</p>
         </hgroup>
 
+        <p>
+          Minted Islands | <a href="/propose/islands">Propose new islands</a>
+        </p>
+
         <article role={'group'}>
           <label htmlFor="select">View order </label>
           <select

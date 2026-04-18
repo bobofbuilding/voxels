@@ -7,10 +7,9 @@ import { defaultColors } from '../common/content/blocks'
 import { recordParcelEvent } from '../common/helpers/apis'
 import { isBatterySaver, isMobile } from '../common/helpers/detector'
 import { ParcelUser } from '../common/helpers/parcel-helper'
-import { ApiParcelMessage } from '../common/messages/api-parcels'
+import type { ApiParcelMessage } from '../common/messages/api-parcels'
 import { FeatureRecord } from '../common/messages/feature'
 import type { ParcelGeometry, ParcelKind, ParcelPatch, ParcelRecord, ParcelRef, ParcelSettings } from '../common/messages/parcel'
-import { validateMessageResponse } from '../common/messages/validate'
 import { getBufferFromVoxels, getFieldShape, getVoxelsFromBuffer } from '../common/voxels/helpers'
 import { VoxelSize } from '../common/voxels/mesher'
 import { app } from '../web/src/state'
@@ -29,6 +28,7 @@ import { createEvent, TypedEventTarget } from './utils/EventEmitter'
 import { tidyVec3 } from './utils/helpers'
 import { ParcelEventMap } from './utils/parcel-event-map'
 import { GLASS_MAX_VIEW_DISTANCE } from './voxel-field'
+import { Action } from '../common/messages'
 
 const PARCEL_CONTRACT_ABI = require('../common/contracts/parcel.json')
 
@@ -724,7 +724,10 @@ export default class Parcel extends TypedEventTarget<ParcelEventMap> {
 
     if ('lightmap_url' in patch) {
       this.updateLightmapUrl(patch.lightmap_url || null)
-      if (this.isBaked) {
+      // If voxels were also in the patch, refreshVoxels() -> generateVoxelField()
+      // will already rebuild the baked mesh. Avoid double-triggering a second
+      // baked generation in parallel -- they race on setVoxelMesh().
+      if (this.isBaked && !patch.voxels) {
         this.activateBakedMaterial()
       }
     }
@@ -907,6 +910,9 @@ export default class Parcel extends TypedEventTarget<ParcelEventMap> {
   onEnter() {
     this.entered = true
 
+    // Enter
+    window.connector.sendMetric(Action.Enter, this.id)
+
     // On user enter the parcel the bouncer will kick the user if they are not allowed;
     this.parcelBouncer.handleUser().then()
 
@@ -930,6 +936,9 @@ export default class Parcel extends TypedEventTarget<ParcelEventMap> {
 
   onExit() {
     this.entered = false
+
+    // Exit
+    window.connector.sendMetric(Action.Exit, this.id)
 
     // Record event to surveyor.crvox.com
     recordParcelEvent({
@@ -1122,7 +1131,7 @@ export default class Parcel extends TypedEventTarget<ParcelEventMap> {
     }, 5)
   }
 
-  reload(hash?: string, cb: any = null) {
+  async reload(hash?: string, cb: any = null) {
     // use the hash provided otherwise the last known hash
     if (!hash) {
       hash = this.hash
@@ -1138,38 +1147,37 @@ export default class Parcel extends TypedEventTarget<ParcelEventMap> {
 
     this.loading = true
 
-    fetch(url, {
+    const res = await fetch(url, {
       method: 'get',
     })
-      .then(validateMessageResponse(ApiParcelMessage))
-      .then((r) => {
-        if (!r.success) {
-          return
-        }
+    if (!res.ok) throw res
+    const r = (await res.json()) as ApiParcelMessage
+    if (!r.success) {
+      return
+    }
 
-        Object.assign(this, r.parcel)
+    Object.assign(this, r.parcel)
 
-        // the fetch does not include the hash, so we update it here
-        this.hash = hash
+    // the fetch does not include the hash, so we update it here
+    this.hash = hash
 
-        this.loaded = true
-        this.loading = false
+    this.loaded = true
+    this.loading = false
 
-        // console.log(`[parcel-${this.id}] Reloaded parcel`)
-        this.loadField()
-        this.regenerate()
-        this.refreshBrightness()
-        this.refreshPalette()
+    // console.log(`[parcel-${this.id}] Reloaded parcel`)
+    this.loadField()
+    this.regenerate()
+    this.refreshBrightness()
+    this.refreshPalette()
 
-        // allow bringing up of build menu
-        if (this.canEdit && !window.user.parcels.includes(this)) {
-          window.user.parcels.push(this)
-        }
+    // allow bringing up of build menu
+    if (this.canEdit && !window.user.parcels.includes(this)) {
+      window.user.parcels.push(this)
+    }
 
-        if (typeof cb === 'function') {
-          cb()
-        }
-      })
+    if (typeof cb === 'function') {
+      cb()
+    }
   }
 
   afterUserChange() {
@@ -1472,18 +1480,29 @@ export default class Parcel extends TypedEventTarget<ParcelEventMap> {
       return
     }
 
-    this.mesher.generate(this, null, this.configureUnbakedVoxelFieldMeshes.bind(this))
-
+    // Baked parcels use a different worker + mesh topology than unbaked.
+    // Running both in parallel races on setVoxelMesh() and can leave the parcel
+    // displaying the loser's mesh (black / untextured / wrong tint).
     if (this.lightmap_url && this.isBaked) {
       const url = this.lightmap_url
-      console.log(url)
-
-      let texture = new BABYLON.Texture(url, this.scene, false, false, BABYLON.Texture.BILINEAR_SAMPLINGMODE, () => {
-        console.log('texture loaded')
-
-        this.mesher.generateBaked(this, this.configureBakedVoxelFieldMeshes.bind(this), texture)
-      })
+      const texture = new BABYLON.Texture(
+        url,
+        this.scene,
+        false,
+        false,
+        BABYLON.Texture.BILINEAR_SAMPLINGMODE,
+        () => {
+          this.mesher.generateBaked(this, this.configureBakedVoxelFieldMeshes.bind(this), texture)
+        },
+        () => {
+          // Lightmap fetch failed -- fall back to unbaked so the parcel is still visible
+          this.mesher.generate(this, null, this.configureUnbakedVoxelFieldMeshes.bind(this))
+        },
+      )
+      return
     }
+
+    this.mesher.generate(this, null, this.configureUnbakedVoxelFieldMeshes.bind(this))
   }
 
   private flushOnGenerateCallbacks = () => {
