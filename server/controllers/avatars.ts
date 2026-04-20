@@ -67,6 +67,47 @@ export default function AvatarsController(db: Db, passport: PassportStatic, app:
     res.status(200).json({ success: true, assets: result.rows })
   })
 
+  app.get('/api/wearables/free.json', cache('60 seconds'), async (_req, res) => {
+    const result = await db.query(
+      'sql/wearables/free-wearables',
+      `
+      select
+        w.id::text as id,
+        w.name,
+        w.description,
+        w.author,
+        w.issues,
+        w.token_id,
+        w.created_at,
+        w.updated_at,
+        w.hash,
+        w.rejected_at,
+        w.offer_prices,
+        w.collection_id,
+        w.custom_attributes,
+        w.suppressed,
+        w.category,
+        w.default_settings,
+        w.is_free
+        c.address as collection_address,
+        c.chainid as chain_id,
+        c.name as collection_name
+      from
+        wearables w
+      join
+        collections c on c.id = w.collection_id
+      where
+        w.is_free = true
+        and w.suppressed is not true
+        and w.token_id is not null
+      order by
+        w.name
+      `,
+      [],
+    )
+    res.status(200).json({ success: true, wearables: result.rows })
+  })
+
   // Route to teleport to that avatar
   app.get('/join/:nameOrWallet', cache('5 seconds'), async (req, res) => {
     const result = await db.query(

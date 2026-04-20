@@ -3,12 +3,15 @@ import { Fragment } from 'preact'
 import { useEffect, useRef, useState } from 'preact/hooks'
 import { format } from 'timeago.js'
 import { fetchUsersCollectibles } from '../../../../common/helpers/collections-helpers'
+import ParcelHelper from '../../../../common/helpers/parcel-helper'
 import { copyTextToClipboard } from '../../../../common/helpers/utils'
 import { ApiAvatar } from '../../../../common/messages/api-avatars'
+import { ParcelRecord } from '../../../../common/messages/parcel'
 import cachedFetch from '../../helpers/cached-fetch'
 import { AssetType } from '../../helpers/save-helper'
+import { Client } from '../../parcel'
 import { app } from '../../state'
-import { fetchAPI, fetchOptions } from '../../utils'
+import { fetchAPI } from '../../utils'
 import EditableDescription from '../Editable/editable-description'
 import { PanelType } from '../panel'
 import { EditSocialLink, SocialLink } from './socials'
@@ -17,108 +20,26 @@ import { ethTrunc } from '../../../../common/utils'
 import { Contributor } from '../../../account/contributor'
 import { Parcels } from '../../../account/parcels'
 import { Spaces } from '../../../account/spaces'
-import { Spinner } from '../../spinner'
 import WompsList from '../../womps-list'
+import { Costume } from '../../../../common/types'
 // import Collectibles from '../../../account/collectibles'
 
 type Props = {
-  walletOrUUId: string | undefined
+  walletOrUUId: string
   tab?: string
   isOwner?: boolean
-}
-
-type EditProps = { small?: boolean; value: string; onChange: (value: string) => Promise<void>; onValidate?: (value: string) => Promise<true | string> }
-
-enum EditState {
-  Viewing,
-  Editing,
-  Validating,
-  Saving,
-}
-
-function PlaceEdit(props: EditProps) {
-  const [state, setState] = useState(EditState.Viewing)
-  const [value, setValue] = useState(props.value)
-  const inputRef = useRef<HTMLInputElement>(null)
-
-  useEffect(() => {
-    setValue(props.value)
-  }, [props.value])
-
-  const onClick = () => {
-    setState(EditState.Editing)
-
-    setTimeout(() => {
-      inputRef.current?.focus()
-    }, 100)
-  }
-
-  const onSubmit = async (e: Event) => {
-    e.preventDefault()
-
-    if (props.onValidate) {
-      setState(EditState.Validating)
-
-      const validation = await props.onValidate(value)
-
-      if (validation !== true) {
-        setState(EditState.Editing)
-        alert(validation)
-
-        return
-      }
-    }
-
-    setState(EditState.Saving)
-
-    try {
-      await props.onChange(value)
-    } catch (e: any) {
-      alert(e.toString())
-      setState(EditState.Editing)
-      return
-    }
-
-    setState(EditState.Viewing)
-  }
-
-  const onCancel = () => {
-    setState(EditState.Viewing)
-  }
-
-  if (state === EditState.Editing) {
-    return (
-      <form class="place-edit" onSubmit={onSubmit}>
-        <input ref={inputRef} type="text" value={value} onInput={(e) => setValue(e.currentTarget.value)} />
-        <br />
-        <button>Save</button> or{' '}
-        <a onClick={onCancel} href="#">
-          Cancel
-        </a>
-      </form>
-    )
-  } else if (state === EditState.Saving || state === EditState.Validating) {
-    return (
-      <p>
-        <Spinner />
-      </p>
-    )
-  } else {
-    return (
-      <h3>
-        <span onClick={onClick} class="editable">
-          {props.value}
-        </span>
-      </h3>
-    )
-  }
 }
 
 export default function Profile(props: Props) {
   const [avatar, setAvatar] = useState<ApiAvatar | undefined>(undefined)
   const [collabs, setCollabs] = useState(0)
   const [wearables, setWearables] = useState(0)
+  const [costumes, setCostumes] = useState<Costume[]>([])
   const [womps, setWomps] = useState(0)
+  const [homeParcel, setHomeParcel] = useState<ParcelRecord | null>(null)
+  const [showHomeSearch, setShowHomeSearch] = useState(false)
+  const [parcelOptions, setParcelOptions] = useState<{ id: number; label: string }[]>([])
+  const homeSearchRef = useRef<HTMLInputElement>(null)
   const { walletOrUUId } = props
 
   useEffect(() => fetch(), [walletOrUUId])
@@ -132,11 +53,22 @@ export default function Profile(props: Props) {
     }
   }
 
+  const fetchHomeParcel = (homeId: number) => {
+    cachedFetch(`/api/parcels/${homeId}.json`)
+      .then((r) => r.json())
+      .then((data) => setHomeParcel(data.parcel ?? null))
+      .catch(() => setHomeParcel(null))
+  }
+
   const fetch = () => {
     fetchAPI(`/api/avatars/${walletOrUUId}.json`).then((data) => {
-      console.log('data', data)
       setAvatar(data.avatar)
+      if (data.avatar?.home_id) fetchHomeParcel(data.avatar.home_id)
     })
+
+    cachedFetch(`/api/avatars/${walletOrUUId}/costumes`)
+      .then((r) => r.json())
+      .then((data) => setCostumes(data.costumes ?? []))
 
     fetchUsersCollectibles(walletOrUUId).then((results) => setWearables(results.length))
     cachedFetch(`/api/womps/by/${walletOrUUId}`)
@@ -160,17 +92,6 @@ export default function Profile(props: Props) {
       )
   }
 
-  let aka: string[] = []
-  if (Array.isArray(avatar?.names)) {
-    aka = avatar?.names.filter((v) => v !== avatar?.name) as string[]
-    const num = aka.length
-    aka = aka?.slice(0, 5)
-    const others = num - 5
-    if (others > 0) {
-      aka.push(`and ${others} others`)
-    }
-  }
-
   const descriptionValidator = (value: string) => {
     if (!value) return true
     if (value.length > 500) {
@@ -180,82 +101,72 @@ export default function Profile(props: Props) {
     return true
   }
 
+  const setHomeId = async (parcelId: number | null) => {
+    await fetchAPI('/api/avatar', { method: 'POST', credentials: 'include', body: JSON.stringify({ home_id: parcelId }), headers: { 'Content-Type': 'application/json' } })
+    if (parcelId) {
+      fetchHomeParcel(parcelId)
+    } else {
+      setHomeParcel(null)
+    }
+    setShowHomeSearch(false)
+  }
+
+  const onHomeSearchInput = async (e: Event) => {
+    const val = (e.target as HTMLInputElement).value
+    if (val.length < 2) return
+    const r = await cachedFetch(`/api/parcels/search.json?q=${encodeURIComponent(val)}&limit=8`)
+    const data = await r.json()
+    const opts = (data.parcels ?? []).map((p: any) => ({ id: p.id, label: p.name ?? p.address ?? `#${p.id}` }))
+    setParcelOptions(opts)
+    // check if the typed value matches one of the options
+    const match = opts.find((o: any) => o.label === val)
+    if (match) setHomeId(match.id)
+  }
+
   const owner = props.isOwner
   const name = avatar?.name ?? (props.walletOrUUId ? ethTrunc(props.walletOrUUId!) : 'anon')
-
-  let tab = 'parcels'
-  if (props.tab) tab = props.tab
-
-  const changeName = async (name: string) => {
-    const r = await fetchAPI('/api/avatar', fetchOptions(undefined, JSON.stringify({ name })))
-
-    if (!r.success) {
-      throw new Error(r.message)
-    }
-
-    fetchAvatar()
-  }
-
-  const validateName = async (name: string): Promise<true | string> => {
-    if (!name) {
-      return 'Name is required'
-    }
-
-    if (name.length > 50) {
-      return 'Name is more than 50 characters'
-    }
-
-    if (name === '') {
-      return 'Name cannot be empty'
-    }
-
-    if (name === 'anon') {
-      return 'Name anon is reserved'
-    }
-    // const r = await fetchAPI(`/api/avatars/${wallet}/name/${name}.json`)
-    // const { avatar } = await r.json()
-
-    // if (avatar) {
-    //   return 'Name is already taken'
-    // }
-
-    return true
-  }
-
-  // <AvatarCanvas wallet={wallet!} avatar={avatar} dance="Walk" frame="profile" />
+  const hasWallet = props.walletOrUUId.match(/0x/)
 
   return (
     <section class="columns profile">
       <hgroup style={{ flexGrow: 1 }}>
-        <h1>{props.isOwner ? 'Account' : name}</h1>
-        {avatar?.last_online && <p>Last seen {avatar?.last_online ? format(avatar?.last_online) : '–'}.</p>}
+        {props.isOwner ? (
+          <>
+            <h1 class="account-name-hero">{name}</h1>
+            <p class="account-welcome-msg">Welcome to Voxels.</p>
+          </>
+        ) : (
+          <>
+            <h1>{name}</h1>
+          </>
+        )}
       </hgroup>
 
       <article>
-        <h3>Womps</h3>
+        {homeParcel &&
+          (() => {
+            const h = new ParcelHelper(homeParcel)
+            return <Client parcelId={homeParcel.id} src={h.iframeUrl} coords={h.spawnCoords} />
+          })()}
+        <h2>Costumes</h2>
+
+        <table>
+          {' '}
+          <tbody>
+            {costumes.map((c) => (
+              <tr>
+                <td>
+                  <a href={`/costumer/${c.id}`}>{c.name}</a>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <h2>Womps</h2>
         <WompsList hint={'You have no womps! Take a womp in world (using shortcut P)'} numberToShow={20} collapsed={false} ttl={60} fetch={`/womps/by/${props.walletOrUUId}`} />
       </article>
 
       <aside>
-        <h3>Parcels</h3>
-
-        <Parcels wallet={props.walletOrUUId} isOwner={props.isOwner} />
-
-        <h3>Collaborations</h3>
-
-        <Contributor wallet={props.walletOrUUId} isOwner={props.isOwner} />
-
-        <h3>Spaces</h3>
-        <Spaces wallet={props.walletOrUUId} isOwner={props.isOwner} />
-        {props.isOwner && (
-          <>
-            <h3>Name</h3>
-            <small>
-              <label>(Click to edit)</label>
-            </small>
-            <PlaceEdit value={name} onValidate={validateName} onChange={changeName} />
-          </>
-        )}
         <h3>Description</h3>
 
         <div>
@@ -263,18 +174,70 @@ export default function Profile(props: Props) {
         </div>
 
         <dl>
-          <dt>Wallet</dt>
+          <dt>Home</dt>
           <dd>
-            <a onClick={copyWalletToClipboard} title="Click to copy wallet address to clipboard">
-              {ethTrunc(walletAddress)}
-            </a>
-            <br />
-            <a href={`https://etherscan.io/address/${walletAddress}`} title="View on etherscan.io">
-              Etherscan
-            </a>
-            <br />
-            {!handledGetAddress(walletOrUUId) && <small>Id: {walletOrUUId}</small>}
+            {homeParcel ? (
+              <span>
+                <a href={`/parcels/${homeParcel.id}`}>{(homeParcel as any).name ?? (homeParcel as any).address ?? `#${homeParcel.id}`}</a>
+                {owner && (
+                  <>
+                    {' '}
+                    &mdash; <a onClick={() => setShowHomeSearch(!showHomeSearch)}>change</a>
+                  </>
+                )}
+              </span>
+            ) : owner ? (
+              <a onClick={() => setShowHomeSearch(!showHomeSearch)}>set one</a>
+            ) : (
+              <span>None</span>
+            )}
+            {owner && showHomeSearch && (
+              <div>
+                <input ref={homeSearchRef} type="search" placeholder="Search parcels..." onInput={onHomeSearchInput} />
+                {parcelOptions.length > 0 && (
+                  <ul class="datalist">
+                    {parcelOptions.map((o) => (
+                      <li key={o.id} onClick={() => setHomeId(o.id)}>
+                        {o.label}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                {homeParcel && <a onClick={() => setHomeId(null)}>clear</a>}
+              </div>
+            )}
           </dd>
+          <dt>Parcels</dt>
+          <dd>
+            <Parcels wallet={props.walletOrUUId} isOwner={props.isOwner} />
+          </dd>
+
+          <dt>Collaborations</dt>
+          <dd>
+            <Contributor wallet={props.walletOrUUId} isOwner={props.isOwner} />
+          </dd>
+
+          <dt>Spaces</dt>
+          <dd>
+            <Spaces wallet={props.walletOrUUId} isOwner={props.isOwner} />
+          </dd>
+
+          {hasWallet && (
+            <>
+              <dt>Wallet</dt>
+              <dd>
+                <a onClick={copyWalletToClipboard} title="Click to copy wallet address to clipboard">
+                  {ethTrunc(walletAddress)}
+                </a>
+                <br />
+                <a href={`https://etherscan.io/address/${walletAddress}`} title="View on etherscan.io">
+                  Etherscan
+                </a>
+                <br />
+                {!handledGetAddress(walletOrUUId) && <small>Id: {walletOrUUId}</small>}
+              </dd>
+            </>
+          )}
 
           {avatar?.moderator && (
             <Fragment>
@@ -294,8 +257,6 @@ export default function Profile(props: Props) {
             {!owner && <SocialLink socialUrl={avatar?.social_link_2 ?? ''} maxLength={48} />}
             {owner && <EditSocialLink socialLinkNumber={2} avatar={avatar} onSave={fetchAvatar} />}
           </dd>
-          <dt>Last seen</dt>
-          <dd>{avatar?.last_online ? format(avatar?.last_online) : '–'}</dd>
           <dt>Joined</dt>
           <dd>{avatar?.created_at ? format(avatar.created_at) : 'The mists of time'}</dd>
         </dl>

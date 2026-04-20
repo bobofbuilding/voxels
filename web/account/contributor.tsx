@@ -94,18 +94,12 @@ export class Contributor extends Component<Props, State> {
       .slice(0, this.state.showAll ? this.state.contributorsParcels.length : showTheseMany)
       .map((p: any) => <PropertyItem record={p} helper={new ParcelHelper(p)} />)
 
-    return (
-      <div>
-        <div>
-          {contributorsParcels.length > 0 ? (
-            <table>
-              <tbody>{contributorsParcels}</tbody>
-            </table>
-          ) : (
-            <p>Ask someone to add you as a contributor to a parcel.</p>
-          )}
-        </div>
-      </div>
+    return contributorsParcels.length > 0 ? (
+      <table>
+        <tbody>{contributorsParcels}</tbody>
+      </table>
+    ) : (
+      <p class="empty">None</p>
     )
   }
 }
