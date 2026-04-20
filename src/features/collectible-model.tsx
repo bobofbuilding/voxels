@@ -18,7 +18,7 @@ import {
 import showCollectibleHTMLUi from '../ui/html-ui/collectible-ui'
 import { app } from '../../web/src/state'
 import { CollectibleInfoRecord, CollectibleModelRecord } from '../../common/messages/feature'
-import { defaultBone } from '../../web/src/upload-wearable'
+import { defaultBone } from '../../web/types'
 import ActionGui from '../ui/gui/action-button-gui'
 import { CostumeAttachment } from '../../common/messages/costumes'
 import Config from '../../common/config'
@@ -62,8 +62,8 @@ export default class CollectibleModel extends Feature3D<CollectibleModelRecord> 
     return !!this.description.showTryOnPopUp
   }
 
-  get collectibleUuid() {
-    return 'try-' + this.uuid
+  get collectibleWid() {
+    return this.collectible?.id ?? ''
   }
 
   get currentAvatar() {
@@ -215,11 +215,7 @@ export default class CollectibleModel extends Feature3D<CollectibleModelRecord> 
     }
 
     return {
-      uuid: this.collectibleUuid,
-      wearable_id: token_id,
-      collection_id: collection_id,
-      chain_id: this.collectible?.chain_id || 1,
-      collection_address: this.collectible?.collection_address || '',
+      wid: this.collectibleWid,
       bone: this.description.tryBone || defaultBone(this.collectible),
       position: this.description.tryPosition || [0, 0, 0],
       rotation,
@@ -253,7 +249,7 @@ export default class CollectibleModel extends Feature3D<CollectibleModelRecord> 
     if (avatar === lastAvatar) return
 
     if (lastAvatar && lastAvatar.attachmentManager) {
-      lastAvatar.attachmentManager.remove(this.collectibleUuid)
+      lastAvatar.attachmentManager.remove(this.collectibleWid)
       this.lastAvatarId = null
     }
 

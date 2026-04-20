@@ -1,7 +1,6 @@
 import { Component, JSX } from 'preact'
 import { format } from 'timeago.js'
-import { ApiMails, MessageRecord } from '../../../../common/messages/api-mails'
-import { validateMessageResponse } from '../../../../common/messages/validate'
+import type { ApiMails, MessageRecord } from '../../../../common/messages/api-mails'
 import { app, AppEvent } from '../../state'
 import { fetchOptions } from '../../utils'
 import { PanelType } from '../panel'
@@ -82,7 +81,7 @@ export default class MailboxUI extends Component<Props, State> {
     this.props.onClose!()
   }
 
-  fetchMails() {
+  fetchMails = async () => {
     if (!this.state.wallet) {
       this.setState({ mails: [], loading: false })
       return
@@ -90,14 +89,17 @@ export default class MailboxUI extends Component<Props, State> {
     this.setState({ loading: true })
     let url = `${process.env.API}/mails/by/${this.state.wallet}.json`
     url += `?${Date.now()}`
-    fetch(url, fetchOptions())
-      .then(validateMessageResponse(ApiMails))
-      .then((r) => {
-        if (r.success) {
-          this.setState({ mails: r.mails || [], loading: false })
-        }
-        this.setState({ loading: false })
-      })
+    try {
+      const res = await fetch(url, fetchOptions())
+      if (!res.ok) throw res
+      const r = (await res.json()) as ApiMails
+      if (r.success) {
+        this.setState({ mails: r.mails || [], loading: false })
+      }
+      this.setState({ loading: false })
+    } catch {
+      this.setState({ loading: false })
+    }
   }
 
   markAsRead = (id: number) => {
