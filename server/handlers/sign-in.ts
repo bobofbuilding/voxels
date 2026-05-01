@@ -35,6 +35,8 @@ type Params = any
 type SignInOptions = {
   rememberSignIn?: boolean
   providerName?: string
+  /** Saves to avatars.name (e.g. passkey signup username). */
+  preferredDisplayName?: string
 }
 
 type MultiSigSignIn = {
@@ -117,6 +119,8 @@ Your voxels login code is: ${code}
 ----
 ps: This code is valid on ${expiry}. If you are not trying to log into voxels.com with this email, please ignore this message.
 `
+
+  console.log('sending email', html)
 
   const serverToken = 'ab3cbb8b-4211-457c-bd25-e477ca337e27'
 
@@ -267,7 +271,7 @@ async function multiSigSignIn(res: Response, wallet: TokenAddress, message: Mess
     })
 }
 
-async function getUserInfo(res: Response, wallet: string, options: SignInOptions): Promise<{ token: string; name: string; isNewUser: boolean }> {
+export async function getUserInfo(res: Response, wallet: string, options: SignInOptions): Promise<{ token: string; name: string; isNewUser: boolean }> {
   if (!wallet) {
     throw new Error('Invalid wallet')
   }
@@ -287,7 +291,7 @@ async function getUserInfo(res: Response, wallet: string, options: SignInOptions
   // make sure we have the avatar in the DB or else new users won't get multiplayer permissions
   await ensureAvatarExists(wallet)
 
-  let name = null
+  let name: string | null = null
   if (avatarExists) {
     try {
       const r = await db.query('embedded/get-avatar-name', 'select name from avatars where lower(owner)=lower($1)', [wallet])
@@ -300,5 +304,16 @@ async function getUserInfo(res: Response, wallet: string, options: SignInOptions
     // avatar doesn't exist, it's a new user, maybe that user has an ENS name
     name = await Avatar.setENSNameIfAny(wallet)
   }
-  return { token, name, isNewUser: !avatarExists }
+
+  const preferred = options.preferredDisplayName?.trim()
+  if (preferred) {
+    try {
+      await db.query('sign-in/avatar-prefer-display-name', 'update avatars set name = $1 where lower(owner) = lower($2)', [preferred, wallet])
+      name = preferred
+    } catch (e: any) {
+      log.error(`sign-in preferredDisplayName: ${e.toString()}`)
+    }
+  }
+
+  return { token, name: name ?? '', isNewUser: !avatarExists }
 }
