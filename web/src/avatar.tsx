@@ -87,6 +87,6 @@ export default class Avatar extends Component<Props, State> {
     const title = avatar?.name || avatar?.owner
     const description = avatar?.description || `Check out the avatar for ${title}`
 
-    return <Profile walletOrUUId={this.wallet} isOwner={isOwner} tab={this.props.tab} />
+    return <Profile walletOrUUId={this.wallet ?? ''} isOwner={isOwner} tab={this.props.tab} />
   }
 }
