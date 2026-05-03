@@ -850,7 +850,7 @@ function refreshFromFeature(feature: CollectibleModel, avatar: Avatar) {
   if (!avatarAttachmentManager) {
     return
   }
-  const wearable = avatarAttachmentManager.getAttachmentByCollectionIdAndTokenId_BeingTried(asset.collection_id, asset.token_id) as CostumeAttachment
+  const wearable = avatarAttachmentManager.getAttachmentByWid(feature.collectibleWid)
   if (!wearable) {
     return
   }
@@ -859,7 +859,7 @@ function refreshFromFeature(feature: CollectibleModel, avatar: Avatar) {
   wearable.rotation = feature.description.tryRotation || [0, 0, 0]
   wearable.scaling = feature.description.tryScale || [0.5, 0.5, 0.5]
   wearable.bone = feature.description.tryBone || 'Head'
-  avatarAttachmentManager.refreshSingleAttachment(wearable.uuid)
+  avatarAttachmentManager.refreshSingleAttachment(wearable.wid)
 }
 
 export function Advanced(props: any) {

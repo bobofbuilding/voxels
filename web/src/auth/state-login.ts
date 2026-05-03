@@ -3,8 +3,7 @@ import { Contract, BrowserProvider, Signer } from 'ethers'
 import Cookies from 'js-cookie'
 import { decodeJwt } from 'jose'
 import { ssrFriendlyWindow } from '../../../common/helpers/utils'
-import { ApiAvatar, ApiAvatarMessage } from '../../../common/messages/api-avatars'
-import { validateMessageResponse } from '../../../common/messages/validate'
+import { ApiAvatar, type ApiAvatarMessage } from '../../../common/messages/api-avatars'
 import { PanelType } from '../components/panel'
 import Snackbar from '../components/snackbar'
 import { app, Appstate, StateObject } from '../state'
@@ -251,7 +250,7 @@ export class StateLogin {
     }
   }
 
-  onToken(key: string, name: string | null, isNewUser: boolean) {
+  onToken(key: string, name: string | null, isNewUser: boolean): void {
     const payload = decodeJwt(key) as any
     if (!payload || typeof payload !== 'object') {
       console.error('Invalid JWT')
@@ -332,7 +331,8 @@ export class StateLogin {
     }
 
     const res = await fetch(url)
-    const data = await validateMessageResponse(ApiAvatarMessage)(res)
+    if (!res.ok) throw res
+    const data = (await res.json()) as ApiAvatarMessage
 
     const name = data.avatar?.name ?? undefined // || (data.avatar?.owner && data.avatar?.owner?.slice(0, 10) + '...') || 'anonymous'
     const moderator = (data.avatar && data.avatar.moderator) || false
@@ -426,10 +426,15 @@ export class StateLogin {
       return
     }
 
+    if (!this.provider || typeof this.provider.request !== 'function') {
+      this.provider = null
+      return false
+    }
+
     // Request accounts of the user.
     const accounts = await getUserAccounts(this.provider)
     if (!accounts || !accounts[0]) {
-      //No account found
+      // No account found (user denied or locked wallet)
       this.#app.emit(AppEvent.ErrorLogin)
       return false
     }

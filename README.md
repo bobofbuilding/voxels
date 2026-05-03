@@ -15,7 +15,7 @@ guidelines.
 # Installing locally
 
 * Clone repo
-* Install postgres@14 and node@24 and pnpm
+* Install postgres@18 and node@24 and pnpm
 * `createdb voxels && psql voxels < db/import.sql`
 * `pnpm install`
 * `pnpm run dev`
@@ -38,4 +38,3 @@ license carefully. This is not an OSI compatible license.
 ### Contributor Agreement
 
 By contributing to this repository, you agree that your contributions (commits) are licensed under this Business Source License 1.1, including the rolling transition to the MIT License three years after the date of your commit.
-
