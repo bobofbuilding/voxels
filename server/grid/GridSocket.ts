@@ -4,16 +4,17 @@ import { v7 as uuid } from 'uuid'
 import WebSocket from 'ws'
 import { GridClientMessage } from '../../common/messages/grid'
 import Avatar from '../avatar'
+import authParcelFn, { authSpace } from '../auth-parcel'
 import { named } from '../lib/logger'
-import Parcel, { AbstractParcel, LightmapStatus } from '../parcel'
+import Parcel, { AbstractParcel, LightmapStatus, ParcelAuthRef } from '../parcel'
 import Space, { SINGLE_VALID_SPACE_PARCEL_ID } from '../space'
 import { VoxelsUser } from '../user'
 import { GridClient } from './GridClient'
 import { GridClusterMessage, GridClusterMessageBroker } from './GridClusterMessageBroker'
 import GridShard from './GridShard'
+import { GridShardMessage } from './GridShardMessage'
 import { PatchSet } from './PatchSet'
-import { createSpaceGridShardParameters } from './createSpaceGridShardParameters'
-import { createWorldGridShardParameters } from './createWorldGridShardParameters'
+import { ParcelAuthResult } from '../../common/messages/parcel'
 
 const CLIENT_INACTIVITY_TIMEOUT = 40000
 
@@ -52,7 +53,15 @@ export default class GridSocket {
     log.info(`Starting grid server`)
 
     this.gridCluster = gridCluster
-    this.worldGridShard = new GridShard(...createWorldGridShardParameters(gridCluster, this.patchSetByClientId, this.parcelStateCache, this.statePersistQueue))
+    this.worldGridShard = new GridShard(
+      (id) => this.worldGetParcel(id),
+      (p, f) => this.worldGetFeature(p, f),
+      (id) => this.worldGetState(id),
+      (m) => this.worldPublishShardMessage(m),
+      GridSocket.noopLightmap,
+      GridSocket.noopLightmap,
+      (p, u) => this.worldAuthParcel(p, u),
+    )
 
     gridCluster.subscribe((message) => {
       if (message.payload.spaceId) {
@@ -120,7 +129,7 @@ export default class GridSocket {
 
       const spaceId: string | null = tryDetectSpaceId(req)
       if (spaceId) {
-        const spaceGridShard = this.ensureSpaceShard(gridCluster, spaceId)
+        const spaceGridShard = this.ensureSpaceShard(spaceId)
         spaceGridShard.addClient(client)
         this.patchSetByClientId.set(
           client.id,
@@ -214,6 +223,95 @@ export default class GridSocket {
     }, 2000)
   }
 
+  private static async noopLightmap(_parcelId: number): Promise<void> {}
+
+  private worldGetParcel(parcelId: number) {
+    return Parcel.loadRef(parcelId)
+  }
+
+  private async worldGetFeature(parcel: ParcelAuthRef, featureId: string): Promise<unknown | null> {
+    const full = await Parcel.load(parcel.id)
+    if (!full?.content?.features) return null
+    for (const feature of full.content.features) {
+      if (feature.uuid === featureId) return feature
+    }
+    return null
+  }
+
+  private worldGetState(parcelId: number) {
+    return Parcel.getState(parcelId)
+  }
+
+  private async worldPublishShardMessage(message: GridShardMessage): Promise<void> {
+    if (message.type === 'patchCreate') {
+      const patchSet = this.patchSetByClientId.get(message.payload.sender)
+      if (patchSet) {
+        patchSet.add(message.payload.parcelId, message.payload.patch)
+      } else {
+        log.error(`publishShardMessage() for world grid: no PatchSet found for client ID '${message.payload.sender}'!`)
+      }
+    } else if (message.type === 'patchStateCreate') {
+      const state = (await Parcel.getState(message.payload.parcelId)) || {}
+      Object.assign(state, message.payload.patch)
+      this.parcelStateCache.set(message.payload.parcelId, state)
+
+      if (!this.statePersistQueue.some((entry) => entry.type === 'parcel' && entry.parcelId === message.payload.parcelId)) {
+        this.statePersistQueue.push({ type: 'parcel', parcelId: message.payload.parcelId })
+      }
+    }
+
+    this.gridCluster.publish(message)
+  }
+
+  private worldAuthParcel(parcel: ParcelAuthRef, user: VoxelsUser | null): Promise<ParcelAuthResult> {
+    return authParcelFn(parcel, user)
+  }
+
+  private async spaceGetParcel(spaceId: string, parcelId: number): Promise<ParcelAuthRef | null> {
+    if (parcelId !== SINGLE_VALID_SPACE_PARCEL_ID) return null
+    return Space.loadRef(spaceId)
+  }
+
+  private async spaceGetFeature(spaceId: string, _parcel: ParcelAuthRef, featureId: string): Promise<unknown | null> {
+    const full = await Space.load(spaceId)
+    if (!full?.content?.features) return null
+    for (const feature of full.content.features) {
+      if (feature.uuid === featureId) return feature
+    }
+    return null
+  }
+
+  private spaceGetState(spaceId: string, _parcelId: number) {
+    return Space.getState(spaceId)
+  }
+
+  private async spacePublishShardMessage(spaceId: string, message: GridShardMessage): Promise<void> {
+    if (message.payload.parcelId !== SINGLE_VALID_SPACE_PARCEL_ID) return
+
+    if (message.type === 'patchCreate') {
+      const patchSet = this.patchSetByClientId.get(message.payload.sender)
+      if (patchSet) {
+        patchSet.add(message.payload.parcelId, message.payload.patch)
+      } else {
+        log.error(`publishShardMessage() for space ${spaceId} grid: no PatchSet found for client ID '${message.payload.sender}'!`)
+      }
+    } else if (message.type === 'patchStateCreate') {
+      const state = (await Space.getState(spaceId)) || {}
+      Object.assign(state, message.payload.patch)
+      this.spaceStateCache.set(spaceId, state)
+
+      if (!this.statePersistQueue.some((entry) => entry.type === 'space' && entry.spaceId === spaceId)) {
+        this.statePersistQueue.push({ type: 'space', spaceId })
+      }
+    }
+
+    this.gridCluster.publish(GridClusterMessage.withSpaceId(message, spaceId))
+  }
+
+  private spaceAuthParcel(parcel: ParcelAuthRef, user: VoxelsUser | null): Promise<ParcelAuthResult> {
+    return authSpace(parcel, user)
+  }
+
   removeClientsByWallet(wallet: string) {
     this.worldGridShard.removeClientsByWallet(wallet)
 
@@ -226,7 +324,7 @@ export default class GridSocket {
   // @TODO: Fix this, CURRENTLY UNUSED
   async updateAndSendLightmapStatus(spaceId: string | null, parcel: AbstractParcel, status: LightmapStatus): Promise<void> {
     if (spaceId) {
-      this.ensureSpaceShard(this.gridCluster, spaceId)
+      this.ensureSpaceShard(spaceId)
     }
 
     // await this.shardFor(spaceId)?.updateAndSendLightmapStatus(parcel, status)
@@ -240,12 +338,20 @@ export default class GridSocket {
     }
   }
 
-  private ensureSpaceShard(gridCluster: GridClusterMessageBroker, spaceId: string): GridShard {
+  private ensureSpaceShard(spaceId: string): GridShard {
     let spaceGridShard = this.spaceShardsBySpaceId.get(spaceId)
 
     if (!spaceGridShard) {
       log.debug(`creating shard for space '${spaceId}'`)
-      spaceGridShard = new GridShard(...createSpaceGridShardParameters(gridCluster, this.patchSetByClientId, this.spaceStateCache, this.statePersistQueue, spaceId))
+      spaceGridShard = new GridShard(
+        (id) => this.spaceGetParcel(spaceId, id),
+        (p, f) => this.spaceGetFeature(spaceId, p, f),
+        (id) => this.spaceGetState(spaceId, id),
+        (m) => this.spacePublishShardMessage(spaceId, m),
+        GridSocket.noopLightmap,
+        GridSocket.noopLightmap,
+        (p, u) => this.spaceAuthParcel(p, u),
+      )
       this.spaceShardsBySpaceId.set(spaceId, spaceGridShard)
     }
 
