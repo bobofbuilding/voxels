@@ -134,11 +134,7 @@ export default class ParcelScript {
     return this.avatarAttachmentManager.attachments.map((attachment) => {
       // only expose these avatar properties to the script
       return {
-        uuid: attachment.uuid,
-        wearable_id: attachment.wearable_id,
-        collection_id: attachment.collection_id || 1,
-        chain_id: attachment.chain_id || 1,
-        collection_address: attachment.collection_address || '',
+        wid: attachment.wid,
         bone: attachment.bone,
       }
     })

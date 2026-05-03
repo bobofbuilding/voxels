@@ -1,55 +1,64 @@
+import { debounce, truncate } from 'lodash'
+import pluralize from 'pluralize'
 import { Component, Fragment } from 'preact'
-import { Polygon } from '../../common/helpers/chain-helpers'
+import { SUPPORTED_CHAINS_BY_ID } from '../../common/helpers/chain-helpers'
 import { Collection, CollectionHelper } from '../../common/helpers/collections-helpers'
-import CollectiblesComponent from './components/collectibles'
-import { CollectionTabsNavigation } from './components/collections/collection-nav'
-import CollectionSettings from './components/collections/collection-settings'
+import { ssrFriendlyDocument } from '../../common/helpers/utils'
+import { CollectibleInfoRecord } from '../../common/messages/feature'
+import { isAddress } from 'ethers'
+import { bucketUrl, renderUrl } from './assets'
+import Image from './components/image'
+import Pagination from './components/pagination'
+import UploadButton from './components/upload-button'
 import { app, AppEvent } from './state'
-import UploadWearable from './upload-wearable'
+import { getWearableGif } from './helpers/wearable-helpers'
 
 export interface Props {
   path?: string
-  chain_identifier?: string
-  address?: string
   id?: string
-  collection?: Collection
 }
 
 export interface State {
   collection?: Collection
-  listings?: Array<any>
   signedIn: boolean
+  collectibles: any[]
+  page: number
+  loading?: boolean
+  sort?: string
+  asc?: boolean
+  search?: string
 }
+
+const NUM_PER_PAGE = 40
 
 export default class CollectionPage extends Component<Props, State> {
   constructor(props: Props) {
     super()
 
-    // SSR
-    const collection = props.collection
-
     this.state = {
-      collection: collection,
       signedIn: false,
+      page: 1,
+      collectibles: [],
+      sort: 'updated_at',
+      asc: false,
     }
   }
 
-  private get isMod() {
-    if (!app.signedIn) {
-      return false
-    }
-    return app.state.moderator
+  private get query() {
+    return this.state.search
   }
 
-  private get helper() {
-    return new CollectionHelper({ address: this.props.address, chain_identifier: this.props.chain_identifier })
+  private get creatorName() {
+    return this.isQueryAUser && this.state.collectibles?.length > 0 && this.state.collectibles[0]?.author_name !== 'null' ? this.state.collectibles[0]?.author_name : this.state.collectibles[0]?.author.substr(0, 8) + `...`
   }
 
-  private get isOwner() {
-    if (!this.state.collection || !app.signedIn) {
-      return false
-    }
-    return this.state.collection?.owner?.toLowerCase() == app.state.wallet?.toLowerCase()
+  private get isQueryAUser() {
+    const q = this.query
+    return !!isAddress(q!)
+  }
+
+  private get numberOfCollectibles() {
+    return this.state.collectibles?.length || 0
   }
 
   private get isSuppressed() {
@@ -69,83 +78,77 @@ export default class CollectionPage extends Component<Props, State> {
   }
 
   componentDidMount() {
-    app.on(AppEvent.Change, this.onAppChange)
     this.fetch()
   }
 
-  componentWillUnmount() {
-    app.removeListener(AppEvent.Change, this.onAppChange)
+  componentDidUpdate(_prevProps: Props, prevState: State) {
+    if (this.state.collection?.id !== prevState.collection?.id) {
+      this.fetch()
+    }
+  }
+
+  async fetch() {
+    this.setState({ loading: true })
+
+    const p = await fetch(`/api/collections/${this.props.id}`)
+    const { collection } = await p.json()
+    this.setState({ collection })
+
+    const f = await fetch(`/api/collections/${this.props.id}/collectibles`)
+    const { collectibles } = await f.json()
+    this.setState({ collectibles, loading: false })
+
+    console.log(this.state)
+  }
+
+  refetch = async () => {
+    const f = await fetch(`/api/collections/${this.props.id}/collectibles?nonce=${Date.now()}`)
+    const { collectibles } = await f.json()
+    this.setState({ collectibles, loading: false })
   }
 
   render() {
-    if (!this.state.collection) {
+    if (this.state.loading || !this.state.collection) {
       return <p>Loading...</p>
     }
 
-    if (this.isSuppressed) {
+    const collectibles = this.state.collectibles?.map((w: any) => {
+      const url = `/collections/${this.props.id}/collectibles/${w.token_id}`
+
+      const hasDescription = w.description && w.description != ''
+      const src = getWearableGif(w)
+      //let price = w.offer_prices && w.offer_prices[0]
+
       return (
-        <section>
-          <h4>This collection has been suppressed.</h4>
-        </section>
+        <div key={w.id}>
+          <a href={url}>
+            <Image type="wearable" src={bucketUrl(w.id!)} altsrc={renderUrl(w.id!)} />
+            <p>{truncate(w.name, { length: 40 })}</p>
+          </a>
+        </div>
       )
-    }
-
-    const imgSrc = this.state.collection?.image_url ?? `/images/default.png`
-
-    // Id for the meta header for Server side rendering
-    const metaId = this.props.chain_identifier + ':' + this.props.address?.toLowerCase()
-
-    const collection = this.state.collection
-
-    const isOwner = this.isOwner
+    })
+    // Placeholder is for the sake of UX when there is only 1 wearable in the grid. (flex-box)
+    const placeholder = <div></div>
 
     return (
       <section class="columns">
         <h1>{this.state.collection.name}</h1>
 
         <article>
-          {isOwner && (
-            <>
-              <UploadWearable collection={this.state.collection} path={`/collections/${this.helper.chainIdentifier}/${this.state.collection.address}/tab/upload`} />
-              <CollectionSettings collection={this.state.collection} onRefresh={this.fetch.bind(this)} path={`/collections/${this.helper.chainIdentifier}/${this.state.collection.address}/tab/admin`} />
-            </>
-          )}
-
-          <CollectiblesComponent
-            default
-            collection={this.state.collection}
-            paginationAPIName={`collections/${this.helper.chainIdentifier}/${this.state.collection.address}`}
-            listings={this.state.listings}
-            path={`/collections/${this.helper.chainIdentifier}/${this.state.collection.address}`}
-          />
+          <div class="wrap-grid">{collectibles}</div>
         </article>
 
         <aside>
           <p class="description">{this.state.collection.description}</p>
 
-          <CollectionTabsNavigation collection={this.state.collection} />
+          <UploadButton targetCollectionId={this.state.collection.id} onUpload={this.refetch} />
 
           <dl>
-            <dt>Address</dt>
-            <dd>
-              <a href={(this.state.collection?.chainid === Polygon ? 'https://polygonscan.com/address/' : 'https://etherscan.io/address/') + this.state.collection.address}>
-                {this.state.collection?.address?.slice(0, 6) + '...' + this.state.collection?.address?.slice(-4)}
-              </a>
-            </dd>
-            <dt>Slug</dt>
-            <dd>{this.state.collection?.slug}</dd>
-
-            <dt>Curator</dt>
+            <dt>Author</dt>
             <dd>
               <a href={`/avatar/${this.state.collection.owner}`}>{this.state.collection.owner_name ? this.state.collection.owner_name : this.state.collection.owner?.substring(0, 10) + '...' || ''}</a>
             </dd>
-
-            {collection.chainid! > 0 && (
-              <Fragment>
-                <dt>Blockchain</dt>
-                <dd>{this.state.collection.chainid == 1 ? 'Ethereum blockchain' : 'Polygon sidechain'}</dd>
-              </Fragment>
-            )}
 
             {this.publicCanSubmit && (
               <Fragment>
@@ -161,16 +164,8 @@ export default class CollectionPage extends Component<Props, State> {
               </Fragment>
             )}
           </dl>
-
-          <img src={imgSrc} />
         </aside>
       </section>
     )
-  }
-
-  private async fetch(cachebust = false) {
-    const f = await fetch(`/api/collections/${this.props.id}.json`)
-    const { collection } = await f.json()
-    this.setState({ collection })
   }
 }

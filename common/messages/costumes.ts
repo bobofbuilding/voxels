@@ -74,18 +74,14 @@ export const BoneNames: BoneNames[] = [
 export const CostumeAttachment = t.intersection(
   [
     t.type({
-      uuid: t.string,
       bone: t.string,
-      wearable_id: t.union([t.number, t.string]),
+      wid: t.string,
       position: t.array(t.number),
       rotation: t.array(t.number),
       scaling: t.array(t.number),
     }),
     t.partial({
-      name: t.string, // optional
-      collection_id: t.number,
-      chain_id: t.number,
-      collection_address: t.string,
+      name: t.string,
     }),
   ],
   'CostumeAttachment',

@@ -3,13 +3,14 @@ import { User } from './user'
 import Controls from './controls/controls'
 import { CAMERA_HEIGHT, coords, decodeCoords, encodeCoords } from '../common/helpers/utils'
 import Connector from './connector'
-import { Animations } from './avatar-animations'
+import { Animations, isCongaSyncedDance } from './avatar-animations'
 import * as States from './states'
 import { app, AppEvent } from '../web/src/state'
 import { LoadUserAvatar, UserAvatar } from './user-avatar'
 import type { Scene } from './scene'
 import { decodeCoordsFromURL } from './utils/helpers'
 import { wantsXR } from '../common/helpers/detector'
+import { Action } from '../common/messages'
 
 /**
  * The minimal representation of the persona which indicates if the avatar needs to be re-rendered.
@@ -174,12 +175,15 @@ export default class Persona {
       return
     }
     this.teleportNoHistory(coords)
+
     // add the previous location to history when teleporting
     const currentParcel = this.connector.currentOrNearestParcel()
     if (currentParcel) {
       const name = currentParcel.name || currentParcel.address
       window.history.pushState(encodeCoords(coords), name, window.location.href)
     }
+
+    this.connector.sendMetric(Action.Teleport)
   }
 
   // out of a restricted area.
@@ -238,6 +242,14 @@ export default class Persona {
     // if in third person mode, only set avatar direction when walking (so that the avatar isn't following the camera direction)
     if (this.firstPersonView || this.state[this.state.length - 1] instanceof States.Moving) {
       this.rotation.y = rotation.y
+    }
+
+    // Conga: copy dance/emote from the person in front; the leader's animation reaches the whole line via network hops.
+    if (this.connector.inConga && controls.congaTarget && !controls.congaTarget.isDisposed()) {
+      const frontAnim = controls.congaTarget.getTransform().animation
+      if (isCongaSyncedDance(frontAnim)) {
+        this._animation = frontAnim
+      }
     }
 
     //Directly call move avatar function to move current user avatar
