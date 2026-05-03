@@ -23,7 +23,10 @@ export const hasMetamask = (): boolean => {
  * @param provider A web3Provider.
  * @returns
  */
-export async function getUserAccounts(provider: MetaMaskInpageProvider): Promise<string[]> {
+export async function getUserAccounts(provider: MetaMaskInpageProvider | null | undefined): Promise<string[]> {
+  if (!provider || typeof (provider as { request?: unknown }).request !== 'function') {
+    return []
+  }
   let accounts: (string | undefined)[] = []
   try {
     // Try the good RPC method first, as per standards.
@@ -36,7 +39,7 @@ export async function getUserAccounts(provider: MetaMaskInpageProvider): Promise
     }
   } catch (e) {
     // User refused to link their wallet.
-    console.log('Coult not get user accounts\n', e)
+    console.log('Could not get user accounts\n', e)
     return []
   }
 

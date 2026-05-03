@@ -8,6 +8,7 @@ import Parcel, { PARCEL_EVENT_EMITTER } from './parcel'
 import BuildRequestHandler, { SpaceBuildRequestHandler } from './handlers/build-parcel'
 import queryParcel, { refreshParcelsByWallet } from './handlers/query-parcel'
 import { EmailCode, SignIn } from './handlers/sign-in'
+import { PasskeyAvailable, PasskeyLoginOptions, PasskeyLoginVerify, PasskeyRegisterOptions, PasskeyRegisterVerify } from './handlers/passkey'
 import updateParcel from './handlers/update-parcel'
 
 import { currentVersion } from '../common/version'
@@ -28,7 +29,7 @@ import EventsController from './controllers/parcel-events'
 import ParcelsController from './controllers/parcels'
 import PlayController from './controllers/play'
 import SpacesController from './controllers/spaces'
-import StatsController from './controllers/statistics'
+import MetricsController from './controllers/metrics'
 
 import cache, { defaultCache, noCache } from './cache'
 import db, { pgp } from './pg'
@@ -46,7 +47,6 @@ import AvatarsController from './controllers/avatars'
 import CostumesController from './controllers/costumes'
 import ExternalsController from './controllers/externals'
 import MailsController from './controllers/mails'
-import RealEstateController from './controllers/real-estate'
 import ModerationReportsController from './controllers/reports'
 import WompsController from './controllers/womps'
 import createGridSocket from './grid/createGridSocket'
@@ -54,6 +54,7 @@ import { searchAndReturn } from './handlers/search'
 import { EthereumListener } from './jobs/ethereum-listener'
 import cleanCollections from './jobs/remove-collections'
 import cleanMailBoxes from './jobs/remove-old-mails'
+import truncateMetrics from './jobs/truncate-metrics'
 import log from './lib/logger'
 import { createRequestHandlerForQuery } from './lib/query-helpers'
 import { getTypeOfContract } from './lib/utils'
@@ -208,17 +209,18 @@ if (config.isDevelopment) {
 } else {
   // Redirect root domain to www.
   app.use((req, res, next) => {
+    const CANONICAL = 'www.voxels.com'
     const host = req.hostname.toLowerCase()
 
     if (host === 'cryptovoxels.com' || host === 'www.cryptovoxels.com') {
       res.setHeader('Cache-Control', 'max-age=3600')
-      res.redirect(302, 'https://retro.voxels.com' + req.originalUrl)
+      res.redirect(302, `https://${CANONICAL}` + req.originalUrl)
       return
     }
 
-    if (host === 'voxels.com' || host === 'www.voxels.com') {
+    if (host === 'voxels.com' || host === 'retro.voxels.com') {
       res.setHeader('Cache-Control', 'max-age=3600')
-      res.redirect(302, 'https://retro.voxels.com' + req.originalUrl)
+      res.redirect(302, `https://${CANONICAL}` + req.originalUrl)
       return
     }
 
@@ -258,23 +260,6 @@ app.get(`/${currentVersion}-client.css`, cache('1 day'), (req, res) => {
   return res.sendFile(path.join(__dirname, '..', 'dist', `client.css`))
 })
 
-// Static files (need cloudfront over the front of the app so these
-// don't cause load on express)
-
-if (config.isUAT) {
-  app.use(function (req, res, next) {
-    res.set('X-Robots-Tag', 'noindex')
-    next()
-  })
-
-  app.use(
-    basicAuth({
-      users: { uat: 'snowcrash' },
-      challenge: true,
-    }),
-  )
-}
-
 app.use(
   expressStaticGzip(path.join(__dirname, '..', 'dist'), {
     enableBrotli: true,
@@ -311,6 +296,11 @@ const timeoutMiddleware = (delay: number) => (req: express.Request, res: express
 }
 app.post('/api/signin', signInRateLimit, timeoutMiddleware(5 * 60 * 60 * 1000), SignIn)
 app.post('/api/signin/code', signInRateLimit, timeoutMiddleware(5 * 60 * 60 * 1000), EmailCode)
+app.post('/api/passkey/available', signInRateLimit, PasskeyAvailable)
+app.post('/api/passkey/register/options', signInRateLimit, PasskeyRegisterOptions)
+app.post('/api/passkey/register/verify', signInRateLimit, PasskeyRegisterVerify)
+app.post('/api/passkey/login/options', signInRateLimit, PasskeyLoginOptions)
+app.post('/api/passkey/login/verify', signInRateLimit, PasskeyLoginVerify)
 
 // Search tool
 app.get('/api/search', searchAndReturn)
@@ -338,15 +328,15 @@ NftController(db, passport, app)
 // Scratchpad for all users
 ScratchpadController(app)
 
+// Metrics controller
+MetricsController(db, app)
+
 // Main client controller
 PlayController(db, passport, app)
 // parcels controller
 ParcelsController(db, passport, app)
 // Avatars controller
 AvatarsController(db, passport, app)
-
-// Mount real estate routes
-app.use('/api/real-estate', RealEstateController(pgp))
 
 // Costumes controller
 CostumesController(db, passport, app)
@@ -358,8 +348,6 @@ SpacesController(db, passport, app)
 CollectionsController(db, passport, app)
 // collectibles
 CollectiblesController(db, passport, app)
-//stats
-StatsController(db, passport, app)
 //Events
 EventsController(db, passport, app)
 // Emoji Badges
@@ -490,14 +478,6 @@ app.get('/grid/parcels/:id/at/:hash', async (req, res) => {
   }
 })
 
-app.get(
-  '/api/popular/parcels',
-  cache('10 minutes'),
-  createRequestHandlerForQuery(db, 'get-popular', 'traffics', (req) => {
-    return []
-  }),
-)
-
 // Islands baby!
 app.get('/api/islands.json', cache('30 minutes', true), createRequestHandlerForQuery(db, 'get-islands', 'islands'))
 app.get('/api/islands-metadata.json', cache('1 hour', true), createRequestHandlerForQuery(db, 'get-islands-metadata', 'islands'))
@@ -608,6 +588,12 @@ const master = () => {
   setTimeout(() => {
     setInterval(() => cleanCollections(), 1000 * 60 * 60 * 24)
     cleanCollections()
+  }, 1000)
+
+  // truncate the next-to-be-reused metrics table once per day
+  setTimeout(() => {
+    setInterval(() => truncateMetrics(), 1000 * 60 * 60 * 24)
+    truncateMetrics()
   }, 1000)
 
   EthereumListener()

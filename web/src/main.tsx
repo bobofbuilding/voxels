@@ -7,15 +7,16 @@ if (process.env.NODE_ENV === 'development') {
 import { Component, render } from 'preact'
 import { Route, Router, type RouterOnChangeArgs } from 'preact-router'
 
-import AccountCollectibles from '../account/collectibles'
 import NewSpace from '../account/new-space'
 import Asset from './asset'
 import Assets from './assets'
 import EditAsset from './assets/edit'
 import { SignIn } from './auth/login'
 import Avatar from './avatar'
+import Costumer from './costumer'
+import CollectionEditPage from './collection-edit'
 import CollectionPage from './collection'
-import Collections from './components/list-of-collections'
+import Collections from './collections'
 import Snackbar from './components/snackbar'
 import Conduct from './conduct'
 import EventPage from './event-page'
@@ -44,7 +45,6 @@ import WompsPage from './womps'
 import { useEffect, useState } from 'preact/hooks'
 import { JSXInternal } from 'preact/src/jsx'
 import IslandsAdmin from './admin/islands'
-import { NewParcels } from './new-parcels'
 import NotFound from './not-found'
 import { app, AppEvent } from './state'
 
@@ -85,7 +85,7 @@ const Main = () => {
   // Have server handle path="/parcels/:id/:visit"
   function handleRoute(e: RouterOnChangeArgs) {
     if (/^\/parcels\/\d+\/visit$/.test(e.url)) {
-      window.location.href = `${process.env.ASSET_PATH + e.url}`
+      window.location.href = e.url
     }
 
     setCurrentPath(e.url)
@@ -119,7 +119,6 @@ const Main = () => {
           <Parcels path="/parcels" />
           <Parcel path="/parcels/:id" />
           <Parcel path="/parcels/:id/:section" />
-          <NewParcels path="/new" />
 
           <Spaces path="/spaces" />
           <NewSpace path="/spaces/new" />
@@ -137,16 +136,20 @@ const Main = () => {
           <Avatar path="/u/:walletOrName" />
           <Avatar path="/u/:walletOrName/:tab?" />
 
+          <Costumer path="/costumer" />
+          <Costumer path="/costumer/:costumeId" />
+
           <Collections path="/collections" />
+          <CollectionEditPage path="/collections/:id/edit" />
           <CollectionPage path="/collections/:id" />
-          <Wearable path="/collections/:chain_identifier/:address/:token_id" />
+          <Wearable path="/collections/:cid/:address/:tid" />
 
           <Womp path="/womps/:id" />
           <EventPage path="/events/:id" />
           <Events path="/events" />
           <WompsPage path="/womps" />
 
-          <IslandsAdmin path="/admin/islands" />
+          <IslandsAdmin path="/propose/islands" />
         </Router>
         <Footer />
       </main>
@@ -204,7 +207,6 @@ function AccountRoutes(props: { path?: string }) {
   return (
     <Router>
       <Route path="/account/:tab?" component={Home} />
-      <AccountCollectibles path="/account/collectibles" />
     </Router>
   )
 }
