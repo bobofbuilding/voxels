@@ -5,12 +5,12 @@ import ParcelUserRight from './parcel-user-right'
 import { isCampusParcels, isCommonParcel, isCVTeam, isTestIsland } from './lib/helpers'
 import { countOwnedTokens_ERC721Contract, getBalanceOfToken_ERC1155Contract, getOwnerOfToken_ERC721Contract, TokenAddress } from './lib/utils'
 import db from './pg'
-import Parcel, { IParcelRef, ParcelRef } from './parcel'
+import Parcel, { ParcelAuthRef, ParcelRef } from './parcel'
 import { ethers } from 'ethers'
 import { VoxelsUser } from './user'
 import { FeatureRecord } from '../common/messages/feature'
 
-export default async function authParcel(parcel: IParcelRef, user: VoxelsUser | null): Promise<ParcelAuthResult> {
+export default async function authParcel(parcel: ParcelAuthRef, user: VoxelsUser | null): Promise<ParcelAuthResult> {
   const isOwnerSuspended = await Avatar.getSuspended(parcel.owner)
 
   let wallet: string | null = null
@@ -64,7 +64,7 @@ export default async function authParcel(parcel: IParcelRef, user: VoxelsUser | 
   }
 }
 
-export async function authSpace(space: IParcelRef, user: VoxelsUser | null): Promise<ParcelAuthResult> {
+export async function authSpace(space: ParcelAuthRef, user: VoxelsUser | null): Promise<ParcelAuthResult> {
   let wallet: string | null = null
   if (user && typeof user.wallet === 'string' && user.wallet.length === 42) {
     wallet = user.wallet.toLowerCase()

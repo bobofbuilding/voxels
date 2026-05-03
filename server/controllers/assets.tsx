@@ -19,8 +19,10 @@ import log from '../lib/logger'
 import { createRequestHandlerForQuery, queryAndCallback } from '../lib/query-helpers'
 import { parseQueryInt } from '../lib/query-parsing-helpers'
 import LibraryAsset from '../library-asset'
+import Collection from '../collection'
 import { Db, pgp } from '../pg'
 import { VoxelsUserRequest } from '../user'
+import Wearable, { WearableCategory } from '../wearable'
 
 // Configure multer for memory storage (or disk storage if you prefer)
 const upload = multer({
@@ -158,6 +160,40 @@ export default function AssetLibraryController(db: Db, passport: PassportStatic,
       return
     }
 
+    const collectionId = parseInt(req.body.collection_id, 10)
+    let wearable: any
+
+    if (ext === '.vox' && collectionId) {
+      const baseName = path.basename(req.file.originalname, ext)
+      const w = new Wearable({
+        name: baseName || req.file.originalname,
+        description: '',
+        author: wallet,
+        issues: 100000,
+        data: new Uint8Array(req.file.buffer),
+        collection_id: collectionId,
+        category: WearableCategory.Accessory,
+      })
+
+      try {
+        var wr = await w.create()
+      } catch (e) {
+        next(e)
+        return
+      }
+
+      if (wr.success) {
+        await w.generateTokenId()
+      }
+
+      wearable = {
+        id: w.id,
+        name: w.name,
+        description: w.description,
+        collection_id: w.collection_id,
+      }
+    }
+
     res.json({
       success: true,
       asset: {
@@ -166,6 +202,7 @@ export default function AssetLibraryController(db: Db, passport: PassportStatic,
         author: wallet,
         content: content,
       },
+      wearable,
     })
   })
 
