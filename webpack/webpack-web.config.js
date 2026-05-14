@@ -19,6 +19,8 @@ module.exports = (env, argv) => {
     entry: './web/src/main.tsx',
     devServer: {
       port: 9200,
+      // preact-router paths like /parcels/:id are client-side; serve index.html for deep links.
+      historyApiFallback: true,
       // Local web UI uses /api/* relative URLs; forward to prod so parcel pages work without a local DB.
       proxy: [
         {
