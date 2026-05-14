@@ -19,6 +19,15 @@ module.exports = (env, argv) => {
     entry: './web/src/main.tsx',
     devServer: {
       port: 9200,
+      // Local web UI uses /api/* relative URLs; forward to prod so parcel pages work without a local DB.
+      proxy: [
+        {
+          context: ['/api'],
+          target: 'https://www.voxels.com',
+          changeOrigin: true,
+          secure: true,
+        },
+      ],
     },
     externals: {
       babylonjs: 'babylonjs',
