@@ -32,7 +32,6 @@ export interface Props {
 export interface State {
   collectible: CollectibleRecord
   balance: number
-  wearableStats?: { num_worn?: string; bone?: string; num_worn_distinct?: string }
   isCollectionOwner: boolean
   ownersOwnsAll: boolean
   ownersCachebuster?: number
@@ -67,14 +66,6 @@ export default class Wearable extends Component<Props, State> {
 
   get wearable(): WearableHelper {
     return new WearableHelper(this.state.collectible)
-  }
-
-  get number_wearing(): string {
-    return this.state.wearableStats?.num_worn_distinct ?? '0'
-  }
-
-  get commonly_worn_on(): string | null {
-    return this.state.wearableStats?.bone ?? null
   }
 
   get isMod() {
@@ -152,14 +143,6 @@ export default class Wearable extends Component<Props, State> {
             this.viewer?.loadHash(this.wearable.hash)
           }
           this.getBalance(true)
-        })
-
-        return fetchAPI(`/api/wearables/stats/${this.props.token_id}.json?collection_id=${collectible.collection_id}`).then((statsResponseData) => {
-          let stats = {}
-          if (statsResponseData.success && statsResponseData.stats.length > 0) {
-            stats = statsResponseData.stats[0]
-          }
-          this.setState({ wearableStats: stats })
         })
       })
       .catch((err) => {
@@ -262,10 +245,6 @@ export default class Wearable extends Component<Props, State> {
               <dd>{this.props.token_id}</dd>
               <dt>Issues</dt>
               <dd>{this.wearable.issues}</dd>
-              <dt># Wearing</dt>
-              <dd>{this.number_wearing}</dd>
-              <dt>Commonly worn on</dt>
-              <dd>{this.commonly_worn_on ?? '-'}</dd>
               <dt>Description</dt>
               <dd>{this.wearable.description}</dd>
             </dl>

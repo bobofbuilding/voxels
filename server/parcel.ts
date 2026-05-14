@@ -80,7 +80,6 @@ export const PARCEL_EVENT_EMITTER: ParcelEventEmitter = new ParcelEventEmitterIn
 
 export type LightmapStatus = 'None' | 'Requested' | 'Baking' | 'Baked' | 'Failed' | 'HashMismatch'
 
-export type IParcelRef = ParcelRef
 export class ParcelRef {
   id: number
   name: string
@@ -118,7 +117,7 @@ export type ParcelSaveOptions = {
   snapshotName?: string
 }
 
-export abstract class AbstractParcel implements IParcelRef {
+export abstract class AbstractParcel implements ParcelRef {
   id!: number
   spaceId: string | undefined
   height!: number
@@ -587,6 +586,8 @@ export abstract class AbstractParcel implements IParcelRef {
     return { shouldUpdateMeta, shouldUpdateParcelScript }
   }
 }
+
+export type ParcelAuthRef = ParcelRef | AbstractParcel
 
 // Automatically sets visible = true if the parcel _justGotMinted.
 export default class Parcel extends AbstractParcel {
