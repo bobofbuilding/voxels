@@ -28,7 +28,7 @@ import EventsController from './controllers/parcel-events'
 import ParcelsController from './controllers/parcels'
 import PlayController from './controllers/play'
 import SpacesController from './controllers/spaces'
-import StatsController from './controllers/statistics'
+import MetricsController from './controllers/metrics'
 
 import cache, { defaultCache, noCache } from './cache'
 import db, { pgp } from './pg'
@@ -46,7 +46,6 @@ import AvatarsController from './controllers/avatars'
 import CostumesController from './controllers/costumes'
 import ExternalsController from './controllers/externals'
 import MailsController from './controllers/mails'
-import RealEstateController from './controllers/real-estate'
 import ModerationReportsController from './controllers/reports'
 import WompsController from './controllers/womps'
 import createGridSocket from './grid/createGridSocket'
@@ -208,17 +207,18 @@ if (config.isDevelopment) {
 } else {
   // Redirect root domain to www.
   app.use((req, res, next) => {
+    const CANONICAL = 'www.voxels.com'
     const host = req.hostname.toLowerCase()
 
     if (host === 'cryptovoxels.com' || host === 'www.cryptovoxels.com') {
       res.setHeader('Cache-Control', 'max-age=3600')
-      res.redirect(302, 'https://retro.voxels.com' + req.originalUrl)
+      res.redirect(302, `https://${CANONICAL}` + req.originalUrl)
       return
     }
 
-    if (host === 'voxels.com' || host === 'www.voxels.com') {
+    if (host === 'voxels.com') {
       res.setHeader('Cache-Control', 'max-age=3600')
-      res.redirect(302, 'https://retro.voxels.com' + req.originalUrl)
+      res.redirect(302, `https://${CANONICAL}` + req.originalUrl)
       return
     }
 
@@ -338,15 +338,15 @@ NftController(db, passport, app)
 // Scratchpad for all users
 ScratchpadController(app)
 
+// Metrics controller
+MetricsController(db, app)
+
 // Main client controller
 PlayController(db, passport, app)
 // parcels controller
 ParcelsController(db, passport, app)
 // Avatars controller
 AvatarsController(db, passport, app)
-
-// Mount real estate routes
-app.use('/api/real-estate', RealEstateController(pgp))
 
 // Costumes controller
 CostumesController(db, passport, app)
@@ -358,8 +358,6 @@ SpacesController(db, passport, app)
 CollectionsController(db, passport, app)
 // collectibles
 CollectiblesController(db, passport, app)
-//stats
-StatsController(db, passport, app)
 //Events
 EventsController(db, passport, app)
 // Emoji Badges
@@ -489,14 +487,6 @@ app.get('/grid/parcels/:id/at/:hash', async (req, res) => {
     res.json({ success: true, parcel: summary })
   }
 })
-
-app.get(
-  '/api/popular/parcels',
-  cache('10 minutes'),
-  createRequestHandlerForQuery(db, 'get-popular', 'traffics', (req) => {
-    return []
-  }),
-)
 
 // Islands baby!
 app.get('/api/islands.json', cache('30 minutes', true), createRequestHandlerForQuery(db, 'get-islands', 'islands'))
