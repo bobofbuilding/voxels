@@ -355,86 +355,45 @@ export default class Showbox extends Feature2D<ShowboxRecord> {
     const showCoords = encodeCoords({ position: showPos, rotation: new BABYLON.Vector3(0, 0, 0) })
     const showUrl = `${window.location.origin}/play?coords=${encodeURIComponent(showCoords)}`
 
-    // Mobile: short-circuit. WebRTC broadcasting from a phone while running the 3D engine is fragile,
-    // and a cramped popup is worse than a clean "open this on desktop" notice. Audience is mobile-fine;
-    // broadcasters need a real computer.
+    const panel = document.createElement('div')
+    this.broadcastPanel = panel
+    // Same DOM structure for desktop + mobile, just different container shape:
+    // desktop = 340px right-side dock; mobile = full-screen takeover.
     if (mobile) {
-      const panel = document.createElement('div')
-      this.broadcastPanel = panel
       Object.assign(panel.style, {
         position: 'fixed',
         zIndex: '999999',
         inset: '0',
         background: '#0d0d0d',
         color: '#f5f5f0',
-        padding: '2rem 1.25rem',
+        padding: '1.25rem',
         display: 'flex',
         flexDirection: 'column',
-        gap: '1rem',
+        gap: '0.75rem',
+        overflowY: 'auto',
         fontFamily: '"Source Code Pro", monospace',
         fontSize: '15px',
       })
-
-      const title = document.createElement('div')
-      title.textContent = 'Showbox'
-      Object.assign(title.style, { fontWeight: 'bold', fontSize: '18px' })
-
-      const msg = document.createElement('div')
-      msg.textContent = 'broadcasting needs a real keyboard, camera, and a stable upload. open this link on your desktop:'
-      msg.style.lineHeight = '1.4'
-
-      const linkInput = document.createElement('input')
-      linkInput.type = 'text'
-      linkInput.readOnly = true
-      linkInput.value = window.location.href
-      Object.assign(linkInput.style, { width: '100%', background: '#1a1a1a', color: '#f5f5f0', border: '1px solid #333', padding: '12px', fontFamily: 'inherit', fontSize: '14px' })
-      linkInput.onclick = () => linkInput.select()
-
-      const copyBtn = document.createElement('button')
-      copyBtn.textContent = 'copy link'
-      Object.assign(copyBtn.style, { background: '#dc1e1e', color: '#f5f5f0', border: '0', padding: '14px 16px', cursor: 'pointer', fontFamily: 'inherit', fontSize: '15px', minHeight: '48px' })
-      copyBtn.onclick = () => {
-        navigator.clipboard.writeText(window.location.href).catch(() => {})
-        copyBtn.textContent = 'copied - now open on desktop'
-      }
-
-      const hint = document.createElement('div')
-      hint.textContent = 'audience can stay on mobile - they just watch and chat.'
-      Object.assign(hint.style, { color: '#888', fontSize: '13px' })
-
-      const closeBtn = document.createElement('button')
-      closeBtn.textContent = 'close'
-      Object.assign(closeBtn.style, { background: '#333', color: '#f5f5f0', border: '0', padding: '12px 16px', cursor: 'pointer', fontFamily: 'inherit', fontSize: '15px', minHeight: '44px' })
-      closeBtn.onclick = () => {
-        panel.remove()
-        this.broadcastPanel = null
-      }
-
-      panel.append(title, msg, linkInput, copyBtn, hint, closeBtn)
-      document.body.appendChild(panel)
-      return
+    } else {
+      Object.assign(panel.style, {
+        position: 'fixed',
+        zIndex: '999999',
+        top: '12px',
+        right: '12px',
+        background: '#0d0d0d',
+        color: '#f5f5f0',
+        padding: '1rem',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '0.75rem',
+        width: '340px',
+        maxHeight: 'calc(100vh - 24px)',
+        overflowY: 'auto',
+        fontFamily: '"Source Code Pro", monospace',
+        fontSize: '13px',
+        boxShadow: '0 4px 24px rgba(0,0,0,0.6)',
+      })
     }
-
-    const panel = document.createElement('div')
-    this.broadcastPanel = panel
-    Object.assign(panel.style, {
-      position: 'fixed',
-      zIndex: '999999',
-      top: '12px',
-      right: '12px',
-      background: '#0d0d0d',
-      color: '#f5f5f0',
-      padding: '1rem',
-      display: 'flex',
-      flexDirection: 'column',
-      gap: '0.75rem',
-      width: '340px',
-      maxHeight: 'calc(100vh - 24px)',
-      overflowY: 'auto',
-      fontFamily: '"Source Code Pro", monospace',
-      fontSize: '13px',
-      boxShadow: '0 4px 24px rgba(0,0,0,0.6)',
-    })
 
     const title = document.createElement('div')
     title.textContent = 'Showbox'
@@ -455,6 +414,7 @@ export default class Showbox extends Feature2D<ShowboxRecord> {
     const screenChk = document.createElement('input')
     screenChk.type = 'checkbox'
     screenOpt.append(screenChk, ' use screenshare instead of camera')
+    if (mobile) screenOpt.style.display = 'none' // screenshare from a phone is unreliable; stick to the camera
 
     // Identity row. Owners are signed in with their voxels profile, so this is read-only for them.
     // Guests came in via /live/:token with whatever name the owner typed - let them tweak it before the show.
@@ -719,12 +679,14 @@ export default class Showbox extends Feature2D<ShowboxRecord> {
         if (videoTrack) {
           const previewWrap = document.createElement('div')
           previewWrap.dataset.dot = '1'
-          Object.assign(previewWrap.style, { position: 'relative', width: '100%', aspectRatio: '16 / 9', background: '#000', overflow: 'hidden' })
+          Object.assign(previewWrap.style, { position: 'relative', width: '100%', aspectRatio: mobile ? '9 / 16' : '16 / 9', maxHeight: mobile ? '50vh' : 'none', background: '#000', overflow: 'hidden' })
           const previewVideo = videoTrack.attach() as HTMLVideoElement
           previewVideo.muted = true // critical - never echo the broadcaster's own voice back at them
           previewVideo.volume = 0
           previewVideo.playsInline = true
-          Object.assign(previewVideo.style, { width: '100%', height: '100%', objectFit: 'cover', display: 'block' })
+          // Desktop cams are landscape (cover crops slightly) - mobile cams are usually portrait
+          // (contain avoids cropping the broadcaster's face).
+          Object.assign(previewVideo.style, { width: '100%', height: '100%', objectFit: mobile ? 'contain' : 'cover', display: 'block' })
           const previewLabel = document.createElement('div')
           previewLabel.textContent = 'what your audience sees'
           Object.assign(previewLabel.style, { position: 'absolute', top: '4px', left: '6px', color: '#f5f5f0', fontSize: '11px', background: 'rgba(0,0,0,0.6)', padding: '2px 6px' })
