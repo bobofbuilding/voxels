@@ -497,7 +497,7 @@ export default class Showbox extends Feature2D<ShowboxRecord> {
     const shareRow = document.createElement('div')
     Object.assign(shareRow.style, { display: 'none', flexDirection: 'column', gap: '4px', borderTop: '1px solid #222', borderBottom: '1px solid #222', padding: '8px 0' })
     const shareLabel = document.createElement('label')
-    shareLabel.textContent = 'audience link'
+    shareLabel.textContent = 'show link - share with your fans'
     shareLabel.style.color = '#888'
     const shareInput = document.createElement('input')
     shareInput.type = 'text'
@@ -1034,9 +1034,9 @@ class GuestPasses extends Component<{ feature: Showbox }, { passes: Pass[]; load
         <small>One-tap broadcast link for someone without a voxels account - artists, speakers, anyone you invite. They pick their own name when they open the link. No voxels account needed.</small>
 
         <div className="f">
-          <label>audience link</label>
+          <label>show link - share with your fans</label>
           <input type="text" readOnly value={this.showUrl()} onClick={(e) => (e.currentTarget as HTMLInputElement).select()} />
-          <small>Normal voxels url for x / instagram. No special flags.</small>
+          <small>Normal voxels url. Post on x or instagram so fans can find the show.</small>
         </div>
 
         <div className="f">
