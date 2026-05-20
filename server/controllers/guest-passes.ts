@@ -32,13 +32,10 @@ function isMobileUserAgent(ua: string): boolean {
   return /mobile|android|iphone|ipad|ipod/i.test(ua)
 }
 
-function guestPlayRedirectQuery(parcelLocation: string, featureUuid: string, userAgent: string): string {
-  const qs = new URLSearchParams({ coords: parcelLocation, show: featureUuid })
-  if (isMobileUserAgent(userAgent)) {
-    qs.set('isolate', 'true')
-    qs.set('distance', 'close')
-    qs.set('ui', 'off')
-  }
+// Broadcaster preview session only (/live/:token -> /play). Not for audience share links.
+function guestBroadcastPlayQuery(parcelLocation: string, featureUuid: string, userAgent: string): string {
+  const qs = new URLSearchParams({ coords: parcelLocation, show: featureUuid, isolate: 'true', distance: 'close' })
+  if (isMobileUserAgent(userAgent)) qs.set('ui', 'off')
   return qs.toString()
 }
 
@@ -215,7 +212,7 @@ export default function GuestPassesController(db: Db, passport: PassportStatic, 
       .sign(JWT_SECRET_KEY)
 
     res.cookie('jwt', jwt, { maxAge: GUEST_JWT_TTL_SECONDS * 1000, httpOnly: false, sameSite: 'lax' })
-    const playQs = guestPlayRedirectQuery(parcel.location, pass.feature_uuid, String(req.headers['user-agent'] ?? ''))
+    const playQs = guestBroadcastPlayQuery(parcel.location, pass.feature_uuid, String(req.headers['user-agent'] ?? ''))
     res.redirect(302, `/play?${playQs}`)
   })
 }
