@@ -1,4 +1,5 @@
 import { BoomboxRecord } from '../../common/messages/feature'
+import { voxImporter } from '../../common/vox-import/vox-import'
 import { Position, Rotation, Script } from '../../web/src/components/editor'
 import { AudioBus } from '../audio/audio-engine'
 import Avatar from '../avatar'
@@ -69,7 +70,7 @@ export default class Boombox extends Feature3D<BoomboxRecord> {
   }
 
   async generate() {
-    this.mesh = await this.scene.importVox(process.env.ASSET_PATH + '/models/pa_and_mic.vox', { signal: this.abortController.signal })
+    this.mesh = await voxImporter().import(process.env.ASSET_PATH + '/models/pa_and_mic.vox', { signal: this.abortController.signal })
     this.mesh.isPickable = true
     this.mesh.onAfterWorldMatrixUpdateObservable.add(this.updateAfterWorldOffsetChange)
     this.mesh.name = this.uniqueEntityName('mesh')

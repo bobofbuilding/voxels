@@ -177,7 +177,7 @@ export default class PolytextV2 extends NonMeshedFeature<PolytextV2Record> {
       // Create per-instance DirectionalLight (like original polytext) instead of global light
       // This provides proper shading without affecting other scene meshes
       let lightValue = 0.95
-      if (this.scene.environment?.timeOfDay == TimeOfDay.Night) {
+      if (window.environment?.timeOfDay == TimeOfDay.Night) {
         lightValue = 0.01
       }
 

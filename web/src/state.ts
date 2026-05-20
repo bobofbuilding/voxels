@@ -2,15 +2,17 @@ import { signal } from '@preact/signals'
 import { EventEmitter } from 'events'
 import Cookies from 'js-cookie'
 import { decodeJwt } from 'jose'
-import { ApiAvatar, ApiAvatarMessage } from '../../common/messages/api-avatars'
-import { validateMessageResponse } from '../../common/messages/validate'
+import { ApiAvatar, type ApiAvatarMessage } from '../../common/messages/api-avatars'
+import type { AvatarRef } from '../../common/messages/avatar-ref'
 import Snackbar from './components/snackbar'
-import { fetchAPI } from './utils'
 
-const NAME_KEY = 'cv-name-key'
+const jsonHeaders = {
+  Accept: 'application/json, text/plain, */*',
+  'Content-Type': 'application/json',
+}
 
 export interface Message {
-  type: 'visit' | 'chat' | 'join' | 'leave' | 'navigate' | 'teleport'
+  type: 'visit' | 'chat' | 'join' | 'leave' | 'navigate' | 'teleport' | 'reconnect'
   sender?: string
   createdAt?: Date
   data?: string
@@ -30,6 +32,7 @@ export enum AppEvent {
   Login = 'login',
   Logout = 'logout',
   AvatarLoad = 'avatar-load', // event for when we got all the user info from the db
+  ErrorLogin = 'error-login',
   Change = 'change',
   ProviderMessage = 'provider-message',
 }
@@ -55,6 +58,7 @@ export interface RequestArguments {
 class State extends EventEmitter {
   state: StateObject
   stateLoadedCallbacks: Array<(state: StateObject) => void> = []
+  avatarRef: AvatarRef = 'anon'
 
   constructor() {
     super()
@@ -115,6 +119,7 @@ export class Appstate extends State {
     return VOXELS_TEAM.includes(this.state.wallet?.toLowerCase() ?? '')
   }
 
+
   get hasMetamask(): boolean {
     return !!window.ethereum && window.ethereum?.isMetaMask
   }
@@ -135,12 +140,22 @@ export class Appstate extends State {
     return this.state.wallet
   }
 
+  isOwner(ref: AvatarRef | null | undefined): boolean {
+    if (!this.state.wallet || !ref) return false
+    const w = typeof ref === 'object' ? ref.owner : ref
+    return w.toLowerCase() === this.state.wallet.toLowerCase()
+  }
+
   onStorage = (e: StorageEvent) => {
     if (e.key == MESSAGE_CHANNEL && e.newValue) {
       const msg = JSON.parse(e.newValue) as Message
       if (msg.type == 'teleport' && msg.data?.match('/play')) {
         const coords = msg.data.slice(5)
         window.persona.teleport(coords)
+      }
+      if (msg.type == 'reconnect') {
+        this.loadAvatar()
+          ; (window as any).connector?.reconnect()
       }
     }
   }
@@ -184,6 +199,8 @@ export class Appstate extends State {
         console.debug('Signin, ', resultPing)
         return this.signout()
       }
+
+      await this.loadAvatar()
     } catch (e) {
       console.debug('Signin error, ', e)
       this.signout()
@@ -211,8 +228,7 @@ export class Appstate extends State {
   }
 
   signout() {
-    this.localStorage?.removeItem(NAME_KEY)
-    this.localStorage?.removeItem('cv-wearables-owned') // remove localstorage for wearables owned
+    this.localStorage?.removeItem('cv-wearables-owned')
 
     Cookies.remove('jwt')
 
@@ -251,7 +267,7 @@ export class Appstate extends State {
       console.log('no wallet in updateLastOnline')
       return
     }
-    fetchAPI(`/api/avatar/${this.state?.wallet}/online`, { method: 'POST' }).catch(console.error)
+    fetch(`/api/avatar/${this.state?.wallet}/online`, { method: 'POST', credentials: 'include' }).catch(console.error)
   }
 
   async onLoad() {
@@ -270,12 +286,17 @@ export class Appstate extends State {
     }
 
     const res = await fetch(url)
-    const data = await validateMessageResponse(ApiAvatarMessage)(res)
+    if (!res.ok) throw res
+    const data = (await res.json()) as ApiAvatarMessage
 
     const name = data.avatar?.name ?? undefined // || (data.avatar?.owner && data.avatar?.owner?.slice(0, 10) + '...') || 'anonymous'
     const moderator = (data.avatar && data.avatar.moderator) || false
     const costume = (data.avatar && data.avatar.costume) || {}
     const settings = (data.avatar && data.avatar.settings) || {}
+
+    if (data.avatar?.id) {
+      this.avatarRef = { id: data.avatar.id, name: data.avatar.name!, owner: data.avatar.owner, created_at: data.avatar.created_at! }
+    }
 
     this.setState({ name, moderator, costume, settings, loading: false })
     this.emit(AppEvent.AvatarLoad)
@@ -311,14 +332,43 @@ export class Appstate extends State {
     })
   }
 
+  onToken(key: string, name: string | null, isNewUser: boolean): void {
+    const payload = decodeJwt(key) as any
+    if (!payload || typeof payload !== 'object') {
+      console.error('Invalid JWT')
+      return
+    }
+    const wallet = payload.wallet.toLowerCase()
+    this.setState({ key, name: name ?? undefined, wallet })
+    this.loadAvatar()
+    this.emit(AppEvent.Login, isNewUser)
+  }
+
+  async emailSignin(email: string, code: string): Promise<{ token: string; name: string | null; isNewUser: boolean } | null> {
+    let f
+    try {
+      f = await fetch(`${process.env.API}/signin`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: jsonHeaders,
+        body: JSON.stringify({ email, code }),
+      })
+    } catch {
+      this.emit(AppEvent.ErrorLogin)
+      console.error('Network Error, please try again a few minutes')
+      return null
+    }
+    const r = (await f.json()) as { success: boolean; name: string | null; token: string; isNewUser: boolean }
+    if (!r.success) {
+      this.emit(AppEvent.ErrorLogin)
+      return null
+    }
+    return { token: r.token, name: r.name, isNewUser: r.isNewUser }
+  }
+
   private async _initiate() {
     if (!document['addEventListener']) {
       return
-    }
-
-    const name = this.localStorage?.getItem(NAME_KEY)
-    if (name) {
-      this.setState({ name })
     }
 
     try {

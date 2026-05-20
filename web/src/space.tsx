@@ -8,7 +8,6 @@ import EditableDescription from './components/Editable/editable-description'
 import { copyTextToClipboard, ssrFriendlyDocument } from '../../common/helpers/utils'
 import WompsList from './womps-list'
 import LoadingIcon from './components/loading-icon'
-import ParcelAdminPanel from './components/parcel-admin'
 import { SpaceRecord } from '../../common/messages/space'
 import Head from './components/head'
 
@@ -66,7 +65,7 @@ export default class Space extends Component<Props, State> {
     if (!app.signedIn) {
       return false
     }
-    return !!this.state.space && this.state.space.owner.toLowerCase() === app.state.wallet?.toLowerCase()
+    return app.isOwner(this.state.space?.owner)
   }
 
   get visitUrl() {
@@ -173,19 +172,19 @@ export default class Space extends Component<Props, State> {
             </script>
           </Head>
 
+          <figcaption>
+            <PlayButton url={this.helper!.visitUrl} />
+          </figcaption>
+
           <figure>
             <iframe
               id="ParcelorbitView"
-              onLoad={frameLoaded}
               ref={(c) => {
                 this.iframe = c!
               }}
               scrolling="no"
               src={this.helper?.orbitUrl}
             />
-            <figcaption>
-              <PlayButton url={this.helper!.visitUrl} />
-            </figcaption>
           </figure>
 
           {(this.isOwner && (
@@ -221,15 +220,9 @@ export default class Space extends Component<Props, State> {
             </dd>
           </dl>
 
-          <ParcelAdminPanel parcelOrSpace={space} onSave={this.refreshIframe.bind(this)} />
+          {this.isOwner && <a href={`/spaces/${space.id}/edit`}>Edit</a>}
         </aside>
       </section>
     )
-  }
-}
-
-function frameLoaded(e: Event) {
-  if (e.target instanceof HTMLIFrameElement) {
-    e.target.classList.add('-loaded')
   }
 }

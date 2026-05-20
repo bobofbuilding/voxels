@@ -1,3 +1,4 @@
+import { voxImporter } from '../../common/vox-import/vox-import'
 import { Feature3D } from './feature'
 import { Advanced, FeatureEditor, FeatureEditorProps, FeatureID, SetParentDropdown, Sound, Toolbar, UuidReadOnly } from '../ui/features'
 import { ButtonRecord } from '../../common/messages/feature'
@@ -29,7 +30,7 @@ export default class Button extends Feature3D<ButtonRecord> {
       url += `-${this.description.color}`
     }
 
-    const mesh = await this.scene.importVox(process.env.ASSET_PATH + '/models/' + url + '.vox', { signal: this.abortController.signal })
+    const mesh = await voxImporter().import(process.env.ASSET_PATH + '/models/' + url + '.vox', { signal: this.abortController.signal })
     mesh.isPickable = true
 
     // we wait until after vox import has finished before destroying the previous one to make sure

@@ -1,22 +1,17 @@
 import * as t from 'io-ts'
 import { ParcelGeometry } from './parcel'
-
-export const EventCategories = ['session', 'exhibition'] as const
-export const EventCategory = t.union([t.literal('session'), t.literal('exhibition')])
-export type EventCategory = t.TypeOf<typeof EventCategory>
+import { avatarRefCodec } from './avatar-ref'
 
 export const Event = t.type({
   id: t.number,
   parcel_id: t.number,
-  author: t.string,
-  author_name: t.string,
+  author: avatarRefCodec,
   name: t.string,
-  category: t.union([EventCategory, t.undefined]),
   description: t.string,
+  location: t.union([t.string, t.undefined]),
   color: t.string,
   parcel_name: t.string,
-  parcel_owner: t.string,
-  parcel_owner_name: t.string,
+  parcel_owner: avatarRefCodec,
   parcel_address: t.string,
   parcel_description: t.string,
   geometry: t.union([ParcelGeometry, t.undefined]),
@@ -30,6 +25,7 @@ export const Event = t.type({
   timezone: t.string,
   starts_at: t.string,
   expires_at: t.string,
+  created_at: t.union([t.string, t.undefined]),
 })
 
 export type Event = t.TypeOf<typeof Event>

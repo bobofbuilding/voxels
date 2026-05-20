@@ -1,3 +1,4 @@
+import { voxImporter } from '../../common/vox-import/vox-import'
 import { Feature3D } from './feature'
 import { Advanced, Animation, FeatureEditor, FeatureEditorProps, Toolbar, UuidReadOnly } from '../ui/features'
 import Panel, { PanelType } from '../../web/src/components/panel'
@@ -181,7 +182,7 @@ export default class PoapDispenser extends Feature3D<PoapDispenserRecord> {
       }
     }
 
-    this.mesh = await this.scene.importVox(process.env.ASSET_PATH + '/models/poap.vox', { signal: this.abortController.signal })
+    this.mesh = await voxImporter().import(process.env.ASSET_PATH + '/models/poap.vox', { signal: this.abortController.signal })
     this.mesh.isPickable = true
     this.mesh.name = this.uniqueEntityName('mesh')
     this.mesh.id = this.mesh.name

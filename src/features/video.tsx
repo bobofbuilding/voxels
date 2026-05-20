@@ -297,7 +297,7 @@ export default class Video extends Feature2D<VideoRecord> implements AudioFeatur
   }
 
   onEnter = () => {
-    if (!this.autoplay || this.scene.config.isOrbit) {
+    if (!this.autoplay || window.config.isOrbit) {
       return
     }
     if (isBatterySaver()) {

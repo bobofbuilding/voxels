@@ -1,91 +1,87 @@
 import * as t from 'io-ts'
 
 export type BoneNames =
-  | 'Hips'
-  | 'Spine'
-  | 'Spine1'
-  | 'Spine2'
-  | 'Neck'
-  | 'Head'
-  | 'HeadTop_End'
-  | 'LeftShoulder'
-  | 'LeftArm'
-  | 'LeftForeArm'
-  | 'LeftHand'
-  | 'LeftHandIndex1'
-  | 'LeftHandIndex2'
-  | 'LeftHandIndex3'
-  | 'LeftHandIndex4'
-  | 'RightShoulder'
-  | 'RightArm'
-  | 'RightForeArm'
-  | 'RightHand'
-  | 'RightHandIndex1'
-  | 'RightHandIndex2'
-  | 'RightHandIndex3'
-  | 'RightHandIndex4'
-  | 'LeftUpLeg'
-  | 'LeftLeg'
-  | 'LeftFoot'
-  | 'LeftToeBase'
-  | 'LeftToe_End'
-  | 'RightUpLeg'
-  | 'RightLeg'
-  | 'RightFoot'
-  | 'RightToeBase'
-  | 'RightToe_End'
+  | 'hips'
+  | 'spine'
+  | 'spine1'
+  | 'spine2'
+  | 'neck'
+  | 'head'
+  | 'headtop_end'
+  | 'leftshoulder'
+  | 'leftarm'
+  | 'leftforearm'
+  | 'lefthand'
+  | 'lefthandindex1'
+  | 'lefthandindex2'
+  | 'lefthandindex3'
+  | 'lefthandindex4'
+  | 'rightshoulder'
+  | 'rightarm'
+  | 'rightforearm'
+  | 'righthand'
+  | 'righthandindex1'
+  | 'righthandindex2'
+  | 'righthandindex3'
+  | 'righthandindex4'
+  | 'leftupleg'
+  | 'leftleg'
+  | 'leftfoot'
+  | 'lefttoebase'
+  | 'lefttoe_end'
+  | 'rightupleg'
+  | 'rightleg'
+  | 'rightfoot'
+  | 'righttoebase'
+  | 'righttoe_end'
 
 export const BoneNames: BoneNames[] = [
-  'Hips',
-  'Spine',
-  'Spine1',
-  'Spine2',
-  'Neck',
-  'Head',
-  'HeadTop_End',
-  'LeftShoulder',
-  'LeftArm',
-  'LeftForeArm',
-  'LeftHand',
-  'LeftHandIndex1',
-  'LeftHandIndex2',
-  'LeftHandIndex3',
-  'LeftHandIndex4',
-  'RightShoulder',
-  'RightArm',
-  'RightForeArm',
-  'RightHand',
-  'RightHandIndex1',
-  'RightHandIndex2',
-  'RightHandIndex3',
-  'RightHandIndex4',
-  'LeftUpLeg',
-  'LeftLeg',
-  'LeftFoot',
-  'LeftToeBase',
-  'LeftToe_End',
-  'RightUpLeg',
-  'RightLeg',
-  'RightFoot',
-  'RightToeBase',
-  'RightToe_End',
+  'hips',
+  'spine',
+  'spine1',
+  'spine2',
+  'neck',
+  'head',
+  'headtop_end',
+  'leftshoulder',
+  'leftarm',
+  'leftforearm',
+  'lefthand',
+  'lefthandindex1',
+  'lefthandindex2',
+  'lefthandindex3',
+  'lefthandindex4',
+  'rightshoulder',
+  'rightarm',
+  'rightforearm',
+  'righthand',
+  'righthandindex1',
+  'righthandindex2',
+  'righthandindex3',
+  'righthandindex4',
+  'leftupleg',
+  'leftleg',
+  'leftfoot',
+  'lefttoebase',
+  'lefttoe_end',
+  'rightupleg',
+  'rightleg',
+  'rightfoot',
+  'righttoebase',
+  'righttoe_end',
 ]
 
 export const CostumeAttachment = t.intersection(
   [
     t.type({
-      uuid: t.string,
       bone: t.string,
-      wearable_id: t.union([t.number, t.string]),
+      wid: t.string,
       position: t.array(t.number),
       rotation: t.array(t.number),
       scaling: t.array(t.number),
     }),
     t.partial({
-      name: t.string, // optional
-      collection_id: t.number,
-      chain_id: t.number,
-      collection_address: t.string,
+      wearable: t.type({ id: t.string, name: t.string }),
     }),
   ],
   'CostumeAttachment',
