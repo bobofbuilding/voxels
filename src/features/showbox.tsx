@@ -742,7 +742,7 @@ export default class Showbox extends Feature2D<ShowboxRecord> {
       if (isGuest) {
         const nextName = guestNameInput?.value.trim() || app.state.name?.trim() || ''
         if (!nextName) {
-          status.textContent = 'pick a name on stream first'
+          status.textContent = 'pick a name first'
           return
         }
         if (guestToken && nextName !== app.state.name) {
