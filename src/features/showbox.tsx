@@ -62,6 +62,17 @@ function audienceShowUrl(feature: Showbox): string {
   return `${window.location.origin}/play?coords=${encodeURIComponent(coords)}`
 }
 
+// Chat display name comes from the multiplayer login snapshot - reconnect after a rename so everyone sees it.
+function syncGuestDisplayName(name: string) {
+  app.setName(name)
+  if (app.avatarRef && typeof app.avatarRef === 'object') {
+    app.avatarRef = { ...app.avatarRef, name }
+  }
+  const av = window.persona?.avatar as { _description?: { name?: string } } | undefined
+  if (av?._description) av._description.name = name
+  window.connector?.reconnect()
+}
+
 export default class Showbox extends Feature2D<ShowboxRecord> {
   static metadata: FeatureMetadata = {
     title: 'Showbox',
@@ -380,8 +391,105 @@ export default class Showbox extends Feature2D<ShowboxRecord> {
 
     const panel = document.createElement('div')
     this.broadcastPanel = panel
-    // Same DOM structure for desktop + mobile, just different container shape:
-    // desktop = 340px right-side dock; mobile = full-screen takeover.
+    // mobile setup = full screen dock. mobile live defaults to large self-feed; toggle reveals voxels above.
+    const MOBILE_WORLD_VIEW = '36vh'
+    let mobileShowWorld = false
+    let mobilePreviewWrap: HTMLDivElement | null = null
+    let mobileWorldBtn: HTMLButtonElement | null = null
+    let mobileStreamHint: HTMLDivElement | null = null
+    let mobileExtrasBtn: HTMLButtonElement | null = null
+    let mobileExtrasOpen = false
+    const setMobileDockLayout = (live: boolean) => {
+      if (!mobile) return
+      if (!live) {
+        mobileShowWorld = false
+        panel.style.inset = '0'
+        panel.style.top = '0'
+        panel.style.left = '0'
+        panel.style.right = '0'
+        panel.style.bottom = '0'
+        if (mobilePreviewWrap) mobilePreviewWrap.style.display = 'none'
+        if (mobileStreamHint) mobileStreamHint.style.display = 'none'
+        if (mobileWorldBtn) mobileWorldBtn.style.display = 'none'
+        if (mobileExtrasBtn) mobileExtrasBtn.style.display = 'none'
+        mobileExtrasOpen = false
+        return
+      }
+      if (mobileShowWorld) {
+        panel.style.inset = 'auto'
+        panel.style.top = MOBILE_WORLD_VIEW
+        panel.style.left = '0'
+        panel.style.right = '0'
+        panel.style.bottom = '0'
+        if (mobilePreviewWrap) mobilePreviewWrap.style.display = 'none'
+        if (mobileStreamHint) mobileStreamHint.style.display = 'block'
+        if (mobileWorldBtn) mobileWorldBtn.textContent = 'see your feed'
+      } else {
+        panel.style.inset = '0'
+        panel.style.top = '0'
+        panel.style.left = '0'
+        panel.style.right = '0'
+        panel.style.bottom = '0'
+        if (mobilePreviewWrap) mobilePreviewWrap.style.display = 'block'
+        if (mobileStreamHint) mobileStreamHint.style.display = 'none'
+        if (mobileWorldBtn) mobileWorldBtn.textContent = 'see world'
+      }
+      if (mobileWorldBtn) mobileWorldBtn.style.display = 'block'
+      panel.style.overflow = live ? 'hidden' : 'auto'
+    }
+    const setDesktopDockLayout = (live: boolean) => {
+      if (mobile) return
+      panel.style.top = live ? '12px' : '50%'
+      panel.style.right = live ? '12px' : 'auto'
+      panel.style.left = live ? 'auto' : '50%'
+      panel.style.bottom = 'auto'
+      panel.style.transform = live ? 'none' : 'translate(-50%, -50%)'
+      panel.style.width = '340px'
+      panel.style.maxHeight = live ? 'calc(100vh - 24px)' : '85vh'
+    }
+    if (mobile) {
+      mobileWorldBtn = document.createElement('button')
+      mobileWorldBtn.type = 'button'
+      mobileWorldBtn.textContent = 'see world'
+      Object.assign(mobileWorldBtn.style, {
+        display: 'none',
+        background: 'transparent',
+        color: '#888',
+        border: '0',
+        padding: '0',
+        cursor: 'pointer',
+        fontFamily: 'inherit',
+        fontSize: '12px',
+        textDecoration: 'underline',
+        flexShrink: '0',
+      })
+      mobileWorldBtn.onclick = () => {
+        mobileShowWorld = !mobileShowWorld
+        setMobileDockLayout(true)
+      }
+      mobileExtrasBtn = document.createElement('button')
+      mobileExtrasBtn.type = 'button'
+      mobileExtrasBtn.textContent = 'share & emotes'
+      Object.assign(mobileExtrasBtn.style, {
+        display: 'none',
+        background: 'transparent',
+        color: '#888',
+        border: '0',
+        padding: '4px 0',
+        cursor: 'pointer',
+        fontFamily: 'inherit',
+        fontSize: '12px',
+        textAlign: 'left',
+        textDecoration: 'underline',
+        flexShrink: '0',
+      })
+      mobileExtrasBtn.onclick = () => {
+        mobileExtrasOpen = !mobileExtrasOpen
+        shareRow.style.display = mobileExtrasOpen ? 'flex' : 'none'
+        moveRow.style.display = mobileExtrasOpen ? 'flex' : 'none'
+        mobileExtrasBtn!.textContent = mobileExtrasOpen ? 'hide share & emotes' : 'share & emotes'
+      }
+    }
     if (mobile) {
       Object.assign(panel.style, {
         position: 'fixed',
@@ -392,7 +500,7 @@ export default class Showbox extends Feature2D<ShowboxRecord> {
         padding: '1.25rem',
         display: 'flex',
         flexDirection: 'column',
-        gap: '0.75rem',
+        gap: '0.5rem',
         overflowY: 'auto',
         fontFamily: '"Source Code Pro", monospace',
         fontSize: '15px',
@@ -401,21 +509,18 @@ export default class Showbox extends Feature2D<ShowboxRecord> {
       Object.assign(panel.style, {
         position: 'fixed',
         zIndex: '999999',
-        top: '12px',
-        right: '12px',
         background: '#0d0d0d',
         color: '#f5f5f0',
         padding: '1rem',
         display: 'flex',
         flexDirection: 'column',
         gap: '0.75rem',
-        width: '340px',
-        maxHeight: 'calc(100vh - 24px)',
         overflowY: 'auto',
         fontFamily: '"Source Code Pro", monospace',
         fontSize: '13px',
         boxShadow: '0 4px 24px rgba(0,0,0,0.6)',
       })
+      setDesktopDockLayout(false)
     }
 
     const title = document.createElement('div')
@@ -484,7 +589,7 @@ export default class Showbox extends Feature2D<ShowboxRecord> {
       const nameStatus = document.createElement('small')
       nameStatus.style.color = '#888'
       let saveTimer: ReturnType<typeof setTimeout> | null = null
-      const save = async () => {
+      const save = async (reconnectMp = false) => {
         const next = nameInput.value.trim()
         if (!next || next === app.state.name) return
         nameStatus.textContent = 'saving...'
@@ -497,7 +602,8 @@ export default class Showbox extends Feature2D<ShowboxRecord> {
           })
           const j = await r.json()
           if (!j.success) throw new Error(j.error || 'failed')
-          app.setName(next)
+          if (reconnectMp) syncGuestDisplayName(next)
+          else app.setName(next)
           nameStatus.textContent = 'saved'
           setTimeout(() => (nameStatus.textContent = ''), 1500)
         } catch {
@@ -506,9 +612,9 @@ export default class Showbox extends Feature2D<ShowboxRecord> {
       }
       nameInput.oninput = () => {
         if (saveTimer) clearTimeout(saveTimer)
-        saveTimer = setTimeout(save, 600)
+        saveTimer = setTimeout(() => save(false), 600)
       }
-      nameInput.onblur = save
+      nameInput.onblur = () => save(true)
       identityRow.append(identityLabel, nameInput, nameStatus)
     } else {
       const nameDisplay = document.createElement('div')
@@ -609,17 +715,19 @@ export default class Showbox extends Feature2D<ShowboxRecord> {
     row.style.gap = '0.5rem'
     row.append(goBtn, closeBtn)
 
-    // Mobile guest chat lives in the dock when live - full-screen panel covers world chat. Desktop uses normal chat.
+    // Mobile chat lives in the dock when live - bottom sheet covers world chat. Desktop uses normal chat.
     let chatSection: HTMLDivElement | null = null
     let chatRow: HTMLDivElement | null = null
-    if (isGuest && mobile) {
+    let chatReplyRow: HTMLDivElement | null = null
+    let dockFooter: HTMLDivElement | null = null
+    if (mobile) {
       const chatLabel = document.createElement('label')
       chatLabel.textContent = 'chat'
       chatSection = document.createElement('div')
       Object.assign(chatSection.style, {
-        flex: '1 1 35%',
-        minHeight: '100px',
-        maxHeight: '32vh',
+        flex: '1 1 auto',
+        minHeight: '64px',
+        maxHeight: 'none',
         overflowY: 'auto',
         background: '#1a1a1a',
         border: '1px solid #333',
@@ -669,7 +777,7 @@ export default class Showbox extends Feature2D<ShowboxRecord> {
         renderDockChat()
       })
 
-      const chatReplyRow = document.createElement('div')
+      chatReplyRow = document.createElement('div')
       Object.assign(chatReplyRow.style, { display: 'flex', gap: '0.5rem' })
       const chatInput = document.createElement('input')
       chatInput.type = 'text'
@@ -678,10 +786,11 @@ export default class Showbox extends Feature2D<ShowboxRecord> {
         flex: '1',
         background: '#1a1a1a',
         color: '#f5f5f0',
-        border: '1px solid #333',
-        padding: '8px',
+        border: '1px solid #666',
+        padding: '10px 8px',
         fontFamily: 'inherit',
-        minHeight: '36px',
+        fontSize: '16px',
+        minHeight: '44px',
       })
       const chatSend = document.createElement('button')
       chatSend.textContent = 'send'
@@ -689,10 +798,11 @@ export default class Showbox extends Feature2D<ShowboxRecord> {
         background: '#333',
         color: '#f5f5f0',
         border: '0',
-        padding: '8px 12px',
+        padding: '10px 14px',
         cursor: 'pointer',
         fontFamily: 'inherit',
-        minHeight: '36px',
+        minHeight: '44px',
+        flexShrink: '0',
       })
       const sendDockChat = () => {
         const t = chatInput.value.trim()
@@ -708,12 +818,35 @@ export default class Showbox extends Feature2D<ShowboxRecord> {
         }
       }
       chatReplyRow.append(chatInput, chatSend)
+      chatReplyRow.style.display = 'none'
+      Object.assign(chatReplyRow.style, {
+        flexShrink: '0',
+        paddingTop: '6px',
+        borderTop: '1px solid #333',
+      })
 
       chatRow = document.createElement('div')
-      Object.assign(chatRow.style, { display: 'none', flexDirection: 'column', gap: '4px' })
+      Object.assign(chatRow.style, {
+        display: 'none',
+        flexDirection: 'column',
+        gap: '4px',
+        flex: '1 1 auto',
+        minHeight: '0',
+        overflow: 'hidden',
+      })
       chatRow.append(chatLabel, chatSection, chatReplyRow)
 
-      panel.append(title, identityRow, deviceRow, screenOpt, deviceToggle, chatRow, shareRow, moveRow, status, row)
+      dockFooter = document.createElement('div')
+      Object.assign(dockFooter.style, {
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '0.5rem',
+        flexShrink: '0',
+        paddingBottom: 'max(8px, env(safe-area-inset-bottom))',
+      })
+      dockFooter.append(row)
+
+      panel.append(title, identityRow, deviceRow, screenOpt, deviceToggle, chatRow, dockFooter, mobileExtrasBtn!, shareRow, moveRow, status)
     } else {
       panel.append(title, identityRow, deviceRow, screenOpt, deviceToggle, shareRow, moveRow, status, row)
     }
@@ -810,6 +943,9 @@ export default class Showbox extends Feature2D<ShowboxRecord> {
         shareRow.style.display = 'none'
         moveRow.style.display = 'none'
         if (chatRow) chatRow.style.display = 'none'
+        if (chatReplyRow) chatReplyRow.style.display = 'none'
+        setMobileDockLayout(false)
+        setDesktopDockLayout(false)
         return
       }
 
@@ -830,11 +966,13 @@ export default class Showbox extends Feature2D<ShowboxRecord> {
             })
             const j = await r.json()
             if (!j.success) throw new Error(j.error || 'failed')
-            app.setName(nextName)
+            syncGuestDisplayName(nextName)
           } catch {
             status.textContent = 'could not save name'
             return
           }
+        } else if (guestToken) {
+          syncGuestDisplayName(nextName)
         }
       }
 
@@ -887,9 +1025,18 @@ export default class Showbox extends Feature2D<ShowboxRecord> {
         deviceRow.style.display = 'none'
         deviceToggle.style.display = 'block'
         deviceToggle.textContent = 'change camera or mic'
-        shareRow.style.display = 'flex'
-        moveRow.style.display = 'flex'
+        if (mobile) {
+          mobileExtrasOpen = false
+          shareRow.style.display = 'none'
+          moveRow.style.display = 'none'
+          if (mobileExtrasBtn) mobileExtrasBtn.style.display = 'block'
+        } else {
+          shareRow.style.display = 'flex'
+          moveRow.style.display = 'flex'
+        }
         if (chatRow) chatRow.style.display = 'flex'
+        if (chatReplyRow) chatReplyRow.style.display = 'flex'
+        mobileShowWorld = false
 
         // live header: pulsing red dot + count-up timer so the broadcaster sees they are actually streaming.
         const liveHeader = document.createElement('div')
@@ -903,7 +1050,9 @@ export default class Showbox extends Feature2D<ShowboxRecord> {
         const liveTimer = document.createElement('span')
         Object.assign(liveTimer.style, { color: '#f5f5f0', marginLeft: 'auto', fontVariantNumeric: 'tabular-nums' })
         liveTimer.textContent = '0:00'
-        liveHeader.append(liveDot, liveLabel, liveTimer)
+        liveHeader.append(liveDot, liveLabel)
+        if (mobileWorldBtn) liveHeader.append(mobileWorldBtn)
+        liveHeader.append(liveTimer)
 
         if (!document.getElementById('showbox-live-pulse-style')) {
           const styleEl = document.createElement('style')
@@ -921,41 +1070,77 @@ export default class Showbox extends Feature2D<ShowboxRecord> {
           liveTimer.textContent = `${m}:${r.toString().padStart(2, '0')}`
         }, 1000)
 
-        // Self-preview video so the broadcaster can see exactly what the audience sees on the showbox.
-        // Also doubles as a "yes, your camera/screen is actually being streamed" confirmation.
-        if (videoTrack) {
-          const previewWrap = document.createElement('div')
-          previewWrap.dataset.dot = '1'
-          Object.assign(previewWrap.style, { position: 'relative', width: '100%', aspectRatio: mobile ? '9 / 16' : '16 / 9', maxHeight: mobile ? '50vh' : 'none', background: '#000', overflow: 'hidden' })
-          const previewVideo = videoTrack.attach() as HTMLVideoElement
-          previewVideo.muted = true // critical - never echo the broadcaster's own voice back at them
-          previewVideo.volume = 0
-          previewVideo.playsInline = true
-          // Desktop cams are landscape (cover crops slightly) - mobile cams are usually portrait
-          // (contain avoids cropping the broadcaster's face).
-          Object.assign(previewVideo.style, { width: '100%', height: '100%', objectFit: mobile ? 'contain' : 'cover', display: 'block' })
-          const previewLabel = document.createElement('div')
-          previewLabel.textContent = 'what your audience sees'
-          Object.assign(previewLabel.style, { position: 'absolute', top: '4px', left: '6px', color: '#f5f5f0', fontSize: '11px', background: 'rgba(0,0,0,0.6)', padding: '2px 6px' })
+        panel.insertBefore(liveHeader, panel.firstChild)
 
-          // Audio meter overlay: thin bar at the bottom of the preview that pulses with mic input.
-          // Tells the broadcaster their mic is actually picking up sound without needing to hear themselves.
+        if (videoTrack) {
           const meterTrack = document.createElement('div')
-          Object.assign(meterTrack.style, { position: 'absolute', bottom: '0', left: '0', right: '0', height: '5px', background: 'rgba(0,0,0,0.5)' })
+          Object.assign(meterTrack.style, { height: '5px', background: 'rgba(0,0,0,0.5)', flexShrink: '0' })
           const meterFill = document.createElement('div')
           Object.assign(meterFill.style, { width: '0%', height: '100%', background: '#22c55e', transition: 'width 60ms linear' })
           meterTrack.append(meterFill)
-          previewWrap.append(previewVideo, previewLabel, meterTrack)
-          panel.insertBefore(previewWrap, chatSection ?? moveRow)
-          previewWrap.insertAdjacentElement('afterend', deviceToggle)
-
           meterFillEl = meterFill
+
+          if (!mobile) {
+            const previewWrap = document.createElement('div')
+            previewWrap.dataset.dot = '1'
+            Object.assign(previewWrap.style, {
+              position: 'relative',
+              width: '100%',
+              aspectRatio: '16 / 9',
+              background: '#000',
+              overflow: 'hidden',
+            })
+            const previewVideo = videoTrack.attach() as HTMLVideoElement
+            previewVideo.muted = true
+            previewVideo.volume = 0
+            previewVideo.playsInline = true
+            Object.assign(previewVideo.style, { width: '100%', height: '100%', objectFit: 'cover', display: 'block' })
+            const previewLabel = document.createElement('div')
+            previewLabel.textContent = 'what your audience sees'
+            Object.assign(previewLabel.style, { position: 'absolute', top: '4px', left: '6px', color: '#f5f5f0', fontSize: '11px', background: 'rgba(0,0,0,0.6)', padding: '2px 6px' })
+            Object.assign(meterTrack.style, { position: 'absolute', bottom: '0', left: '0', right: '0' })
+            previewWrap.append(previewVideo, previewLabel, meterTrack)
+            panel.insertBefore(previewWrap, chatRow ?? moveRow)
+            previewWrap.insertAdjacentElement('afterend', deviceToggle)
+          } else {
+            mobilePreviewWrap = document.createElement('div')
+            mobilePreviewWrap.dataset.dot = '1'
+            Object.assign(mobilePreviewWrap.style, {
+              position: 'relative',
+              width: '100%',
+              aspectRatio: '9 / 16',
+              maxHeight: '28vh',
+              flexShrink: '0',
+              background: '#000',
+              overflow: 'hidden',
+            })
+            const previewVideo = videoTrack.attach() as HTMLVideoElement
+            previewVideo.muted = true
+            previewVideo.volume = 0
+            previewVideo.playsInline = true
+            Object.assign(previewVideo.style, { width: '100%', height: '100%', objectFit: 'contain', display: 'block' })
+            const previewLabel = document.createElement('div')
+            previewLabel.textContent = 'what your audience sees'
+            Object.assign(previewLabel.style, { position: 'absolute', top: '4px', left: '6px', color: '#f5f5f0', fontSize: '11px', background: 'rgba(0,0,0,0.6)', padding: '2px 6px' })
+            Object.assign(meterTrack.style, { position: 'absolute', bottom: '0', left: '0', right: '0' })
+            mobilePreviewWrap.append(previewVideo, previewLabel, meterTrack)
+            panel.insertBefore(mobilePreviewWrap, chatRow ?? moveRow)
+            mobilePreviewWrap.insertAdjacentElement('afterend', deviceToggle)
+
+            mobileStreamHint = document.createElement('div')
+            mobileStreamHint.dataset.dot = '1'
+            mobileStreamHint.textContent = 'your stream is on the showbox above'
+            Object.assign(mobileStreamHint.style, { display: 'none', color: '#888', fontSize: '12px', flexShrink: '0' })
+            panel.insertBefore(mobileStreamHint, chatRow ?? moveRow)
+          }
+
           const audioMst = (liveAudioTrack as any)?.mediaStreamTrack as MediaStreamTrack | undefined
           if (audioMst) wireAudioMeter(audioMst)
           else meterTrack.remove()
         }
 
-        panel.insertBefore(liveHeader, panel.firstChild)
+        setMobileDockLayout(true)
+        setDesktopDockLayout(true)
       } catch {
         status.textContent = 'failed to connect'
         goBtn.disabled = false
