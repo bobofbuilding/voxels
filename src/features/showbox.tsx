@@ -162,6 +162,8 @@ export default class Showbox extends Feature2D<ShowboxRecord> {
       if (track.kind === Track.Kind.Audio) {
         const el = track.attach() as HTMLAudioElement
         el.volume = this.volume
+        el.style.display = 'none'
+        document.body.appendChild(el)
         this.audio?.addUserAudioReference(this)
         this.startBroadcastAudio()
         return
@@ -180,7 +182,11 @@ export default class Showbox extends Feature2D<ShowboxRecord> {
     })
 
     room.on(RoomEvent.AudioPlaybackStatusChanged, (playing) => {
-      if (playing) this.audio?.addUserAudioReference(this)
+      if (playing) {
+        this.audio?.addUserAudioReference(this)
+      } else {
+        this.armGestureUnblock()
+      }
     })
 
     await room.connect(LIVEKIT_URL, res.token).catch(() => null)
@@ -190,6 +196,19 @@ export default class Showbox extends Feature2D<ShowboxRecord> {
     if (!this.livekitRoom) return
     this.livekitRoom.startAudio().catch(() => {})
     this.audio?.addUserAudioReference(this)
+  }
+
+  gestureUnblockArmed = false
+  armGestureUnblock() {
+    if (this.gestureUnblockArmed) return
+    this.gestureUnblockArmed = true
+    const unblock = () => {
+      this.gestureUnblockArmed = false
+      this.startBroadcastAudio()
+    }
+    window.addEventListener('pointerdown', unblock, { once: true, passive: true })
+    window.addEventListener('keydown', unblock, { once: true, passive: true })
+    window.addEventListener('touchstart', unblock, { once: true, passive: true })
   }
 
   attachVideoToMesh(el: HTMLVideoElement, muted = false) {
