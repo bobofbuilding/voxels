@@ -55,6 +55,13 @@ function guestPassToken(): string | null {
   }
 }
 
+// Plain /play?coords= link for the audience. No isolate, ui=off, or show= - just drop people at the showbox.
+function audienceShowUrl(feature: Showbox): string {
+  const pos = feature.absolutePosition ?? new BABYLON.Vector3((feature.parcel.x1 + feature.parcel.x2) / 2, feature.parcel.y1, (feature.parcel.z1 + feature.parcel.z2) / 2)
+  const coords = encodeCoords({ position: pos, rotation: new BABYLON.Vector3(0, 0, 0) })
+  return `${window.location.origin}/play?coords=${encodeURIComponent(coords)}`
+}
+
 export default class Showbox extends Feature2D<ShowboxRecord> {
   static metadata: FeatureMetadata = {
     title: 'Showbox',
@@ -369,11 +376,7 @@ export default class Showbox extends Feature2D<ShowboxRecord> {
 
     exitPointerLock()
 
-    // Audience share url - a regular voxels /play coords link that lands right next to the showbox.
-    // No special query params; viewers just walk into the parcel and see/hear the stream.
-    const showPos = this.absolutePosition ?? new BABYLON.Vector3((this.parcel.x1 + this.parcel.x2) / 2, this.parcel.y1, (this.parcel.z1 + this.parcel.z2) / 2)
-    const showCoords = encodeCoords({ position: showPos, rotation: new BABYLON.Vector3(0, 0, 0) })
-    const showUrl = `${window.location.origin}/play?coords=${encodeURIComponent(showCoords)}`
+    const showUrl = audienceShowUrl(this)
 
     const panel = document.createElement('div')
     this.broadcastPanel = panel
@@ -494,7 +497,7 @@ export default class Showbox extends Feature2D<ShowboxRecord> {
     const shareRow = document.createElement('div')
     Object.assign(shareRow.style, { display: 'none', flexDirection: 'column', gap: '4px', borderTop: '1px solid #222', borderBottom: '1px solid #222', padding: '8px 0' })
     const shareLabel = document.createElement('label')
-    shareLabel.textContent = 'show link'
+    shareLabel.textContent = 'audience link'
     shareLabel.style.color = '#888'
     const shareInput = document.createElement('input')
     shareInput.type = 'text'
@@ -1017,10 +1020,7 @@ class GuestPasses extends Component<{ feature: Showbox }, { passes: Pass[]; load
   }
 
   showUrl() {
-    const f = this.props.feature
-    const pos = f.absolutePosition ?? new BABYLON.Vector3((f.parcel.x1 + f.parcel.x2) / 2, f.parcel.y1, (f.parcel.z1 + f.parcel.z2) / 2)
-    const coords = encodeCoords({ position: pos, rotation: new BABYLON.Vector3(0, 0, 0) })
-    return `${window.location.origin}/play?coords=${encodeURIComponent(coords)}`
+    return audienceShowUrl(this.props.feature)
   }
 
   render() {
@@ -1034,9 +1034,9 @@ class GuestPasses extends Component<{ feature: Showbox }, { passes: Pass[]; load
         <small>One-tap broadcast link for someone without a voxels account - artists, speakers, anyone you invite. They pick their own name when they open the link. No voxels account needed.</small>
 
         <div className="f">
-          <label>share-with-audience show link</label>
+          <label>audience link</label>
           <input type="text" readOnly value={this.showUrl()} onClick={(e) => (e.currentTarget as HTMLInputElement).select()} />
-          <small>Post on socials. Drops viewers in front of this showbox.</small>
+          <small>Normal voxels url for x / instagram. No special flags.</small>
         </div>
 
         <div className="f">
@@ -1056,6 +1056,7 @@ class GuestPasses extends Component<{ feature: Showbox }, { passes: Pass[]; load
                   <td>
                     <strong>{p.name?.trim() || 'name not chosen yet'}</strong>
                     <br />
+                    <small>broadcast link (guest only)</small>
                     <input type="text" readOnly value={this.liveUrl(p.token)} onClick={(e) => (e.currentTarget as HTMLInputElement).select()} style={{ width: '100%' }} />
                   </td>
                   <td style={{ verticalAlign: 'top' }}>
