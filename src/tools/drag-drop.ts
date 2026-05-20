@@ -6,7 +6,6 @@ import { uploadMedia, UploadMediaResult } from '../../common/helpers/upload-medi
 import { uploadVoxModelMedia } from '../utils/upload-vox-media'
 import { PanelType } from '../../web/src/components/panel'
 import { extname } from 'path'
-import { Scene } from '../scene'
 
 const MB = 1024 * 1024
 
@@ -17,11 +16,11 @@ function preventDefaults(e: any) {
 
 // Drag drop manager
 export class DragDrop {
-  scene: Scene
+  scene: BABYLON.Scene
 
   pickInfo: BABYLON.PickingInfo | undefined
 
-  constructor(scene: Scene) {
+  constructor(scene: BABYLON.Scene) {
     this.scene = scene
 
     document.body.addEventListener('dragenter', preventDefaults, false)

@@ -8,16 +8,15 @@ import OurCamera from '../controls/utils/our-camera'
 import { Environment } from '../enviroments/environment'
 import Grid from '../grid'
 import { ParcelMesher } from '../parcel-mesher'
-import type { Scene } from '../scene'
 import { createGizmos } from '../tools/gizmos'
 import { isLoaded } from '../utils/loading-done'
 
-export const createWorld = async function (scene: Scene, canvas: HTMLCanvasElement, controls: Controls, environment: Environment) {
+export const createWorld = async function (scene: BABYLON.Scene, canvas: HTMLCanvasElement, controls: Controls, environment: Environment) {
   const parcelMesher = new ParcelMesher(scene)
   await parcelMesher.initialize()
 
-  const grid = new Grid(scene, controls.worldOffset, environment, scene.config.spaceId ?? undefined)
-  if (scene.config.isGrid) {
+  const grid = new Grid(scene, controls.worldOffset, environment, window.config.spaceId ?? undefined)
+  if (window.config.isGrid) {
     grid.loadWorker()
   }
   window.grid = grid
@@ -40,7 +39,7 @@ export const createWorld = async function (scene: Scene, canvas: HTMLCanvasEleme
 
   await grid.loadFastbootFromHTML()
 
-  if (scene.config.wantsURL) {
+  if (window.config.wantsURL) {
     updateNavbarWithCoords(scene, connector)
   }
 
@@ -60,7 +59,7 @@ export const createWorld = async function (scene: Scene, canvas: HTMLCanvasEleme
     }
   }
 
-  if (!scene.config.isBot) {
+  if (!window.config.isBot) {
     // wait for ground to load before applying gravity
     // stops us from falling through collidable mega vox (etc) before they have loaded
     controls.invalidateGroundLoaded()
@@ -88,9 +87,9 @@ export const createWorld = async function (scene: Scene, canvas: HTMLCanvasEleme
   return { grid, connector }
 }
 
-function initConnector(scene: Scene, controls: Controls, grid: Grid): Connector {
+function initConnector(scene: BABYLON.Scene, controls: Controls, grid: Grid): Connector {
   const connector = new Connector(scene, controls.worldOffset, grid, controls)
-  if (scene.config.isMultiuser) {
+  if (window.config.isMultiuser) {
     connector.connect()
   }
   return connector
@@ -105,13 +104,13 @@ function parseFloatOrZero(value: string | null | number): number {
 
 //Randomize initial center spawning coordinates (no more overlapping avatars) when 'coords' param is null in-world
 // For spaces, if coords is null, we look for a spawn point
-function initialSpawn(scene: Scene, grid: Grid, controls: Controls) {
+function initialSpawn(scene: BABYLON.Scene, grid: Grid, controls: Controls) {
   const searchParams = new URLSearchParams(document.location.search.substring(1))
   if (searchParams.get('coords')) {
     // Coords is not null, don't randomize spawn at center in-world
     return
   }
-  if (scene.config.isSpace) {
+  if (window.config.isSpace) {
     // if is space, then try find a Spawn point, else the user just spawns at 0,0
     if (!grid.fastbootParcel) {
       return

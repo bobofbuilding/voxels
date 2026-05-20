@@ -1,5 +1,4 @@
 import ParcelHelper from '../../../common/helpers/parcel-helper'
-import Emojis from '../../../web/src/components/emoji-badges'
 import ParcelEventItem from '../../../web/src/components/parcel-event'
 import WriteMailOverlay from '../mail-owner'
 import { app } from '../../../web/src/state'
@@ -11,12 +10,11 @@ import { OwnerAndCollaboratorOnly, SignedInOnly } from '../../../web/src/compone
 import LoadingIcon from '../../../web/src/components/loading-icon'
 import type Parcel from '../../parcel'
 import { copyTextToClipboard } from '../../../common/helpers/utils'
-import type { Scene } from '../../scene'
 import { PanelType } from '../../../web/src/components/panel'
 
 interface Props {
   parcel: Parcel | null
-  scene: Scene
+  scene: BABYLON.Scene
 }
 
 export default function ParcelInfoTab(props: Props) {
@@ -96,7 +94,7 @@ export default function ParcelInfoTab(props: Props) {
             </h2>
           </div>
           <ul className="actions">
-            {!props.scene.config.isSpace && (
+            {!window.config.isSpace && (
               <OwnerAndCollaboratorOnly parcel={parcel}>
                 <li>
                   <a onClick={() => toggleParcelAdminOverlay(parcel.summary, props.scene)} title="Admin panel">
@@ -115,7 +113,7 @@ export default function ParcelInfoTab(props: Props) {
                 OpenSea
               </a>
             </li>
-            {app.signedIn && !props.scene.config.isSpace && (
+            {app.signedIn && !window.config.isSpace && (
               <li>
                 <FavoriteButton parcelId={parcel.id} />
               </li>
@@ -165,7 +163,7 @@ export default function ParcelInfoTab(props: Props) {
           </h2>
         </div>
         <ul className="actions">
-          {!props.scene.config.isSpace && (
+          {!window.config.isSpace && (
             <OwnerAndCollaboratorOnly parcel={parcel}>
               <li>
                 <a onClick={() => toggleParcelAdminOverlay(parcel.summary, props.scene)} title="Admin panel">
@@ -184,7 +182,7 @@ export default function ParcelInfoTab(props: Props) {
               OpenSea
             </a>
           </li>
-          {app.signedIn && !props.scene.config.isSpace && (
+          {app.signedIn && !window.config.isSpace && (
             <li>
               <FavoriteButton parcelId={parcel.id} />
             </li>
@@ -196,11 +194,6 @@ export default function ParcelInfoTab(props: Props) {
           </li>
         </ul>
         <section className="overlay-parcel-info-content">
-          {!props.scene.config.isSpace && (
-            <div>
-              <Emojis item={parcel} emojiable_type="parcels" />
-            </div>
-          )}
           <div>
             <p>{description}</p>
           </div>

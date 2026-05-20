@@ -49,10 +49,10 @@ $body$;
 -- Lots of migrations removed
 --------------------------------------------------------------------------------
 
+CREATE EXTENSION IF NOT EXISTS cube;
 
 -- select apply_migration('remove-postgis-footprint-bounds-json',
 -- $$
---   CREATE EXTENSION IF NOT EXISTS cube;
 
 --   ALTER TABLE islands ADD COLUMN IF NOT EXISTS holes_geometry_json jsonb;
 --   ALTER TABLE islands ADD COLUMN IF NOT EXISTS lakes_geometry_json jsonb;
@@ -151,8 +151,8 @@ BEGIN
     -- 1. Create the 'traffic' schema if it doesn't exist
     CREATE SCHEMA IF NOT EXISTS metrics;
 
-    -- 2. Loop to create the 14 rotation tables
-    FOR i IN 1..7 LOOP
+    -- 2. Loop to create the 7 rotation tables
+    FOR i IN 0..7 LOOP
         EXECUTE format('
             CREATE TABLE IF NOT EXISTS metrics.day_%s (
                 client_id  BIGINT NOT NULL,
@@ -180,4 +180,64 @@ BEGIN
         LPAD(i::text, 2, '0'));
     END LOOP;
 END $$;
+
+select apply_migration('passkeys-table',
+$$
+  CREATE TABLE IF NOT EXISTS passkeys (
+    username      text PRIMARY KEY,
+    user_uuid     text NOT NULL,
+    credential_id bytea NOT NULL UNIQUE,
+    public_key    bytea NOT NULL,
+    counter       bigint NOT NULL DEFAULT 0,
+    transports    text[],
+    created_at    timestamptz NOT NULL DEFAULT now()
+  );
+  CREATE INDEX IF NOT EXISTS passkeys_user_uuid_idx ON passkeys (user_uuid);
+$$
+);
+
+select apply_migration('avatars-home-id',
+$$
+  ALTER TABLE avatars ADD COLUMN IF NOT EXISTS home_id integer;
+$$
+);
+
+select apply_migration('wearables-is-free-default-bone',
+$$
+  ALTER TABLE wearables ADD COLUMN IF NOT EXISTS is_free boolean NOT NULL DEFAULT false;
+  ALTER TABLE wearables ADD COLUMN IF NOT EXISTS default_bone text;
+  CREATE INDEX IF NOT EXISTS wearables_is_free_idx ON wearables (is_free) WHERE is_free;
+
+  -- Costumer uses these as starter items: hand/arm slot wearables that are not suppressed.
+  -- Tune is_free in DB for your catalog; this is a sane default seed.
+  UPDATE wearables SET is_free = true
+  WHERE (lower(coalesce(category, '')) = 'hands' OR lower(coalesce(category, '')) = 'arms')
+    AND suppressed IS DISTINCT FROM true
+    AND token_id IS NOT NULL;
+
+  UPDATE wearables SET default_bone = CASE
+    WHEN lower(coalesce(name, '')) ~ 'right' THEN 'RightHand'
+    WHEN lower(coalesce(name, '')) ~ 'left' THEN 'LeftHand'
+    ELSE default_bone
+  END
+  WHERE is_free = true;
+
+  UPDATE wearables SET default_bone = 'LeftHand'
+  WHERE is_free = true AND (default_bone IS NULL OR default_bone = '')
+    AND (abs(hashtext(id::text)) % 2) = 0;
+
+  UPDATE wearables SET default_bone = 'RightHand'
+  WHERE is_free = true AND (default_bone IS NULL OR default_bone = '');
+$$
+);
+
+select apply_migration('parcel-events-location',
+$$
+  ALTER TABLE parcel_events ADD COLUMN IF NOT EXISTS location text;
+$$
+);
+
+SELECT apply_migration('drop_suburb_cascading_foreign_key', $$
+  ALTER TABLE properties DROP CONSTRAINT IF EXISTS suburb_cascading_foreign_key;
+$$);
 

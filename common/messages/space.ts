@@ -1,6 +1,7 @@
 import * as t from 'io-ts'
 import { FeatureRecord, NullableStr } from './feature'
 import { ParcelSettings } from './parcel'
+import { avatarRefCodec } from './avatar-ref'
 
 export const SpaceRecord = t.type(
   {
@@ -28,10 +29,11 @@ export const SpaceRecord = t.type(
       {
         voxels: t.string, // this is also unwrapped into the voxels field in the play endpoint (via a getter...)
         features: t.array(FeatureRecord),
+        environment: t.union([t.literal('day'), t.literal('night'), t.literal('void'), t.null, t.undefined]),
       },
       'Content',
     ),
-    owner: t.string,
+    owner: avatarRefCodec,
     hash: NullableStr,
     lightmap_url: t.union([t.string, t.null]),
     x2: t.number,
@@ -51,7 +53,7 @@ export type SpaceRecord = t.TypeOf<typeof SpaceRecord>
 export const SimpleSpaceRecord = t.intersection([
   t.type({
     id: SpaceRecord.props.id,
-    owner: SpaceRecord.props.owner,
+    owner: avatarRefCodec,
     name: SpaceRecord.props.name,
     x2: SpaceRecord.props.x2,
     y2: SpaceRecord.props.y2,
@@ -60,7 +62,6 @@ export const SimpleSpaceRecord = t.intersection([
     created_at: SpaceRecord.props.created_at,
   }),
   t.type({
-    owner_name: t.string,
     visits: t.number,
     unlisted: t.boolean,
     feature_count: t.number,

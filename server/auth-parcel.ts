@@ -38,12 +38,8 @@ export default async function authParcel(parcel: ParcelAuthRef, user: VoxelsUser
   const isSandbox = parcel.settings?.sandbox === true
 
   if (parcelUser?.role == 'owner') {
-    // user is not co-owner(given Owner rights)
     return 'Owner'
   } else if (isCVTeam(wallet ?? undefined)) {
-    return 'Owner'
-  } else if (parcelUser?.role == 'renter') {
-    // Renter are considered standard collaborators for now
     return 'Owner'
   } else if (parcelUser?.role == 'contributor') {
     // user is a standard contributor

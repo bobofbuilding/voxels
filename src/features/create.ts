@@ -28,11 +28,10 @@ import { FeatureRecord, FeatureType, YoutubeRecord } from '../../common/messages
 import PoapDispenser from './poap-dispenser'
 import PolytextV2 from './polytext-v2'
 import Parcel from '../parcel'
-import type { Scene } from '../scene'
 import { Unhandled } from './unhandled'
 import { featureTemplates } from './_metadata'
 
-export const createFeature = (scene: Scene, parcel: Parcel, uuid: string, description: FeatureRecord): Feature => {
+export const createFeature = (scene: BABYLON.Scene, parcel: Parcel, uuid: string, description: FeatureRecord): Feature => {
   switch (description.type) {
     case 'sign':
       return new Sign(scene, parcel, uuid, description)

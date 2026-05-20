@@ -1,6 +1,12 @@
 // Color pickr
 @import (inline) '../../../node_modules/@simonwep/pickr/dist/themes/nano.min.css';
 
+// Import leaflet css
+@import (inline) '../../../dist/leaflet.css';
+
+@import './base.less';
+@import './costumer.less';
+
 // Functions
 @mobile: ~'only screen and (max-width: 800px)';
 @pc: ~'only screen and (min-width: 800px)';
@@ -9,21 +15,6 @@
   --border: 1px solid #aaa;
   --softborder: 1px solid #aaa;
   --soft: #888;
-}
-
-@font-face {
-  font-family: 'source code pro';
-  font-style: normal;
-  font-weight: 400;
-  font-display: swap;
-  src:
-    local('Source Code Pro'),
-    url(/fonts/sourcecodepro-regular.woff) format('woff');
-}
-
-body {
-  font-family: 'source code pro', monospace;
-  font-size: 0.9rem;
 }
 
 * {
@@ -38,15 +29,19 @@ h5 {
   font-weight: bold;
   margin-bottom: 0;
 }
+
 h1 {
-  font-size: 1.3rem;
+  font-size: 2.2rem;
 }
+
 h2 {
-  font-size: 1.1rem;
+  font-size: 1.5rem;
 }
+
 h3 {
-  font-size: 1rem;
+  font-size: 1.2rem;
 }
+
 h4 {
   font-size: 1rem;
 }
@@ -66,6 +61,10 @@ h4 {
   img {
     max-width: 100%;
   }
+
+  img + p {
+    margin: 0;
+  }
 }
 
 img {
@@ -80,6 +79,25 @@ img {
 
 // Button style
 
+button {
+  cursor: pointer;
+
+  &:hover {
+    background: #f3f3f3;
+  }
+}
+button.iconish {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 10px;
+  font-weight: 400;
+  line-height: 1;
+  aspect-ratio: 1/1;
+  display: inline-block;
+  text-align: center;
+  color: white;
+  text-shadow: 2px 2px rgba(0, 0, 0, 0.5);
+}
+
 button,
 a.buttonish {
   display: inline-block;
@@ -90,10 +108,19 @@ a.buttonish {
   font-family: inherit;
   color: black;
   text-decoration: none;
+  padding: 0.2rem 0.5rem;
+
+  &[disabled] {
+    color: #0004;
+    opacity: 0.8;
+    cursor: default;
+  }
 }
 
 // Nav tweaks
 header nav {
+  margin: 5rem 0;
+
   ul {
     display: flex;
     align-items: center;
@@ -103,8 +130,23 @@ header nav {
     border-top: var(--border);
     border-bottom: var(--border);
   }
+
   li {
     list-style: none;
+  }
+
+  svg {
+    display: inline-block;
+  }
+
+  a.active {
+    font-weight: bold;
+    text-decoration: none;
+    color: inherit;
+
+    svg {
+      display: none;
+    }
   }
 
   li:last-child {
@@ -121,6 +163,7 @@ footer {
     color: var(--soft);
     font-size: 10px;
   }
+
   nav {
     ul {
       // center align children
@@ -132,6 +175,7 @@ footer {
       border-top: var(--border);
       border-bottom: var(--border);
     }
+
     li {
       list-style: none;
     }
@@ -161,6 +205,7 @@ div.nav-menu {
     margin: 0;
   }
 }
+
 @media @mobile {
   .hamburger-mobile-nav-toggle {
     display: block;
@@ -254,47 +299,48 @@ main {
 
 // Grid layout
 
-.parcel-page.columns {
-  grid-template-columns: 7fr 1fr;
+button.hamburger {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0.5rem;
+  font-size: 1.2rem;
+  line-height: 1;
 }
 
 .columns {
-  display: grid;
-  grid-template-columns: 3fr 1fr;
-  grid-template-areas:
-    'header header'
-    'main   side'
-    'postscript side';
+  display: flex;
+  flex-direction: row;
+  align-items: start;
   gap: 0.5rem 1rem;
 
-  & > header {
-    grid-area: header;
+  & > nav {
+    margin-top: 4rem;
+    overflow: hidden;
+    max-width: 10rem;
+    transition: max-width 200ms ease-in-out;
+  }
+
+  &.nav-collapsed > nav {
+    max-width: 0;
   }
 
   & > article {
-    grid-area: main;
-    min-width: 300px;
+    flex: 1;
   }
 
   & > aside {
-    grid-area: side;
-    min-width: 300px;
+    width: 25vw;
   }
 
-  & > .postscript {
-    grid-area: postscript;
+  .hamburger {
+    position: absolute;
+    left: -2rem;
+    top: 0.5rem;
   }
 }
 
 @media @mobile {
-  .columns {
-    grid-template-columns: 1fr;
-    grid-template-areas:
-      'header'
-      'main'
-      'side';
-  }
-
   article {
     background: none;
     padding: 0;
@@ -307,13 +353,18 @@ iframe,
 canvas,
 .client-placeholder,
 div.map {
-  width: auto;
+  width: 100%;
   height: 80vh;
+  max-width: 100%;
 
   @media @mobile {
     width: 100%;
     aspect-ratio: 1 / 1;
   }
+}
+
+.shortie iframe {
+  height: 60vh;
 }
 
 div.magic-frame {
@@ -380,25 +431,25 @@ div.magic-frame {
 table {
   width: 100%;
   border-collapse: collapse;
-  border-bottom: var(--border);
+
   th,
   td {
     border-bottom: var(--border);
     padding: 0.5rem;
   }
+
   th {
     border-top: var(--softborder);
     border-bottom: var(--softborder);
     text-align: left;
-    font-size: 10px;
+    font-size: smaller;
+    font-weight: normal;
     opacity: 0.5;
     // ...
   }
-  td {
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    max-width: 0;
+
+  tr:last-child td {
+    border-bottom: none;
   }
 }
 
@@ -428,6 +479,7 @@ body.done-loading {
   ul {
     display: none;
   }
+
   // ...
 }
 
@@ -482,6 +534,7 @@ dl {
   label {
     opacity: 0.5;
   }
+
   button {
     height: unset;
     padding: 0.2rem 0.5rem;
@@ -492,60 +545,47 @@ dl {
 
 small {
   color: var(--soft);
-  font-size: x-small;
-}
-
-// Table column sizings
-
-.parcels-table,
-.spaces-table {
-  td {
-    min-width: 4rem;
-    max-width: 8rem;
-  }
-  td:nth-child(2) {
-    max-width: unset;
-    width: 100%;
-  }
+  font-size: small;
 }
 
 // Rocking animation: On hover, boxes rock back and forth with increasing then decreasing amplitude
-@keyframes voxels-rock {
+@keyframes cube-rock {
   0% {
-    transform: rotateX(-35.264deg) rotateY(35deg);
+    transform: rotateX(-15deg) rotateY(-35deg);
   }
+
   50% {
-    transform: rotateX(-35.264deg) rotateY(-145deg);
+    transform: rotateX(-15deg) rotateY(-215deg);
   }
+
   100% {
-    transform: rotateX(-35.264deg) rotateY(-325deg);
+    transform: rotateX(-15deg) rotateY(-395deg);
   }
 }
 
 // Logo (CSS 3D voxels)
 
-.voxels-logo {
+.cube-logo {
   box-sizing: border-box;
   position: relative;
   top: -0.5rem;
   display: inline-block;
   --size: 1rem;
-  --fore: #aaa;
-  --back: #555;
+  --fore: #ccc;
+  --back: #777;
   --half: calc(var(--size) / 2);
   min-width: calc(7 * var(--size));
   min-height: calc(3 * var(--size));
   transform-style: preserve-3d;
-  perspective: 250px;
-  transform: rotateX(-35.264deg) rotateY(35deg);
+  transform: rotateX(-15deg) rotateY(-35deg);
 
   &:hover {
-    animation: voxels-rock 1s linear infinite;
+    animation: cube-rock 1s linear infinite;
   }
 
   .box {
-    width: var(--size);
-    height: var(--size);
+    width: ~'calc(var(--size) + 1px)';
+    height: ~'calc(var(--size) + 1px)';
     position: absolute;
     transform-style: preserve-3d;
   }
@@ -560,28 +600,34 @@ small {
     position: absolute;
     inset: 0;
     backface-visibility: hidden;
+    border: 1px solid #333;
   }
 
   .face-F {
     transform: rotateY(0deg) translateZ(var(--half));
     background: var(--fore);
   }
+
   .face-B {
     transform: rotateY(180deg) translateZ(var(--half));
     background: var(--back);
   }
+
   .face-E {
     transform: rotateY(90deg) translateZ(var(--half));
     background: linear-gradient(to right, var(--fore), var(--back));
   }
+
   .face-W {
     transform: rotateY(-90deg) translateZ(var(--half));
     background: linear-gradient(to left, var(--fore), var(--back));
   }
+
   .face-N {
     transform: rotateX(90deg) translateZ(var(--half));
     background: linear-gradient(to top, var(--fore), var(--back));
   }
+
   .face-S {
     transform: rotateX(-90deg) translateZ(var(--half));
   }
@@ -605,18 +651,23 @@ small {
     background: #999;
     border-radius: 2px;
   }
+
   .m-e {
     background: #8a8;
   }
+
   .m-x {
     background: #c99;
   }
+
   .m-i {
     background: #c8c;
   }
+
   .m-c {
     background: #abc;
   }
+
   .m-d {
     background: #fa0;
   }
@@ -640,5 +691,392 @@ small {
     width: 2rem;
     text-align: right;
     max-width: unset;
+  }
+}
+
+/* Admin */
+
+#islands-canvas {
+  width: 50vw;
+  height: 70vh;
+}
+
+.island-admin {
+  table {
+    border-collapse: collapse;
+    width: 100%;
+
+    td,
+    th {
+      text-align: left;
+      border-bottom: 1px solid #ccc5;
+      padding: 0.5em;
+    }
+  }
+}
+
+.island-map {
+  width: 100%;
+  height: 320px;
+}
+
+/* Forms */
+
+div.f {
+  position: relative;
+  margin-bottom: 0.5rem;
+  padding: 0 0 0 10rem;
+
+  label {
+    position: absolute;
+    left: 0;
+    text-transform: lowercase;
+  }
+
+  label:has(input) {
+    position: relative;
+  }
+
+  button {
+    margin: 0 0.5rem;
+  }
+  button:first-child {
+    margin-left: 0;
+  }
+
+  input[type='text'],
+  input[type='number'],
+  textarea {
+    font-family: 'source code pro', monospace;
+    width: 25rem;
+    font-size: 0.9rem;
+    padding: 0.2rem;
+  }
+}
+
+.island-admin {
+  article,
+  aside {
+    width: 40vw;
+  }
+}
+
+fieldset {
+  border: none;
+  padding: 0;
+  margin: 0 0 0.65rem;
+  min-width: 0;
+}
+
+/* Account sign-in (passkey / email / wallet) */
+
+section.login {
+  padding: 1rem 1.25rem 2.5rem;
+  margin: 0;
+  max-width: 28rem;
+  text-align: left;
+
+  label {
+    display: block;
+    font-size: 0.85rem;
+    margin-bottom: 0.15rem;
+  }
+
+  input[type='email'],
+  input[type='text'] {
+    display: block;
+    width: 100%;
+    max-width: 22rem;
+    box-sizing: border-box;
+    margin-top: 0.2rem;
+    padding: 0.4rem 0.5rem;
+    border: 1px solid #999;
+    background: #fff;
+    font-family: inherit;
+    font-size: 0.9rem;
+  }
+
+  .login-form {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .login-block {
+    margin: 0;
+
+    h1 {
+      font-size: 1.15rem;
+      font-weight: bold;
+      margin: 0 0 0.65rem;
+    }
+  }
+
+  hr.login-form-divider {
+    border: 0;
+    border-top: 1px solid #ccc;
+    margin: 1.25rem 0;
+    width: 100%;
+    align-self: stretch;
+  }
+
+  .login-hint {
+    margin: 0 0 0.75rem;
+    max-width: 26rem;
+    font-size: 0.75rem;
+    line-height: 1.4;
+    color: #555;
+  }
+
+  .login-error {
+    margin: 0 0 0.5rem;
+    font-size: 0.8rem;
+    line-height: 1.35;
+    color: #a00;
+  }
+
+  .login-actions {
+    margin: 0.35rem 0 0;
+  }
+
+  .login-or-cancel {
+    margin-left: 0.5rem;
+    font-size: 0.85rem;
+  }
+
+  .login-passkey-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 0.15rem;
+  }
+
+  button.login-passkey-wait {
+    margin-top: 0.15rem;
+  }
+}
+
+/* Account page (your own profile) */
+
+section.profile {
+  .account-name-hero {
+    font-size: 1.85rem;
+    font-weight: bold;
+    line-height: 1.2;
+    margin: 0 0 0.5rem;
+  }
+
+  .account-welcome-msg {
+    font-size: 0.88rem;
+    line-height: 1.45;
+    color: #444;
+    max-width: 36rem;
+    margin: 0 0 0.85rem;
+  }
+
+  .account-logout-row {
+    margin: 0.5rem 0 0;
+  }
+
+  .account-logout-btn {
+    font-size: 0.85rem;
+  }
+}
+
+/* Asset / collection .vox upload (sidebar) */
+
+.upload-button {
+  margin-bottom: 0.5rem;
+  background: #fafaca;
+  padding: 0.5rem;
+  box-shadow: 2px 2px 1px 1px rgba(0, 0, 0, 0.1);
+
+  h3 {
+    margin-bottom: 1rem;
+  }
+
+  .asset-vox-drop-active {
+    border-color: #48c;
+    background: #eef6ff;
+  }
+
+  .asset-vox-drop-hint {
+    color: #555;
+  }
+
+  ul {
+    margin: 0.35rem 0 0;
+    padding-left: 1.1rem;
+    font-size: 0.85rem;
+  }
+}
+
+// Wearable display
+
+.wearable-canvas {
+  width: 100%;
+  height: 60vh;
+  background: #0af;
+}
+
+.broken-image,
+.loading-image {
+  width: 100%;
+  aspect-ratio: 1/1;
+  background: #eee;
+  position: relative;
+
+  img {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 16px;
+    filter: grayscale(100%);
+    transform: translate(-50%, -50%);
+    mix-blend-mode: multiply;
+  }
+}
+
+hgroup {
+  h1 {
+    margin: 1rem 0 0 0;
+  }
+
+  h1 + p {
+    margin-top: -0.5rem;
+  }
+}
+
+// Empty State
+
+p.empty {
+  font-size: smaller;
+  opacity: 0.5;
+}
+
+// List controls
+
+.list-controls {
+  display: flex;
+  flex-direction: row;
+  gap: 0.5rem;
+
+  div {
+    flex: 1;
+  }
+
+  h5 {
+    margin: 0;
+    font-size: smaller;
+    opacity: 0.5;
+    font-weight: normal;
+  }
+}
+
+// parcel search
+
+.parcel-field {
+  position: relative;
+
+  ul {
+    margin: 0;
+    padding: 0;
+    width: 25rem;
+    font-family: 'source code pro', monospace;
+    font-size: small;
+    background: white;
+    border: 1px solid #555;
+    list-style: none;
+    z-index: 100;
+    box-shadow: 0 2px 4px #5555;
+    max-height: 200px;
+    overflow-y: auto;
+
+    li {
+      padding: 0;
+      margin: 0;
+      cursor: pointer;
+    }
+
+    li:hover {
+      background: #555;
+      color: white;
+    }
+  }
+}
+
+// Sidebar columns nav
+
+.columns.nav {
+  nav {
+    ul {
+      margin: 0;
+      padding: 0;
+    }
+
+    ul li {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+
+      & > a {
+        display: block;
+
+        // truncate
+        text-overflow: ellipsis;
+        overflow: hidden;
+        white-space: nowrap;
+      }
+    }
+
+    li[aria-selected='true'] {
+      a {
+        text-decoration: none;
+        color: inherit;
+        font-weight: bold;
+      }
+    }
+  }
+}
+
+// Context menu
+
+menu.context {
+  border: --border;
+  background: white;
+  box-shadow: 1px 1px 3px rgba(0, 0, 0, 0.2);
+  margin: 0;
+  padding: 0;
+
+  li {
+    margin: 0;
+    padding: 0.2rem 0.5rem;
+    list-style: none;
+    cursor: pointer;
+  }
+
+  li:hover {
+    background: #ccc;
+  }
+}
+
+// Parcels / spaces table
+
+table.parcels,
+table.spaces {
+  td {
+    vertical-align: top;
+  }
+
+  td:first-child {
+    width: 4rem;
+  }
+}
+
+// Parcel / spaces page
+
+.parcel-page {
+  aside {
+    width: 15rem;
   }
 }

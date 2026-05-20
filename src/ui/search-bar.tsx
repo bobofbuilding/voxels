@@ -5,14 +5,13 @@ import ParcelHelper from '../../common/helpers/parcel-helper'
 import { autoFocusRef } from '../../common/helpers/ui-helpers'
 import type { CachedParcelsMessage } from '../../common/messages/api-parcels'
 import { SimpleParcelRecord } from '../../common/messages/parcel'
-import type { Scene } from '../scene'
 import type { ParcelsSubTab, Tab } from './explorer'
 
 interface SearchBarProps {
   autoFocus?: boolean
   onSelect?: () => void
   onSearch?: (search?: string | null) => void
-  scene: Scene
+  scene: BABYLON.Scene
 }
 
 type State = {
@@ -56,7 +55,7 @@ export abstract class SearchBar<Props extends SearchBarProps = SearchBarProps> e
 
   select(parcel: SimpleParcelRecord) {
     const h = new ParcelHelper(parcel)
-    if (this.props.scene.config.isSpace) {
+    if (window.config.isSpace) {
       window.ui?.openLink('/play?coords=' + h.centerLocation)
     } else {
       h.spawnUrl().then((url) => window.persona.teleport(url))

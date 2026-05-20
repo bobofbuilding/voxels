@@ -1,18 +1,15 @@
 import { StateObservable } from '../utils/state-observable'
 import { Environment } from './environment'
-import type { Scene } from '../scene'
 import { createEvent } from '../utils/EventEmitter'
 
-type SpaceScene = Scene
-
-export class SpacesEnvironment extends Environment<SpaceScene> {
+export class SpacesEnvironment extends Environment {
   skybox?: BABYLON.Mesh
   skyboxMaterial?: BABYLON.StandardMaterial
   ground?: BABYLON.Mesh
   groundMaterial: BABYLON.StandardMaterial | undefined
   groundTexture: BABYLON.Texture | undefined
 
-  constructor(parent: BABYLON.TransformNode, scene: SpaceScene) {
+  constructor(parent: BABYLON.TransformNode, scene: BABYLON.Scene) {
     console.debug('Creating SpacesEnvironment')
     super(parent, scene)
   }
@@ -28,7 +25,7 @@ export class SpacesEnvironment extends Environment<SpaceScene> {
   }
 
   override get fogDensity() {
-    return 0.069
+    return 0.004
   }
 
   override get ambient() {
@@ -43,11 +40,11 @@ export class SpacesEnvironment extends Environment<SpaceScene> {
 
     this.skybox = BABYLON.Mesh.CreateBox('skybox', 1, this.scene)
     const setSkyboxScale = () => {
-      this.skybox?.scaling.setAll(this.scene.draw.distance)
+      this.skybox?.scaling.setAll(window.draw.distance)
     }
     // adjust skybox size to draw distance
     setSkyboxScale()
-    this.scene.draw.addEventListener('distance-changed', setSkyboxScale, { passive: true })
+    window.draw.addEventListener('distance-changed', setSkyboxScale, { passive: true })
 
     this.skybox.infiniteDistance = true
     this.skybox.material = this.skyboxMaterial
@@ -74,6 +71,23 @@ export class SpacesEnvironment extends Environment<SpaceScene> {
 
     if (this.ground) {
       this.ground.material = this.groundMaterial
+    }
+  }
+
+  applyEnvironment(env: string | null | undefined) {
+    if (!this.skyboxMaterial) return
+    if (env === 'night') {
+      // dark blue sky
+      this.skyboxMaterial.emissiveColor.set(0.05, 0.05, 0.15)
+      this.scene.clearColor = new BABYLON.Color4(0.05, 0.05, 0.15, 1)
+    } else if (env === 'void') {
+      // pure white
+      this.skyboxMaterial.emissiveColor.set(1, 1, 1)
+      this.scene.clearColor = new BABYLON.Color4(1, 1, 1, 1)
+    } else {
+      // day - blue sky
+      this.skyboxMaterial.emissiveColor.set(0.4, 0.65, 1)
+      this.scene.clearColor = new BABYLON.Color4(0.4, 0.65, 1, 1)
     }
   }
 

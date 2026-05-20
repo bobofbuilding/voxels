@@ -65,8 +65,10 @@ export default function SpacesController(db: Db, passport: PassportStatic, app: 
     const height = !!content ? req.body.height : clamp(4, 32, parseInt(req.body.height))
     const depth = !!content ? req.body.depth : clamp(4, 32, parseInt(req.body.depth))
 
+    const env = ['day', 'night', 'void'].includes(req.body.environment) ? req.body.environment : 'day'
+
     if (!content) {
-      content = {}
+      content = { environment: env }
     }
 
     const result = await db.query(

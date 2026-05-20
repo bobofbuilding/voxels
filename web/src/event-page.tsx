@@ -6,10 +6,12 @@ import { Interval, intervalAsString, milliSecondsToInterval, nth } from '../../c
 import { canUseDom, copyTextToClipboard, ssrFriendlyWindow } from '../../common/helpers/utils'
 import { Event } from '../../common/messages/event'
 import Loading from './components/loading'
+import { fmt } from './components/date-field'
 import { PanelType } from './components/panel'
 import ParcelEvent, { removeEvent } from './helpers/event'
 import { app, AppEvent } from './state'
-import { fetchAPI, fetchOptions } from './utils'
+import cachedFetch from './helpers/cached-fetch'
+import { fetchOptions } from './utils'
 
 export interface Props {
   event?: Event
@@ -66,7 +68,8 @@ export default class EventPage extends Component<Props, State> {
     this.controller?.abort('ABORT:starting new request')
     this.controller = new AbortController()
     this.setState({ loading: true })
-    return fetchAPI(`/api/events/${this.props.id}.json`, fetchOptions(this.controller))
+    return cachedFetch(`/api/events/${this.props.id}.json`, fetchOptions(this.controller))
+      .then((r) => r.json())
       .then((r) => {
         this.setEventHelpers(r.event)
         this.setState({ event: r.event }, () => {
@@ -107,36 +110,44 @@ export default class EventPage extends Component<Props, State> {
       return <Loading />
     }
 
-    const day = this.helper.toLocale({ day: 'numeric' })
-    const ts = `${day}${nth(day)} of ${this.helper.toLocale({ month: 'short' })} @ ${this.helper.toLocaleTimeString({
-      hour: 'numeric',
-      minute: 'numeric',
-      hour12: false,
-      timeZoneName: 'short',
-    })} `
+    const ts = fmt(this.state.event.starts_at as any)
     const title = `${this.state.event.name} - ${ts}`
     const description = this.state.event.description
 
     const isMod = app.state?.moderator || this.helper.isOwner
+    const canEdit = this.helper.canEdit && (this.helper.isOwner || isMod) && this.state.event?.id
 
     return (
-      <section class="columns">
-        <h1>{this.state.event.name}</h1>
+      <section class="columns nav">
+        <EventsNav activeId={this.props.id} />
 
         <article>
+          <hgroup>
+            <h1>{this.state.event.name}</h1>
+          </hgroup>
           <figcaption>
-            <a href={this.visitUrl}>Visit</a>
+            <a class="buttonish" href={this.visitUrl}>
+              Visit
+            </a>
+
+            {canEdit && (
+              <>
+                <a class="buttonish" href={`/events/${this.state.event.id}/edit`}>
+                  Edit event
+                </a>
+              </>
+            )}
           </figcaption>
 
-          <figure>
+          <figure class="shortie">
             <iframe id="ParcelorbitView" key={this.parcel?.orbitUrl} scrolling="no" src={this.parcel?.orbitUrl} />
           </figure>
+
+          <div>{this.state.event.description}</div>
         </article>
 
         <aside class="push-header">
           <dl>
-            <dt>Description</dt>
-            <dd class="description">{this.state.event.description}</dd>
             {this.helper.isInPast && <SummaryPast event={this.helper} anons={this.state.visitor_anons} wallets={this.state.visitor_wallets} isMod={isMod} />}
             {this.helper.isLive && <SummaryLive event={this.helper} anons={this.state.visitor_anons} wallets={this.state.visitor_wallets} isMod={isMod} />}
             {this.helper.isInFuture && <SummaryFuture event={this.helper} anons={this.state.visitor_anons} wallets={this.state.visitor_wallets} isMod={isMod} />}
@@ -159,32 +170,6 @@ export default class EventPage extends Component<Props, State> {
                 {this.helper.isLive ? 'Join' : 'Visit'}
               </a>
             </dd>
-
-            {!this.helper.isInPast && (
-              <div>
-                {this.helper.isOwner && this.parcel?.id && (
-                  <button
-                    onClick={() => {
-                      this.redirect(`/parcels/${this.parcel?.id}?edit_event=1`)
-                    }}
-                  >
-                    Edit event
-                  </button>
-                )}
-                {isMod && this.state.event?.id && (
-                  <button
-                    onClick={() => {
-                      if (!this.state.event?.id) return
-                      removeEvent(this.state.event?.id, () => {
-                        this.redirect('/')
-                      })
-                    }}
-                  >
-                    Remove event
-                  </button>
-                )}
-              </div>
-            )}
           </dl>
         </aside>
       </section>
@@ -201,7 +186,6 @@ export default class EventPage extends Component<Props, State> {
     this.parcel = new ParcelHelper({
       id: event.parcel_id,
       owner: event.parcel_owner,
-      owner_name: event.parcel_owner_name,
       name: event.parcel_name,
       description: event.parcel_description,
       address: event.parcel_address,
@@ -223,7 +207,7 @@ function SummaryPast({ event, anons, wallets, isMod }: SummaryProps) {
     <>
       <dt>Host</dt>
       <dd>
-        <a href={`/u/${event.author}`}>{event.authorNameOrAddress(34)}</a>
+        <a href={`/u/${event.authorSlug}`}>{event.authorNameOrAddress(34)}</a>
       </dd>
       <dt>Location</dt>
       <dd>
@@ -247,7 +231,7 @@ function SummaryFuture({ event, anons, wallets, isMod }: SummaryProps) {
       </dd>
       <dt>Host</dt>
       <dd>
-        <a href={`/u/${event.author}`}>{event.authorNameOrAddress(34)}</a>
+        <a href={`/u/${event.authorSlug}`}>{event.authorNameOrAddress(34)}</a>
       </dd>
       <dt>Location</dt>
       <dd>
@@ -280,7 +264,7 @@ function SummaryLive({ event, anons, wallets, isMod }: SummaryProps) {
       </dd>
       <dt>Host</dt>
       <dd>
-        <a href={`/u/${event.author}`}>{event.authorNameOrAddress(34)}</a>
+        <a href={`/u/${event.authorSlug}`}>{event.authorNameOrAddress(34)}</a>
       </dd>
       <dt>Location</dt>
       <dd>
@@ -316,6 +300,32 @@ const copyToClipboard = (text: string) => {
     text,
     () => app.showSnackbar(`Copied wallets address to clipboard`, PanelType.Success),
     () => app.showSnackbar(`Could not copy wallets`, PanelType.Info),
+  )
+}
+
+function EventsNav({ activeId }: { activeId?: string }) {
+  const [events, setEvents] = useState<Event[]>([])
+  useEffect(() => {
+    cachedFetch('/api/events.json', fetchOptions())
+      .then((r) => r.json())
+      .then((r) => setEvents(r.events ?? []))
+  }, [])
+  return (
+    <nav>
+      <ul>
+        {events.map((e) => (
+          <li key={e.id} aria-selected={String(e.id) === activeId}>
+            <a href={`/events/${e.id}`}>{e.name}</a>
+          </li>
+        ))}
+      </ul>
+
+      <p>
+        <a class="buttonish" href="/events/new">
+          New event
+        </a>
+      </p>
+    </nav>
   )
 }
 

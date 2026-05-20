@@ -7,7 +7,6 @@ import { User } from '../user'
 import { AudioEngine } from '../audio/audio-engine'
 import type { Tool } from '../user-interface'
 import { signal } from '@preact/signals'
-import type { Scene } from '../scene'
 import VertexShader from '../shaders/ao-mesh.vsh'
 import FragmentShader from '../shaders/ao-mesh.fsh'
 import { createGlassMaterial } from '../materials/glass'
@@ -54,7 +53,6 @@ export default class Selector implements Tool {
   scene: BABYLON.Scene
   parent: BABYLON.TransformNode
   box: BABYLON.Mesh
-  clones: Array<BABYLON.Mesh> = []
   grid: Grid
   selection: Selection
   enabled = signal(false)
@@ -128,13 +126,13 @@ export default class Selector implements Tool {
       'palette',
       defaultColors.map((c) => BABYLON.Color3.FromHexString(c)),
     )
-    ;(scene as Scene).environment?.setShaderParameters(material, 1.5)
+    window.environment?.setShaderParameters(material, 1.5)
 
     // Block dirty mechanism to prevent unnecessary shader recompilation
     material.blockDirtyMechanism = true
 
     this.voxelMaterial = material
-    this.glassMaterial = createGlassMaterial(scene as Scene, { name: 'ghost-block' })
+    this.glassMaterial = createGlassMaterial(scene as any, { name: 'ghost-block' })
     this.box.material = material
 
     // No default block
@@ -199,30 +197,16 @@ export default class Selector implements Tool {
   }
 
   private async updateMaterialForParcel(parcel: Parcel): Promise<void> {
-    const material = this.box.material as BABYLON.ShaderMaterial
-    if (!material) return
-
-    // Use parcel's tileset texture if available, otherwise default atlas
     const texture = parcel.tilesetTexture || Grid.mesher.defaultTileset
-
-    // Update the shader's tileMap texture
-    material.setTexture('tileMap', texture)
+    this.voxelMaterial.setTexture('tileMap', texture)
     this.atlasTexture = texture
-
-    // Update palette and block attribute for new parcel
     this.updatePaletteColor()
   }
 
   private updatePaletteColor(): void {
-    const material = this.box.material as BABYLON.ShaderMaterial
-    if (!material) return
-
-    // Update palette uniform on the shader
     const parcel = this.selection.parcel
     const palette = parcel?.paletteColors || defaultColors.map((c) => BABYLON.Color3.FromHexString(c))
-    material.setColor3Array('palette', palette)
-
-    // Update block attribute to reflect current texture + tint
+    this.voxelMaterial.setColor3Array('palette', palette)
     this.setTextureOffset(this.texture)
   }
 
@@ -295,8 +279,6 @@ export default class Selector implements Tool {
     this.mousedown = false
     this.box.visibility = 0
     this.box.scaling.set(1, 1, 1)
-    this.clones.forEach((c) => c.dispose())
-    this.clones.length = 0
     this.scene.onPointerObservable.removeCallback(this.onPointerObservable)
   }
 
@@ -409,10 +391,6 @@ export default class Selector implements Tool {
       }
     }
 
-    // Clear previous clones
-    this.clones.forEach((c) => c.dispose())
-    this.clones.length = 0
-
     const voxelCenter = this.getVoxelCenter(pickResult, this.selection.mode)
 
     if (!voxelCenter) {
@@ -450,7 +428,6 @@ export default class Selector implements Tool {
       return
     }
 
-    // Position the main box at the start of selection
     const a = this.voxelToWorldSpace(this.selection.start, this.selection.parcel)
     if (a) {
       this.box.position.copyFrom(a)
@@ -458,41 +435,19 @@ export default class Selector implements Tool {
       this.box.visibility = 1
     }
 
-    // For multi-voxel selection, create clones at each position (skip first, use main box)
     if (this.checkValidBlockSelection() && this.selection.end) {
       const bounds = this.getBounds(this.selection.start, this.selection.end)
       const { minimum, maximum } = bounds
-
-      let isFirst = true
-      for (let x = minimum.x; x <= maximum.x; x++) {
-        for (let y = minimum.y; y <= maximum.y; y++) {
-          for (let z = minimum.z; z <= maximum.z; z++) {
-            const voxelPosition = new BABYLON.Vector3(x, y, z)
-            const worldPosition = this.voxelToWorldSpace(voxelPosition, this.selection.parcel)
-
-            if (worldPosition) {
-              if (isFirst) {
-                // Use the main box for the first position
-                this.box.position.copyFrom(worldPosition)
-                isFirst = false
-              } else {
-                // Create clones for additional positions
-                const clone = this.box.clone('selection-box-clone')
-                clone.position.copyFrom(worldPosition)
-                clone.parent = this.parent
-                clone.isPickable = false
-                clone.visibility = 1
-                this.clones.push(clone)
-              }
-            }
-          }
-        }
+      const scale = maximum.subtract(minimum).addInPlaceFromFloats(1, 1, 1)
+      const center = minimum.add(maximum).scaleInPlace(0.5)
+      const world = this.voxelToWorldSpace(center, this.selection.parcel)
+      if (world) {
+        this.box.position.copyFrom(world)
+        this.box.scaling.copyFrom(scale)
       }
-
-      // Track selection count for audio feedback
-      const totalCount = 1 + this.clones.length
-      if (totalCount !== this.selection.count) {
-        this.selection.count = totalCount
+      const count = scale.x * scale.y * scale.z
+      if (count !== this.selection.count) {
+        this.selection.count = count
         this.audio?.playSound('build.extend')
       }
     }

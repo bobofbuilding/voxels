@@ -30,8 +30,6 @@ export default function (db: Db, passport: PassportStatic, app: Express) {
 
   app.get('/api/events.json', cache('5 seconds'), createRequestHandlerForQuery(db, 'events/get-events', 'events'))
 
-  app.get('/api/events/historic.json', cache('10 minutes'), createRequestHandlerForQuery(db, 'events/get-historic-events', 'events'))
-
   app.get(
     '/api/parcels/:id/event.json',
     cache('30 seconds'),

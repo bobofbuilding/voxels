@@ -1,13 +1,12 @@
-import { Signature, type SignatureLike, verifyMessage, hashMessage } from 'ethers'
+import { Signature, type SignatureLike, verifyMessage } from 'ethers'
 import type { Request, Response } from 'express'
 import { SignJWT } from 'jose'
-import { ServerClient } from 'postmark'
+import { Resend } from 'resend'
 import Avatar from '../avatar'
 import { doesAvatarExist } from '../does-avatar-exist'
 import { ensureAvatarExists } from '../ensure-avatar-exists'
 import { isMod } from '../lib/helpers'
 import { named } from '../lib/logger'
-import { gnosisProxyContract, TokenAddress } from '../lib/utils'
 import db from '../pg'
 
 const log = named('sign_in')
@@ -35,15 +34,8 @@ type Params = any
 type SignInOptions = {
   rememberSignIn?: boolean
   providerName?: string
-}
-
-type MultiSigSignIn = {
-  signature: 'multisig'
-  options: SignInOptions & { chain?: number }
-  wallet: TokenAddress
-  message: MessageSignature
-  email: string
-  code: string
+  /** Saves to avatars.name (e.g. passkey signup username). */
+  preferredDisplayName?: string
 }
 
 type PersonalSignIn = {
@@ -55,13 +47,15 @@ type PersonalSignIn = {
   code: string
 }
 
-type SIM = PersonalSignIn | MultiSigSignIn
+type SIM = PersonalSignIn
 
 async function getEmailCode(email: string): Promise<{ code: string; expiry: string }> {
   // fixme - make dates stable in case people submit at midnight UTC
   const date = new Date().toISOString().split('T')[0]
-  const salted = 'rainbox-ass-' + email.toString().replace(/^\s+/, '').replace(/\s+$/, '') + '-' + date.toString()
-  const key = 'vitalik-is-my-homeboy'
+
+  // fixme - dont put the salt in the public codebase?
+  const salted = 'yarr-the-saltiness-' + email.toString().replace(/^\s+/, '').replace(/\s+$/, '') + '-' + date.toString()
+  const key = JWT_SECRET
 
   const cryptoKey = await globalThis.crypto.subtle.importKey('raw', new TextEncoder().encode(key), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign'])
   const signatureBuffer = await globalThis.crypto.subtle.sign('HMAC', cryptoKey, new TextEncoder().encode(salted))
@@ -118,20 +112,35 @@ Your voxels login code is: ${code}
 ps: This code is valid on ${expiry}. If you are not trying to log into voxels.com with this email, please ignore this message.
 `
 
-  const serverToken = 'ab3cbb8b-4211-457c-bd25-e477ca337e27'
+  console.log('sending email to', email, 'code:', code)
+  console.log(text)
 
-  const client = new ServerClient(serverToken)
+  const resendToken = process.env.RESEND_TOKEN
+  if (!resendToken) {
+    console.error('RESEND_TOKEN not set')
+    res.json({ success: true })
+    return
+  }
 
-  client.sendEmail({
-    From: 'Voxels Team<team@voxels.com>',
-    To: email,
-    Subject: `Login code ${code}`,
-    TextBody: text,
-    HtmlBody: html,
-  })
-
-  // fs.writeFileSync('/Users/ben/Desktop/email.eml', message)
-  // exec('open /Users/ben/Desktop/email.eml')
+  try {
+    const resend = new Resend(resendToken)
+    const { error } = await resend.emails.send({
+      from: 'Voxels Team <team@voxels.com>',
+      to: email,
+      subject: `Login code ${code}`,
+      text,
+      html,
+    })
+    if (error) {
+      console.error('Resend error:', error)
+      res.json({ success: false, error: 'Failed to send email' })
+      return
+    }
+  } catch (e: any) {
+    console.error('Resend send failed:', e?.message ?? e)
+    res.json({ success: false, error: 'Failed to send email' })
+    return
+  }
 
   res.json({ success: true })
 }
@@ -157,8 +166,6 @@ export async function SignIn(req: Request<any, Params>, res: Response) {
 
     const r = await db.query('embedded/get-user-uuid', 'select get_or_create_user_uuid($1) as uuid', [email])
     const wallet = r && r.rows[0] && r.rows[0].uuid
-
-    console.log(`non wallet is ${wallet}`)
 
     const { token, name, isNewUser } = await getUserInfo(res, wallet, {})
     res.json({ success: true, token, name, isNewUser })
@@ -192,13 +199,7 @@ export async function SignIn(req: Request<any, Params>, res: Response) {
   }
 
   // when personal sign
-  if (params.signature !== 'multisig') {
-    await personalSignIn(res, params.wallet, params.message, params.signature, params.options || {})
-  } else {
-    // when multi sig
-    const multi = params as MultiSigSignIn // :( typescript needs a little help here
-    await multiSigSignIn(res, multi.wallet, multi.message, multi.options)
-  }
+  await personalSignIn(res, params.wallet, params.message, params.signature, params.options || {})
 }
 
 async function personalSignIn(res: Response, wallet: string, message: MessageSignature, signature: SignatureLike, options: SignInOptions) {
@@ -231,43 +232,34 @@ async function personalSignIn(res: Response, wallet: string, message: MessageSig
   res.json({ success: true, token, name, isNewUser })
 }
 
-async function multiSigSignIn(res: Response, wallet: TokenAddress, message: MessageSignature, options?: SignInOptions & { chain?: number }): Promise<void> {
-  const wsSafeProxyContract = await gnosisProxyContract(wallet, options?.chain)
-  if (!wsSafeProxyContract) {
-    res.json({ success: false })
+export async function CheckEmail(req: Request, res: Response) {
+  const { email } = req.body as { email?: string }
+  if (!email?.trim()) {
+    res.json({ hasPasskey: false })
     return
   }
-  const msgHash = hashMessage(message)
-  const getMessageHash = await wsSafeProxyContract.getMessageHash(msgHash)
-
-  const waitForSignedEvent = new Promise<boolean>((myResolve, myReject) => {
-    const onMultiSigSigned = () => {
-      myResolve(true)
-    }
-    setTimeout(
-      () => {
-        wsSafeProxyContract.removeListener(wsSafeProxyContract.filters.SignMsg(getMessageHash), onMultiSigSigned)
-        myReject(false)
-      },
-      5 * 60 * 60 * 1000,
-    )
-    // login() only after the _signMessage() txn is mined and SignMsg(msgHash) event emitted
-    wsSafeProxyContract.once(wsSafeProxyContract.filters.SignMsg(getMessageHash), onMultiSigSigned)
-  })
-  waitForSignedEvent
-    .then(async (value) => {
-      if (value) {
-        const { token, name, isNewUser } = await getUserInfo(res, wallet, options || {})
-        res.json({ success: true, token, name, isNewUser })
-      }
-    })
-    .catch((err) => {
-      log.error('failed getting user info', err)
-      res.json({ success: false })
-    })
+  const r = await db.query(
+    'signin/check-email-passkey',
+    `SELECT p.username FROM passkeys p
+     JOIN avatars a ON p.user_uuid::text = a.owner
+     WHERE lower(a.email) = lower($1) LIMIT 1`,
+    [email.trim()],
+  )
+  const row = r.rows[0]
+  res.json({ hasPasskey: !!row, passkeyUsername: row?.username ?? null })
 }
 
-async function getUserInfo(res: Response, wallet: string, options: SignInOptions): Promise<{ token: string; name: string; isNewUser: boolean }> {
+export async function CheckNameAvailable(req: Request, res: Response) {
+  const { name } = req.body as { name?: string }
+  if (!name?.trim()) {
+    res.json({ success: false, error: 'Name required' })
+    return
+  }
+  const r = await db.query('account/check-name', 'SELECT 1 FROM avatars WHERE name ILIKE $1', [name.trim()])
+  res.json({ success: true, available: r.rowCount === 0 })
+}
+
+export async function getUserInfo(res: Response, wallet: string, options: SignInOptions): Promise<{ token: string; name: string; isNewUser: boolean }> {
   if (!wallet) {
     throw new Error('Invalid wallet')
   }
@@ -287,7 +279,7 @@ async function getUserInfo(res: Response, wallet: string, options: SignInOptions
   // make sure we have the avatar in the DB or else new users won't get multiplayer permissions
   await ensureAvatarExists(wallet)
 
-  let name = null
+  let name: string | null = null
   if (avatarExists) {
     try {
       const r = await db.query('embedded/get-avatar-name', 'select name from avatars where lower(owner)=lower($1)', [wallet])
@@ -300,5 +292,17 @@ async function getUserInfo(res: Response, wallet: string, options: SignInOptions
     // avatar doesn't exist, it's a new user, maybe that user has an ENS name
     name = await Avatar.setENSNameIfAny(wallet)
   }
-  return { token, name, isNewUser: !avatarExists }
+
+  // only apply preferredDisplayName for new users - don't clobber existing names
+  const preferred = options.preferredDisplayName?.trim()
+  if (preferred && !avatarExists) {
+    try {
+      await db.query('sign-in/avatar-prefer-display-name', 'update avatars set name = $1 where lower(owner) = lower($2)', [preferred, wallet])
+      name = preferred
+    } catch (e: any) {
+      log.error(`sign-in preferredDisplayName: ${e.toString()}`)
+    }
+  }
+
+  return { token, name: name ?? '', isNewUser: !avatarExists }
 }

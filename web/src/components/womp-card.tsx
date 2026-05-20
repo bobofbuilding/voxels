@@ -7,9 +7,8 @@ export interface Womp {
   parcel_name: string
   space_name: string
   parcel_address: string
-  author_name: string
   content: string
-  author: string
+  author: any // AvatarRef
   coords: string
   created_at: string
   updated_at: string
@@ -47,23 +46,12 @@ export function WompCard(props: CardProps) {
 
   return (
     <div class="womp">
-      <div>
-        <a onClick={onClick} href={`/womps/${props.womp.id}`} title="View Womp Page">
-          <img loading="lazy" src={props.womp.image_url} alt={props.womp.content} />
-        </a>
-      </div>
-      {!!nearbyCount && <div title={`${nearbyCount} people nearby`}>{nearbyCount}</div>}
-      <p title={location}>{location}</p>
+      <a onClick={onClick} href={`/womps/${props.womp.id}`}>
+        <img loading="lazy" src={props.womp.image_url} alt={props.womp.content} />
+        <p title={location}>{location}</p>
+      </a>
     </div>
   )
-}
-
-function getAuthorName(womp: Womp) {
-  if (typeof womp.author_name === 'string') {
-    return womp.author_name
-  } else if (typeof womp.author === 'string') {
-    return womp.author.slice(0, 10)
-  }
 }
 
 function stopPropagation(e: MouseEvent) {

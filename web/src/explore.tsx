@@ -1,7 +1,9 @@
 import { Component, Fragment } from 'preact'
-import { useEffect, useState } from 'preact/hooks'
+import { useEffect, useRef, useState } from 'preact/hooks'
+import { avatarName } from '../../common/messages/avatar-ref'
+import { jitterCoord } from '../../common/helpers/utils'
 import { currentVersion } from '../../common/version'
-import EventsShowcase from './components/events-showcase'
+import { Event } from '../../common/messages/event'
 import Head from './components/head'
 import PopularParcels from './components/popular-parcels'
 import { Womp } from './components/womp-card'
@@ -21,6 +23,46 @@ type RESummary = {
     address: string
     owner: string
   }[]
+}
+
+type LiveParcel = { id: number; name?: string; address: string }
+type LiveEntry = { room: string; parcel: LiveParcel; coord?: string; avatar: any; thumbnail: string }
+
+function LiveSection() {
+  const [streams, setStreams] = useState<Map<string, LiveEntry>>(new Map())
+  const ref = useRef<EventSource | null>(null)
+
+  useEffect(() => {
+    const es = new EventSource('/api/live')
+    ref.current = es
+    es.onmessage = (e) => {
+      const msg = JSON.parse(e.data)
+      setStreams((prev) => {
+        const next = new Map(prev)
+        if (msg.type === 'snapshot') msg.entries.forEach((s: LiveEntry) => next.set(s.room, s))
+        else if (msg.type === 'remove') next.delete(msg.parcel)
+        else next.set(msg.room, msg as LiveEntry)
+        return next
+      })
+    }
+    return () => es.close()
+  }, [])
+
+  if (streams.size === 0) return <p>no one is live right now</p>
+
+  return (
+    <ul class="live-streams">
+      {[...streams.values()].map((s) => (
+        <li key={s.room}>
+          <a href={s.coord ? `/play?coords=${jitterCoord(s.coord)}` : `/parcels/${s.parcel.id}`}>
+            <img src={s.thumbnail} width="128" height="72" alt="" />
+            <span>{s.parcel.name || s.parcel.address}</span>
+            <small>{avatarName(s.avatar)}</small>
+          </a>
+        </li>
+      ))}
+    </ul>
+  )
 }
 
 function FreshlyMinted() {
@@ -47,7 +89,7 @@ function FreshlyMinted() {
 
             <ul>
               {s.parcels.map((p) => (
-                <li key={p.id} class={`owner-${p.owner.toLowerCase()}`}>
+                <li key={p.id} class={`owner-${(p.owner && typeof p.owner === 'object' ? (p.owner as any).owner : (p.owner ?? '')).toLowerCase()}`}>
                   <a href={`/parcels/${p.id}`}>{p.address.slice(0, 2).trim()}</a>
                 </li>
               ))}
@@ -58,6 +100,49 @@ function FreshlyMinted() {
     </div>
   )
 }
+function countdown(ms: number) {
+  const s = Math.floor(ms / 1000)
+  const d = Math.floor(s / 86400)
+  const h = Math.floor((s % 86400) / 3600)
+  const m = Math.floor((s % 3600) / 60)
+  const sec = s % 60
+  return d > 0 ? `${d}d ${h}h ${m}m` : `${h}h ${m}m ${sec}s`
+}
+
+function EventsList() {
+  const [events, setEvents] = useState<Event[]>([])
+  const [now, setNow] = useState(Date.now())
+  useEffect(() => {
+    fetch('/api/events.json')
+      .then((r) => r.json())
+      .then((d) => setEvents(d.events || []))
+  }, [])
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 1000)
+    return () => clearInterval(t)
+  }, [])
+  const cutoff = now - 24 * 60 * 60 * 1000
+  const visible = events.filter((e) => new Date(e.expires_at).getTime() >= cutoff)
+  return (
+    <table class="events">
+      <tbody>
+        {visible.slice(0, 5).map((e) => {
+          const startsIn = new Date(e.starts_at).getTime() - now
+          const live = startsIn <= 0 && new Date(e.expires_at).getTime() > now
+          return (
+            <tr key={e.id}>
+              <td>
+                <a href={`/events/${e.id}`}>{e.name.length > 18 ? e.name.slice(0, 17) + '...' : e.name}</a>
+              </td>
+              <td>{startsIn > 0 ? countdown(startsIn) : live ? 'live' : 'ended'}</td>
+            </tr>
+          )
+        })}
+      </tbody>
+    </table>
+  )
+}
+
 export default class Explore extends Component<any, Props> {
   componentDidMount() {
     app.on(AppEvent.Logout, this.rerender)
@@ -75,28 +160,34 @@ export default class Explore extends Component<any, Props> {
 
   render() {
     return (
-      <section class="columns explore">
-        <Head title="" url={'/'}>
-          <Fragment>
-            <link rel="prefetch" href={getClientPath(currentVersion)} />
-            <link rel="prefetch" href="/api/parcels/cached.json" />
-            <link rel="prefetch" href="/api/parcels/map.json" />
-          </Fragment>
-        </Head>
-
-        <h1>Explore</h1>
-
+      <section class="columns">
         <article>
+          <Head title="" url={'/'}>
+            <Fragment>
+              <link rel="prefetch" href={getClientPath(currentVersion)} />
+              <link rel="prefetch" href="/api/parcels/cached.json" />
+              <link rel="prefetch" href="/api/parcels/map.json" />
+            </Fragment>
+          </Head>
+          <h3>Live</h3>
+          <LiveSection />
+
+          <h3>Womps</h3>
           <WompsList numberToShow={20} collapsed={false} fetch="/womps.json" womps={this.props.womps ?? undefined} ttl={600} />
         </article>
 
         <aside>
+          <h3>Events</h3>
+          <EventsList />
+
+          <p>
+            <a class="buttonish" href="/events/new">
+              New Event
+            </a>
+          </p>
+
           <h3>Popular</h3>
           <PopularParcels />
-
-          <h3>Events</h3>
-
-          <EventsShowcase />
         </aside>
       </section>
     )

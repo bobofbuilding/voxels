@@ -7,7 +7,8 @@ import Parcel, { PARCEL_EVENT_EMITTER } from './parcel'
 // Import handlers
 import BuildRequestHandler, { SpaceBuildRequestHandler } from './handlers/build-parcel'
 import queryParcel, { refreshParcelsByWallet } from './handlers/query-parcel'
-import { EmailCode, SignIn } from './handlers/sign-in'
+import { CheckEmail, CheckNameAvailable, EmailCode, getUserInfo, SignIn } from './handlers/sign-in'
+import { PasskeyAddOptions, PasskeyAddVerify, PasskeyAvailable, PasskeyLoginOptions, PasskeyLoginVerify, PasskeyRegisterOptions, PasskeyRegisterVerify } from './handlers/passkey'
 import updateParcel from './handlers/update-parcel'
 
 import { currentVersion } from '../common/version'
@@ -20,7 +21,6 @@ import AdminController from './controllers/admin'
 import ScratchpadController from './controllers/scratchpad'
 import CollectiblesController from './controllers/collectibles'
 import CollectionsController from './controllers/collections'
-import EmojiBadgeController from './controllers/emoji_badges'
 import FavoritesController from './controllers/favorites'
 import LivekitController from './controllers/livekit'
 import NftController from './controllers/nft'
@@ -29,6 +29,7 @@ import ParcelsController from './controllers/parcels'
 import PlayController from './controllers/play'
 import SpacesController from './controllers/spaces'
 import MetricsController from './controllers/metrics'
+import ModelsController from './controllers/models'
 
 import cache, { defaultCache, noCache } from './cache'
 import db, { pgp } from './pg'
@@ -53,6 +54,7 @@ import { searchAndReturn } from './handlers/search'
 import { EthereumListener } from './jobs/ethereum-listener'
 import cleanCollections from './jobs/remove-collections'
 import cleanMailBoxes from './jobs/remove-old-mails'
+import truncateMetrics from './jobs/truncate-metrics'
 import log from './lib/logger'
 import { createRequestHandlerForQuery } from './lib/query-helpers'
 import { getTypeOfContract } from './lib/utils'
@@ -216,7 +218,7 @@ if (config.isDevelopment) {
       return
     }
 
-    if (host === 'voxels.com') {
+    if (host === 'voxels.com' || host === 'retro.voxels.com') {
       res.setHeader('Cache-Control', 'max-age=3600')
       res.redirect(302, `https://${CANONICAL}` + req.originalUrl)
       return
@@ -250,30 +252,13 @@ app.get(`/${currentVersion}-web.js`, cache('1 day'), (req, res) => {
   return res.sendFile(path.join(__dirname, '..', 'dist', `${currentVersion}-web.js`))
 })
 
-app.get(`/${currentVersion}-web.css`, cache('1 day'), (req, res) => {
+app.get(`/${currentVersion}-web.css`, cache(config.isDevelopment ? false : '1 day'), (req, res) => {
   return res.sendFile(path.join(__dirname, '..', 'dist', `web.css`))
 })
 
 app.get(`/${currentVersion}-client.css`, cache('1 day'), (req, res) => {
   return res.sendFile(path.join(__dirname, '..', 'dist', `client.css`))
 })
-
-// Static files (need cloudfront over the front of the app so these
-// don't cause load on express)
-
-if (config.isUAT) {
-  app.use(function (req, res, next) {
-    res.set('X-Robots-Tag', 'noindex')
-    next()
-  })
-
-  app.use(
-    basicAuth({
-      users: { uat: 'snowcrash' },
-      challenge: true,
-    }),
-  )
-}
 
 app.use(
   expressStaticGzip(path.join(__dirname, '..', 'dist'), {
@@ -309,8 +294,29 @@ const timeoutMiddleware = (delay: number) => (req: express.Request, res: express
   res.socket?.setTimeout(delay)
   next()
 }
+
+if (config.isDevelopment) {
+  app.get('/login/:wallet', async (req, res) => {
+    // debug login as the wallet
+    const wallet = req.params.wallet
+    console.log('debug login as wallet', wallet)
+
+    const { token, name, isNewUser } = await getUserInfo(res, wallet, {})
+    res.redirect('/account')
+  })
+}
+
 app.post('/api/signin', signInRateLimit, timeoutMiddleware(5 * 60 * 60 * 1000), SignIn)
 app.post('/api/signin/code', signInRateLimit, timeoutMiddleware(5 * 60 * 60 * 1000), EmailCode)
+app.post('/api/account/reserve', signInRateLimit, CheckNameAvailable)
+app.post('/api/signin/check-email', signInRateLimit, CheckEmail)
+app.post('/api/passkey/available', signInRateLimit, PasskeyAvailable)
+app.post('/api/passkey/add/options', signInRateLimit, PasskeyAddOptions)
+app.post('/api/passkey/add/verify', signInRateLimit, PasskeyAddVerify)
+app.post('/api/passkey/register/options', signInRateLimit, PasskeyRegisterOptions)
+app.post('/api/passkey/register/verify', signInRateLimit, PasskeyRegisterVerify)
+app.post('/api/passkey/login/options', signInRateLimit, PasskeyLoginOptions)
+app.post('/api/passkey/login/verify', signInRateLimit, PasskeyLoginVerify)
 
 // Search tool
 app.get('/api/search', searchAndReturn)
@@ -338,6 +344,9 @@ NftController(db, passport, app)
 // Scratchpad for all users
 ScratchpadController(app)
 
+// Models (LLM utilities)
+ModelsController(app)
+
 // Metrics controller
 MetricsController(db, app)
 
@@ -361,7 +370,6 @@ CollectiblesController(db, passport, app)
 //Events
 EventsController(db, passport, app)
 // Emoji Badges
-EmojiBadgeController(db, passport, app)
 // Mails controller
 MailsController(db, passport, app)
 // Favorites controller
@@ -499,16 +507,6 @@ app.get(
 app.get('/api/parcels/cached.json', cache('60 seconds', true), createRequestHandlerForQuery(db, 'get-parcels-cached', 'parcels'))
 
 app.get(
-  '/api/parcels/edits/latest.json',
-  cache('1 minute'),
-  createRequestHandlerForQuery(db, 'get-parcels-by-latest-edit', 'parcels', (req) => {
-    const limit = parseQueryInt(req.query.limit, 50)
-
-    return [limit]
-  }),
-)
-
-app.get(
   '/api/parcels/:id.json',
   cache('15 seconds'),
   passport.authenticate(['jwt', 'anonymous'], { session: false }),
@@ -598,6 +596,12 @@ const master = () => {
   setTimeout(() => {
     setInterval(() => cleanCollections(), 1000 * 60 * 60 * 24)
     cleanCollections()
+  }, 1000)
+
+  // truncate the next-to-be-reused metrics table once per day
+  setTimeout(() => {
+    setInterval(() => truncateMetrics(), 1000 * 60 * 60 * 24)
+    truncateMetrics()
   }, 1000)
 
   EthereumListener()

@@ -1,4 +1,5 @@
 import { Component } from 'preact'
+
 import { Link } from 'preact-router/match'
 import ParcelHelper from '../../common/helpers/parcel-helper'
 import { ssrFriendlyWindow } from '../../common/helpers/utils'
@@ -202,10 +203,7 @@ export default class Parcels extends Component<Props, State> {
 
         <br />
         <div style={{ display: 'flex', flex: 1, width: '100%' }}>
-          <hgroup style={{ flexGrow: 1 }}>
-            <h1>Parcels</h1>
-            <p>List of all currently minted parcels.</p>
-          </hgroup>
+          <div style={{ flexGrow: 1 }} />
           <div>
             {app.state.wallet && (
               <button class="outline" onClick={() => (window.location.href = '/parcels/new')}>

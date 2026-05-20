@@ -1,8 +1,16 @@
 import { decode as decodeAlias, DecodeError, Decoder, encode as encodeAlias, Encoder, ExtensionCodec } from '@msgpack/msgpack'
 import { parse, stringify } from 'uuid'
 import { compressQuaternion, decompressQuaternion, Quaternion } from './utils'
+import type { AvatarRef } from './avatar-ref'
 
 export { Emotes } from './constant'
+
+/** Shared identity type used across avatar, persona, and multiplayer layers */
+export type AvatarIdentity = {
+  name: string | null
+  wallet: string | null
+  costumeId?: number
+}
 
 const extensionCodec = new ExtensionCodec()
 
@@ -178,10 +186,10 @@ export const MetricEncoder = encoderCreator<MetricMessage>()
 
 export type ChatMessage = {
   type: MessageType.chat
-  channel: string
-  name: string
-  uuid: string
+  id: string // uuidv7, server-generated
+  uuid: string // sender client uuid
   text: string
+  avatar?: AvatarRef
 }
 
 export const ChatEncoder = encoderCreator<ChatMessage>()
@@ -200,6 +208,7 @@ export type CreateAvatarMessage = {
   description: {
     name?: string
     wallet?: string
+    costumeId?: number
   }
 }
 export const CreateAvatarEncoder = encoderCreator<CreateAvatarMessage>()
@@ -247,7 +256,7 @@ export const EmoteEncoder = encoderCreator<AvatarEmoteMessage>()
 export type NewCostumeMessage = {
   type: MessageType.newCostume
   uuid: string
-  cacheKey: number
+  costumeId: number | null
 }
 
 export const NewCostumeEncoder = encoderCreator<NewCostumeMessage>()
@@ -319,6 +328,9 @@ export type UpdateAvatarMessage = {
   position: number[]
   orientation: Quaternion
   animation: number
+  inConga?: boolean
+  /** Person in front of this avatar in the conga chain; leader omits. Used to sync whole line (e.g. fly) to head. */
+  congaFollowsUuid?: string | null
 }
 
 export const UpdateAvatarEncoder = encoderCreator<UpdateAvatarMessage>()
@@ -328,17 +340,22 @@ extensionCodec.register({
     if (input.type != MessageType.updateAvatar) {
       return null
     }
-    return encodeAlias([encodeUUID(input.uuid), Float32Array.from(input.position), compressQuaternion(input.orientation), input.animation])
+    return encodeAlias([encodeUUID(input.uuid), Float32Array.from(input.position), compressQuaternion(input.orientation), input.animation, input.inConga ? 1 : 0, input.congaFollowsUuid ? encodeUUID(input.congaFollowsUuid) : null])
   },
   decode: (data): UpdateAvatarMessage => {
     const res = decodeAlias(data) as any[]
-    return {
+    const m: UpdateAvatarMessage = {
       type: MessageType.updateAvatar,
       uuid: decodeUUID(res[0]),
       position: uint8ToFloat32(res[1]),
       orientation: decompressQuaternion(res[2]),
       animation: res[3],
+      inConga: !!res[4],
     }
+    if (res.length > 5 && res[5] != null) {
+      m.congaFollowsUuid = decodeUUID(res[5])
+    }
+    return m
   },
 })
 

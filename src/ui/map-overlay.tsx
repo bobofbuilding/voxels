@@ -6,12 +6,11 @@ import type { Event } from '../../common/messages/event'
 import { generateWompMarkers } from '../../web/src/map'
 import { mapEventMarkerPopup, mapParcelPopup, mapTeleportPopup } from '../../web/src/map-parcel-popup'
 import { app, AppEvent } from '../../web/src/state'
-import { fetchAPI, fetchOptions } from '../../web/src/utils'
+import { fetchOptions } from '../../web/src/utils'
 
 import { ExponentialBackoff, handleAll, retry } from 'cockatiel'
 import type { PathOptions } from '../../vendor/library/leaflet'
 import ParcelEvent from '../../web/src/helpers/event'
-import { Scene } from '../scene'
 // Create a retry policy that'll try whatever function with a randomized exponential backoff.
 // to be used by fetch!
 const retryPolicy = retry(handleAll, { backoff: new ExponentialBackoff(), maxAttempts: 5 })
@@ -63,14 +62,6 @@ const partyIcon = window.L.divIcon({
   iconUrl: '/images/event_icon.png',
 })
 
-const exhibitionIcon = window.L.divIcon({
-  className: 'css-icon',
-  html: '<div class="exhibition"><div class="inner-circle"></div></div>',
-  iconSize: [22, 22], // size of the icon
-  // iconAnchor: [15, 15], // point of the icon which will correspond to marker's location
-  iconUrl: '/images/event_icon.png',
-})
-
 const AVATAR_UPDATE_INTERVAL = 3000
 
 const LABELS_LIST = ['gallery', 'club', 'bar', 'teleports', 'library', 'park', 'animal', 'shops', 'scenic', 'beach', 'factory', 'sports', 'rest', 'education', 'game', 'music', 'money', 'concert', 'food', 'theater', 'sandbox']
@@ -90,7 +81,7 @@ export default class MapOverlayUI {
   updateAvatarTimer: NodeJS.Timeout | null = null
 
   constructor(
-    private scene: Scene,
+    private scene: BABYLON.Scene,
     private onTeleport: (() => void) | undefined,
   ) {
     ensureMapPatched()
@@ -403,8 +394,6 @@ export default class MapOverlayUI {
         }
       } else if (help.isContributor(user.wallet)) {
         contributorParcels.push({ type: 'Feature' as const, geometry: parcel.geometry, properties: { parcel } })
-      } else if (help.isRenter(user.wallet)) {
-        rentedParcels.push({ type: 'Feature' as const, geometry: parcel.geometry, properties: { parcel } })
       } else {
         otherParcels.push({ type: 'Feature' as const, geometry: parcel.geometry, properties: { parcel } })
       }
@@ -522,12 +511,11 @@ export default class MapOverlayUI {
     const eventsLayer = window.L.layerGroup()
     for (const event of live) {
       const helper = new ParcelEvent(event)
-      const isExhibition = event.category === 'exhibition'
-      const icon = isExhibition ? exhibitionIcon : partyIcon
+      const icon = partyIcon
       const marker = window.L.marker(helper.latLng, {
         icon,
         renderer: this.mapRenderer ?? undefined,
-        title: `${isExhibition ? 'Exhibition on now:' : 'Event live now!'} \r\n${helper.name}`,
+        title: `Event live now! \r\n${helper.name}`,
       } as L.MarkerOptions)
 
       eventsLayer.addLayer(marker)
@@ -672,7 +660,8 @@ export function SearchMap({ mapContext }: { mapContext: MapOverlayUI }) {
     if (value) {
       clearMarkers()
       const searchRegex = new RegExp(value, 'i')
-      const list = mapContext.parcels.filter((p) => p.name?.match(searchRegex) || p.label?.match(searchRegex) || p.address?.match(searchRegex) || p.owner_name?.match(searchRegex))
+      const ownerStr = (p: any) => (typeof p.owner === 'string' ? p.owner : (p.owner?.name ?? ''))
+      const list = mapContext.parcels.filter((p) => p.name?.match(searchRegex) || p.label?.match(searchRegex) || p.address?.match(searchRegex) || ownerStr(p).match(searchRegex))
 
       m.current = window.L.featureGroup(
         list.map((p) => {
@@ -710,13 +699,14 @@ export function SearchMap({ mapContext }: { mapContext: MapOverlayUI }) {
 // event notification service already will have this in mem, so wasteful to fetch again
 // future optimisation is to use that cache
 async function getLiveEvents(signal?: AbortSignal): Promise<Event[] | null> {
-  return await fetchAPI(`/api/events/on.json?live=true`, { signal })
-    .then((res) => res?.events || [])
+  return await fetch(`/api/events/on.json?live=true`, { signal, credentials: 'include' })
+    .then((r) => r.json())
+    .then((res: any) => res?.events || [])
     .catch(console.error)
 }
 
 type Empty = Record<string, never>
-type BigMapProps = { scene: Scene; onTeleport?: () => void }
+type BigMapProps = { scene: BABYLON.Scene; onTeleport?: () => void }
 
 export class BigMap extends Component<BigMapProps, Empty> {
   private static className = 'map map-overlay'

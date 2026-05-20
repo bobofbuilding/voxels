@@ -107,12 +107,12 @@ export default function loadRoutes(app: Express) {
         return
       }
 
-      // if (response.parcel && response.parcel.updated_at) {
-      //   const lastModified = new Date(response.parcel.updated_at)
-      //   if (!isNaN(lastModified.getTime())) {
-      //     res.setHeader('Last-Modified', lastModified.toUTCString())
-      //   }
-      // }
+      if (response.parcel?.updated_at) {
+        const lastModified = new Date(response.parcel.updated_at)
+        if (!isNaN(lastModified.getTime())) {
+          res.setHeader('Last-Modified', lastModified.toUTCString())
+        }
+      }
 
       res.send(renderPage(<Parcel parcel={response.parcel} />))
     })
@@ -143,19 +143,19 @@ export default function loadRoutes(app: Express) {
     })
   })
 
-  app.get('/events/:id', (req, res) => {
-    const id = parseInt(req.params.id, 10)
-    if (isNaN(id)) {
-      return res.status(404).json({ success: false, message: 'event not found' })
-    }
-    queryAndCallback(db, 'events/get-event', 'event', [id], (response) => {
-      if (!response.success) {
-        res.send(renderPage(<NotFound />))
-        return
-      }
-      res.send(renderPage(<EventPage event={response.event} />))
-    })
-  })
+  // app.get('/events/:id', (req, res) => {
+  //   const id = parseInt(req.params.id, 10)
+  //   if (isNaN(id)) {
+  //     return res.status(404).json({ success: false, message: 'event not found' })
+  //   }
+  //   queryAndCallback(db, 'events/get-event', 'event', [id], (response) => {
+  //     if (!response.success) {
+  //       res.send(renderPage(<NotFound />))
+  //       return
+  //     }
+  //     res.send(renderPage(<EventPage event={response.event} />))
+  //   })
+  // })
 
   app.get('/collections/:collection_id/:token_id', cache('1 minute'), (req, res) => {
     const id = parseInt(req.params.collection_id, 10)
@@ -178,11 +178,12 @@ export default function loadRoutes(app: Express) {
 
   // These routes don't have any static content, are only available in the bundle
   const dynamicRoutes = [
-    { path: '/admin/*', cache: '1 minute' },
+    { path: '/propose/*', cache: '1 minute' },
     { path: '/map', cache: '1 minute' },
     { path: '/mail', cache: '1 minute' },
     { path: '/home', cache: '1 minute' },
     { path: '/account', cache: '1 minute' },
+    { path: '/account/edit', cache: '1 minute' },
     { path: '/login', cache: '1 minute' },
     { path: '/account/:section', cache: '30 seconds' },
     { path: '/costumes/', cache: '30 seconds' },
@@ -197,11 +198,14 @@ export default function loadRoutes(app: Express) {
     { path: '/collections/*', cache: '30 seconds' },
     { path: '/community', cache: '1 minute' },
     { path: '/spaces/new', cache: '1 minute' },
+    { path: '/spaces/:id/edit', cache: '1 minute' },
     { path: '/new', cache: '1 minute' },
     { path: '/events', cache: '1 minute' },
+    { path: '/events/*', cache: '1 minute' },
     { path: '/islands', cache: '1 minute' },
     { path: '/islands/:id', cache: '1 minute' },
     { path: '/parcels/:id', cache: '1 minute' },
+    { path: '/parcels/:id/edit', cache: '1 minute' },
     { path: '/avatar', cache: '1 minute' },
     { path: '/search', cache: '1 minute' },
     { path: '/womps', cache: '1 minute' },

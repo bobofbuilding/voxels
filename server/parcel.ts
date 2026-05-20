@@ -5,12 +5,9 @@ import { HTTP2WSBaseURL, isValidUrl } from '../common/helpers/utils'
 import { ParcelKind, ParcelRecord, ParcelSettings } from '../common/messages/parcel'
 import { getBufferFromVoxels, getFieldShape } from '../common/voxels/helpers'
 import { isCommonParcel, isSecurityTeamParcel, isTestIsland } from './lib/helpers'
-import { ethAlchemy, getContract, LANDWORKS, ParcelContractABI, validateTokenType } from './lib/utils'
+import { getContract, validateTokenType } from './lib/utils'
 import { ground, white } from './parcel-builder'
 import db from './pg'
-
-import ethers from 'ethers'
-import ParcelUserRight from './parcel-user-right'
 
 import { bbox } from '@turf/turf'
 import { SUPPORTED_CHAINS } from '../common/helpers/chain-helpers'
@@ -49,8 +46,6 @@ const loadQuery = () => {
       label,
       p.description,
       p.owner,
-      -- Optimize: Use subquery to force index usage on avatars lookup
-      (SELECT name FROM avatars WHERE lower(owner) = lower(p.owner) LIMIT 1) as owner_name,
       p.settings
     FROM
       properties p
@@ -89,7 +84,6 @@ export class ParcelRef {
   kind: ParcelKind = 'plot'
   suburb: string
   owner: string
-  owner_name: string
   parcel_users: ParcelUser[] | null
   settings: ParcelSettings
   is_common: boolean // needed for parcel_auth
@@ -105,7 +99,6 @@ export class ParcelRef {
     this.hash = row.hash
     this.island = row.island
     this.owner = row.owner
-    this.owner_name = row.owner_name ?? ''
     this.parcel_users = row.parcel_users
     this.settings = row.settings
     this.lightmap_url = row.lightmap_url
@@ -125,7 +118,6 @@ export abstract class AbstractParcel implements ParcelRef {
   geometry: any
   content!: Record<string, any>
   owner!: string
-  owner_name!: string
   kind: ParcelKind = 'plot'
   parcel_users!: ParcelUser[] | null
   description!: string
@@ -258,7 +250,6 @@ export abstract class AbstractParcel implements ParcelRef {
       settings: this.settings,
       voxels: this.voxels,
       owner: this.owner,
-      owner_name: this.owner_name ?? '',
       lightmap_url: this.lightmap_url,
       parcel_users: this.parcel_users,
       description: this.description,
@@ -312,70 +303,21 @@ export abstract class AbstractParcel implements ParcelRef {
     }
   }
 
-  async rentedTo(): Promise<string | null> {
-    const contract = await getContract('landworks', SUPPORTED_CHAINS['eth'])
-    try {
-      return await contract.consumerOf(this.id)
-    } catch {
-      return null
-    }
-  }
-
   async queryContract(): Promise<AbstractParcel> {
-    const contract = new ethers.Contract(process.env.CONTRACT_ADDRESS || '0x79986aF15539de2db9A5086382daEdA917A9CF0C', ParcelContractABI.abi, ethAlchemy)
-
-    let exists: boolean = true // OPTIMISTIC ASSUMPTION
+    const contract = await getContract('parcel', SUPPORTED_CHAINS['eth'])
+    let exists = false
     try {
       exists = await contract.exists(this.id)
-    } catch {
-      exists = false
-    }
+    } catch {}
 
     if (exists) {
-      if (!this.minted) {
-        // This parcel has recently been minted! Remember to make it visible the next time it's saved.
-        // (This, and similar logic in ethereum-listener.ts, is now the *only* way in which the minted and
-        // visible properties of a parcel interact.)
-        this._justGotMinted = true
-      }
+      if (!this.minted) this._justGotMinted = true
       this.minted = true
-
-      // temporary: Check if parcel belongs to security team (test island), if it does, don't reset the owner to its original owner.
-      // the original owner of those parcels is bnolan
-      if (!isSecurityTeamParcel(this)) {
-        this.owner = await contract.ownerOf(this.id)
-      }
+      if (!isSecurityTeamParcel(this)) this.owner = await contract.ownerOf(this.id)
     } else {
-      if (isCommonParcel(this) || isTestIsland(this)) {
-        this.minted = true
-      } else {
-        this.minted = false
-      }
+      this.minted = isCommonParcel(this) || isTestIsland(this)
     }
-    // Check if owner is the landworks contract so we don't check for renters every single query.
-    //@todo: in the future remove this since there will be more than one renting platform
-    if (this.owner.toLowerCase() == LANDWORKS.toLowerCase()) {
-      // We know there could be renters on this parcel
-      const renter = await this.rentedTo()
-      if (!renter) {
-        //renter is null; this means the contract query probably failed, dont do anything.
-      } else if (renter.toLowerCase() == ethers.ZeroAddress) {
-        // We know there are no renters on this parcel, evict all renters if any
-        ParcelUserRight.evictRenter(this.id)
-      } else {
-        // We have a renter, check if the parcel already has a renter.
-        const users = await ParcelUserRight.loadUsersByRole(this.id, 'renter')
-        // if users=null it means the DB query failed, dont do anything.
-        // Else if the parcel does not have a renter, create one
-        if (users?.length == 0) {
-          ParcelUserRight.createRenter(this.id, renter)
-          ParcelUserRight.deleteAllButRenter(this.id)
-        }
-      }
-    }
-
     await this.save()
-
     return this
   }
 
@@ -470,30 +412,9 @@ export abstract class AbstractParcel implements ParcelRef {
      * if a wallet is not present in the new list but present in the old list, we deleted it.
      */
     const findMissingWalletInNewParcelUsersList = () => {
-      const missingWallets = this.parcel_users
-        ?.map((previousRole) => {
-          const w = parcel_users.find((parceluser) => parceluser.wallet.toLowerCase() == previousRole.wallet.toLowerCase())
-          if (!w) {
-            // if old value is missing in new values it means it's been deleted
-            if (previousRole.role == 'renter') {
-              //renter roles are un-deletable
-              return undefined
-            } else {
-              return previousRole
-            }
-          }
-          return undefined
-        })
-        .filter((y) => y !== undefined) as ParcelUser[]
-
-      return missingWallets || []
+      return (this.parcel_users?.filter((previousRole) => !parcel_users.find((u) => u.wallet.toLowerCase() == previousRole.wallet.toLowerCase())) ?? []) as ParcelUser[]
     }
     const usersToBeRemovedFromParcel = findMissingWalletInNewParcelUsersList()
-
-    if (parcel_users.filter((user) => user.role == 'renter').length > 1) {
-      // There cannot be more than 1 renter
-      return { success: false }
-    }
 
     const c = await db.connect()
     let success = true
@@ -503,8 +424,7 @@ export abstract class AbstractParcel implements ParcelRef {
 
       // remove all parcel_users associated to the parcel we want to update
       for (const r of usersToBeRemovedFromParcel) {
-        const u = new ParcelUserRight({ parcel_id: this.id, ...r })
-        u.delete()
+        await c.query(`delete from parcel_users where parcel_id=$1 and lower(wallet)=lower($2)`, [this.id, r.wallet])
       }
 
       // Send an insert query for each new role.

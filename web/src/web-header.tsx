@@ -7,7 +7,21 @@ import { hasMetamask } from './auth/login-helper'
 import { login } from './auth/state-login'
 import { PanelType } from './components/panel'
 import { app, AppEvent } from './state'
-import Logo from './components/logo'
+import Icon, { CubeIcon } from './components/icons/icons'
+
+const ROUTE_ICONS: Record<string, string> = {
+  account: 'account',
+  costumer: 'costume',
+  assets: 'assets',
+  collections: 'collections',
+  events: 'events',
+  islands: 'islands',
+  map: 'map',
+  parcels: 'parcels',
+  spaces: 'spaces',
+  womps: 'womps',
+  scratchpad: 'scratchpad',
+}
 
 function AdminMenu() {
   return (
@@ -130,7 +144,7 @@ export default class WebHeader extends Component<Props, State> {
 
     const onPlay = (e: any) => {
       e.preventDefault()
-      window.location.href = '/play?coords=SE@665E,648S'
+      window.location.href = '/play?coords=N@257N'
     }
 
     const isActive = (label?: string) => {
@@ -138,6 +152,8 @@ export default class WebHeader extends Component<Props, State> {
       if (!path) return false
       return path.includes(`/${label!.toLowerCase()}`)
     }
+
+    const activeIcon = (Object.entries(ROUTE_ICONS).find(([r]) => path?.includes(`/${r}`))?.[1] ?? 'v') as any
 
     const canInstallMetamask = !isMobile() && !hasMetamask()
     const onClick = (e: Event) => {
@@ -148,13 +164,26 @@ export default class WebHeader extends Component<Props, State> {
       }
     }
 
+    const navLink = (label: string, href: string, icon: any, active: boolean, extra?: any) =>
+      active ? (
+        <Link class="active" aria-selected={true} href={href} onClick={extra ?? this.closeMobileMenu}>
+          {label}
+        </Link>
+      ) : (
+        <Link activeClassName="active" href={href} onClick={extra ?? this.closeMobileMenu}>
+          {label}
+        </Link>
+      )
+
     return (
       <>
         <header>
           <nav>
             <ul>
               <li>
-                <Logo />
+                <a href="/">
+                  <CubeIcon name={activeIcon} />
+                </a>
               </li>
               <li>
                 <button onClick={onPlay} class="big-play">
@@ -162,57 +191,31 @@ export default class WebHeader extends Component<Props, State> {
                 </button>
               </li>
 
-              <li>
-                <Link aria-current={isActive('account') ? 'page' : undefined} activeClassName="active" href="/account" onClick={this.closeMobileMenu}>
-                  {signedIn ? 'Account' : 'Sign In'}
-                </Link>
-              </li>
+              <li>{navLink(signedIn ? 'Account' : 'Login', '/account', 'account', isActive('account'))}</li>
 
-              <li>
-                <Link aria-current={isActive('assets') ? 'page' : undefined} activeClassName="active" href="/assets" onClick={this.closeMobileMenu}>
-                  Assets
-                </Link>
-              </li>
-              <li>
-                <Link aria-current={isActive('collections') ? 'page' : undefined} activeClassName="active" href="/collections" onClick={this.closeMobileMenu}>
-                  Collections
-                </Link>
-              </li>
-              <li>
-                <Link aria-current={isActive('events') ? 'page' : undefined} activeClassName="active" href="/events" onClick={this.closeMobileMenu}>
-                  Events
-                </Link>
-              </li>
-              <li>
-                <Link aria-current={isActive('islands') ? 'page' : undefined} activeClassName="active" href="/islands" onClick={this.closeMobileMenu}>
-                  Islands
-                </Link>
-              </li>
-              <li>
-                <Link aria-current={isActive('map') ? 'page' : undefined} activeClassName="active" href="/map" onClick={this.closeMobileMenu}>
-                  Map
-                </Link>
-              </li>
-              <li>
-                <Link aria-current={isActive('parcels') ? 'page' : undefined} activeClassName="active" href="/parcels" onClick={this.closeMobileMenu}>
-                  Parcels
-                </Link>
-              </li>
-              <li>
-                <Link aria-current={isActive('spaces') ? 'page' : undefined} activeClassName="active" href="/spaces" onClick={this.closeMobileMenu}>
-                  Spaces
-                </Link>
-              </li>
-              <li>
-                <Link aria-current={isActive('womps') ? 'page' : undefined} activeClassName="active" href="/womps" onClick={this.closeMobileMenu}>
-                  Womps
-                </Link>
-              </li>
-              <li>
-                <Link activeClassName="active" href="/scratchpad">
-                  Scratchpad
-                </Link>
-              </li>
+              {signedIn && <li>{navLink('Costume', '/costumer', 'costume', isActive('costumer'))}</li>}
+
+              <li>{navLink('Assets', '/assets', 'assets', isActive('assets'))}</li>
+              <li>{navLink('Collections', '/collections', 'collections', isActive('collections'))}</li>
+              <li>{navLink('Events', '/events', 'events', isActive('events'))}</li>
+              <li>{navLink('Islands', '/islands', 'islands', isActive('islands'))}</li>
+              <li>{navLink('Map', '/map', 'map', isActive('map'))}</li>
+              <li>{navLink('Parcels', '/parcels', 'parcels', isActive('parcels'))}</li>
+              <li>{navLink('Spaces', '/spaces', 'spaces', isActive('spaces'))}</li>
+              <li>{navLink('Womps', '/womps', 'womps', isActive('womps'))}</li>
+              <li>{navLink('Scratchpad', '/scratchpad', 'scratchpad', isActive('scratchpad'))}</li>
+
+              {signedIn && (
+                <li>
+                  <a
+                    href="#"
+                    onClick={(e) => {
+                      e.preventDefault()
+                      this.onSignOut()
+                    }}
+                  ></a>
+                </li>
+              )}
 
               <li>
                 <form action="/search" onSubmit={this.onSubmit}>

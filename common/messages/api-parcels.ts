@@ -52,7 +52,6 @@ export const MapParcelRecord = t.type(
     parcel_users: FullParcelRecord.props.parcel_users,
     geometry: FullParcelRecord.props.geometry,
     owner: FullParcelRecord.props.owner,
-    owner_name: FullParcelRecord.props.owner_name,
     x1: FullParcelRecord.props.x1,
     x2: FullParcelRecord.props.x2,
     label: FullParcelRecord.props.label,

@@ -4,6 +4,9 @@
 
 @import 'common';
 
+// Import leaflet css
+@import (inline) '../../../dist/leaflet.css';
+
 a {
   text-decoration: none;
   color: white;
@@ -203,115 +206,50 @@ main.chat {
   left: 0;
   margin: 0 0 4px 0;
   padding: 4px;
-  overflow-y: auto;
-  background: var(--tinge);
-  flex: 1;
   display: flex;
   flex-direction: column;
 
-  b {
-    margin-right: 6px;
-    font-weight: normal;
-    color: #aaa;
+  .chat-messages {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin-bottom: 2px;
   }
-
-  a {
-    color: inherit;
+  s.profanity {
+    filter: blur(4px);
     text-decoration: none;
-  }
+    cursor: pointer;
 
-  div.chat-messages {
-    margin-left: 1rem;
-    margin-bottom: 0.5rem;
-
-    & > div {
-      margin-bottom: 0.25rem;
-    }
-  }
-  div {
-    &:first-child {
-      margin-top: auto !important;
-    }
-
-    &.-helper {
-      > i {
-        display: block;
-        margin-right: 5px;
-
-        padding: 4px;
-      }
-
-      > div {
-        font-weight: bold;
-        color: #cc92da;
-        font-size: 90%;
-        flex: 1;
-      }
-
-      display: flex;
-      margin: 10px 0;
-    }
-
-    &.-you {
-      font-style: italic;
-    }
-
-    // Show tags in a different color
-    span.-chat-user-tag {
-      color: #f860ff;
-      cursor: pointer;
-
-      &:hover {
-        color: #f64bff;
-        text-decoration: underline;
-      }
-    }
-
-    &.broadcast {
-      background: #35246933;
-    }
-
-    font-size: 14px;
-
-    p {
-      line-height: 18px;
-      text-shadow:
-        -1px -1px 0 #000,
-        1px -1px 0 #000,
-        -1px 1px 0 #000,
-        1px 1px 0 #000;
-      display: inline;
-      color: #fff;
-      font-weight: normal;
-      margin: 0;
-      user-select: text;
-      word-break: break-word;
-
-      b a {
-        color: #eee;
-      }
-
-      span {
-        flex: 1;
-      }
-
-      &.action {
-        opacity: 0.6;
-      }
+    &:hover {
+      filter: none;
     }
   }
 
-  a.teleport {
-    margin-left: 10px;
-    color: #aaa;
+  .chat-messages.at-cap {
+    mask-image: linear-gradient(to bottom, transparent 0, black 40px);
+    -webkit-mask-image: linear-gradient(to bottom, transparent 0, black 40px);
   }
 
-  > div {
+  p {
+    margin: 0 0.6rem;
+    span {
+      padding: 2px 0.4rem;
+      text-shadow: 1px 1px 1px black;
+      background: #0005;
+      border-radius: 2px;
+    }
   }
 
-  > div > p {
-    padding: 2px;
-    display: inline-block;
+  form {
+    padding: 0 0.5rem;
+    display: flex;
+    flex-direction: row;
+    gap: 0.5rem;
+
+    button,
+    input {
+      padding: 0.3rem;
+    }
   }
 }
 
@@ -1740,54 +1678,6 @@ dialog.editor {
     &:first-child {
       margin-top: auto !important;
     }
-  }
-}
-
-div.ChatInput {
-  display: flex;
-  width: 100%;
-  align-items: center;
-
-  input {
-    flex: 1;
-
-    background: rgba(0, 0, 0, 0.3);
-    border: 2px solid white;
-    border-radius: 2rem;
-    color: white;
-
-    font: inherit;
-
-    padding: 0.8rem 1.4rem;
-    outline: none;
-    box-sizing: border-box;
-  }
-
-  .react-autocomplete-input {
-    background-clip: padding-box;
-    color: #fff;
-    background-color: #363636;
-    border: 1px solid rgba(0, 0, 0, 0.15);
-    bottom: auto;
-    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.175);
-    display: block;
-    font-size: 14px;
-    list-style: none;
-    padding: 1px;
-    position: absolute;
-    text-align: left;
-  }
-
-  .react-autocomplete-input > li {
-    cursor: pointer;
-    padding: 10px;
-    min-width: 100px;
-  }
-
-  .react-autocomplete-input > li.active {
-    background-color: #6d6d6e;
-    color: #fff;
-    text-shadow: 1px 1px 0 black;
   }
 }
 
@@ -3312,6 +3202,10 @@ div.CheckUserIsAllowedInParcel {
   p small {
     opacity: 0.5;
   }
+
+  a {
+    text-decoration: underline;
+  }
 }
 
 .ConnectionStatus {
@@ -3549,32 +3443,65 @@ button[accesskey] {
   border-radius: 4px;
 }
 
-/* Minimap expand button -- sits inside the top-right corner of the Babylon minimap viewport */
-.minimap-expand {
+/* Minimap corner: online count (left) + map expand M (right). Not .iconish on online count -- iconish uses aspect-ratio 1/1 and blows up width. */
+.minimap-corner-controls {
   position: fixed;
   bottom: calc(15vw - 26px);
   right: 4px;
   z-index: 10;
-  background: rgba(0, 0, 0, 0.4);
-  border: none;
-  color: rgba(255, 255, 255, 0.75);
-  padding: 5px 4px;
-  cursor: pointer;
-  border-radius: 3px;
-  line-height: 0;
   display: flex;
-  align-items: center;
-  justify-content: center;
-  pointer-events: auto;
+  flex-direction: row-reverse;
+  align-items: flex-end;
+  gap: 4px;
+  pointer-events: none;
 
-  &:hover {
-    background: rgba(0, 0, 0, 0.75);
-    color: #fff;
+  > button {
+    pointer-events: auto;
   }
 
   @media @mobile {
     display: none;
   }
+}
+
+@minimap-corner-h: 22px;
+
+.minimap-expand,
+.minimap-online-count {
+  box-sizing: border-box;
+  height: @minimap-corner-h;
+  min-height: @minimap-corner-h;
+  background: rgba(0, 0, 0, 0.4);
+  border: none;
+  color: rgba(255, 255, 255, 0.75);
+  padding: 0 5px;
+  cursor: pointer;
+  border-radius: 3px;
+  line-height: @minimap-corner-h;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+
+  &:hover {
+    background: rgba(0, 0, 0, 0.75);
+    color: #fff;
+  }
+}
+
+.minimap-expand {
+  width: @minimap-corner-h;
+  padding: 0;
+  line-height: 0;
+  font-size: inherit;
+}
+
+.minimap-online-count {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 7px;
+  line-height: 1;
+  text-shadow: 1px 1px black;
+  aspect-ratio: auto;
 }
 
 /* Aside sidebar */
@@ -3954,6 +3881,56 @@ dialog {
   z-index: 1000;
   pointer-events: none;
   white-space: nowrap;
+}
+
+/** Active conga line (above build-mode overlay so both can show). */
+.conga-status-overlay {
+  position: absolute;
+  bottom: 6.75rem;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(170, 170, 170, 0.582);
+  color: white;
+  padding: 0.45rem 1rem 0.5rem;
+  border-radius: 0.5rem;
+  z-index: 1000;
+  pointer-events: none;
+  text-align: center;
+  max-width: min(22rem, 92vw);
+}
+
+.conga-status-overlay__badge {
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  opacity: 0.95;
+  margin-bottom: 0.15rem;
+}
+
+.conga-status-overlay__main {
+  font-size: 0.95rem;
+  white-space: nowrap;
+}
+
+.conga-status-overlay__hint {
+  font-size: 0.72rem;
+  opacity: 0.88;
+  margin-top: 0.2rem;
+  white-space: nowrap;
+}
+
+.conga-status-overlay--join-hint {
+  background: rgba(90, 130, 95, 0.55);
+}
+
+.conga-status-overlay--started {
+  background: rgba(120, 110, 170, 0.55);
+}
+
+.conga-status-overlay__kbd {
+  font-family: ui-monospace, monospace;
+  font-weight: 600;
 }
 
 /* Costumes */

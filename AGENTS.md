@@ -1,7 +1,7 @@
 # AGENTS.md — Code Like Ben (Voxels)
 
+- **Don't think, just do**: This is a gross old code base written by people that made lots of dumb decisions, don't try and fix them unless the user explicitly asks you to.
 - **Act locally, don't think**: No "discovery" or "architecture." If you see the fix, execute it now.
-- **Assume malice**: The code was over-complicated by idiots to harm the project. Don't try to "understand" it.
 - **Path of least resistance**: Fix type errors with `any`. Use `// todo` for anything you can't fix immediately.
 - **Zero duplication**: Never repeat code. Move shared logic to `utils.ts`.
 - **Edit, don't rewrite**: Provide surgical diffs. Never resupply whole files.
@@ -11,6 +11,22 @@
 - **Be direct**: Concise responses, thorough reasoning, simple solutions. No over-engineering.
 - **Stay grounded**: If unsure, say so. Never invent file paths or function names.
 - **User is truth**: If corrected, treat it as ground truth. User instructions always override this file.
+
+## Committing
+
+* run `pnpm run precommit`and fix the errors before committing.
+
+## UI and "zinestyle" naming things
+
+* direct over fluffy
+* human language, not jargon
+* specificity instead of abstraction
+* warmth and personality
+* lean into constraint
+* zine/diy energy—intimate and community-focused
+* no corporate hedging
+* write like you're talking to someone, not a demographic
+* lower case for subheadings
 
 If you want your PR merged: **code like Ben**.
 
@@ -53,6 +69,25 @@ Voxels is being open-sourced so it can live, **not** so it can be bloated.
   - Add `try/catch`, `if (!x) return`, and explicit fallbacks where real-world input breaks.
 - **Can it be done in less lines of code**
   - If your new code adds 10 lines when the same thing could be achieved with a single line of code, it will not be merged.
+
+## Client-side data fetching
+
+Web pages use `cachedFetch` from `web/src/helpers/cached-fetch.ts` instead of raw `fetch`. It caches responses in memory (default 60s TTL) so navigating back to a page doesn't re-hit the server.
+
+If you save/mutate data and then `route()` back to the view page, call `invalidateUrl` first or the user will see stale data:
+
+```ts
+import { invalidateUrl } from './helpers/cached-fetch'
+
+// drop from cache, next visit re-fetches from server:
+invalidateUrl(`/api/parcels/${id}.json`)
+route(`/parcels/${id}`)
+
+// drop and immediately re-fetch (bypasses network cache via cache: 'reload'):
+await invalidateUrl(`/api/parcels/${id}.json`, true)
+```
+
+Pass `true` as the second arg to also immediately re-fetch so the next render is instant and warm. `invalidateUrl` also accepts a wildcard prefix (`/api/parcels/123/*`) to nuke all related cache keys at once.
 
 ## Ben fix patterns (copy/paste mentality)
 
@@ -211,6 +246,17 @@ Good:
 
 **Ben takeaway**: dead code is debt. Delete it.
 
+### 7) Use bens form and fuck all classes
+
+    <div class="f">
+      <label>Name</label>
+      <input type="text" ... />
+    </div>
+
+It's simple, we can style it simply. Add fuck all classes,
+never add styling css unless instructed to. Layout is ok,
+use `1rem` whenever required for padding, no borders, or colors. No solid backgrounds. No font sizes.
+
 ## Contributor cheat sheet
 
 - Make the diff smaller.
@@ -218,6 +264,16 @@ Good:
 - Add guards instead of assumptions.
 - If a platform is flaky, wrap it and return.
 - If “smart” detection fails, hardcode the safe value.
+
+## Refactoring
+
+- **Nuke leaky abstraction**: there are a bunch of stupid leaky abstractions, delete them and move the code back to the calling site. Repeat yourself, don't create dispatchers and indirection.
+- **Hardcode the decision**: if the spec says "sort by popular/newest/oldest", those 3 words go in the code. Not a prop. Not an array. Not configurable.
+- **0 params > 1 > 2**: every parameter needs a concrete, immediate justification. "Might be useful later" is not a justification.
+- **Implement the exact plan snippet**: when a plan shows code, ship that code verbatim. Do not add fields or args not in the plan.
+- **When you hit an unplanned problem, add a `// todo`**: do not invent new abstractions mid-implementation. Note it and move on.
+- **You are not building a library**: there is one caller. Optimize for that caller, not a hypothetical second one.
+- **Assume the developer is fine with reduced functionality**: the goal of all refactoring is to reduce the complexity of the code, that may reduce functionality or add some UI that isnt implemented yet. Ask the developer several yes/no questions to confirm what will be done that might reduce functoinality, dont try and keep everything working at the cost of complexity.
 
 # Pull Requests
 

@@ -3,31 +3,17 @@ import { User } from './user'
 import Controls from './controls/controls'
 import { CAMERA_HEIGHT, coords, decodeCoords, encodeCoords } from '../common/helpers/utils'
 import Connector from './connector'
-import { Animations } from './avatar-animations'
+import { Animations, isCongaSyncedDance } from './avatar-animations'
 import * as States from './states'
 import { app, AppEvent } from '../web/src/state'
 import { LoadUserAvatar, UserAvatar } from './user-avatar'
-import type { Scene } from './scene'
 import { decodeCoordsFromURL } from './utils/helpers'
 import { wantsXR } from '../common/helpers/detector'
-import { Action } from '../common/messages'
+import { Action, AvatarIdentity } from '../common/messages'
+import { cameraPosition, cameraRotation, setCameraPosition, setCameraRotation } from './utils/camera'
 
-/**
- * The minimal representation of the persona which indicates if the avatar needs to be re-rendered.
- */
-type PersonaAvatarSignature = {
-  wallet: string | null
-  name: string | null
-}
-
-namespace PersonaAvatarSignature {
-  export const equals = (a: PersonaAvatarSignature, b: PersonaAvatarSignature): boolean => a.wallet === b.wallet && a.name === b.name
-
-  export const fromUser = (user: User): PersonaAvatarSignature => ({
-    wallet: user.wallet,
-    name: user.name,
-  })
-}
+const identityEquals = (a: AvatarIdentity, b: AvatarIdentity) => a.wallet === b.wallet && a.name === b.name
+const identityFromUser = (user: User): AvatarIdentity => ({ wallet: user.wallet, name: user.name })
 
 export default class Persona {
   user: User
@@ -37,17 +23,17 @@ export default class Persona {
   position: BABYLON.Vector3
   rotation: BABYLON.Vector3
   avatar: UserAvatar | undefined = undefined
-  avatarSignature: PersonaAvatarSignature | null = null
+  avatarSignature: AvatarIdentity | null = null
   onAnimationChanged: BABYLON.Observable<Animations> = new BABYLON.Observable()
   private facingForward: boolean
   // this is in theory a pushdown automata, eg. https://gameprogrammingpatterns.com/state.html#pushdown-automata
   private state: States.CharacterState[] = [new States.Idle()]
-  private readonly scene: Scene
+  private readonly scene: BABYLON.Scene
   private readonly parent: BABYLON.TransformNode
   private readonly wantsXR: boolean
 
   constructor(
-    scene: Scene,
+    scene: BABYLON.Scene,
     parent: BABYLON.TransformNode,
     connector: Connector,
     controls: Controls,
@@ -68,19 +54,21 @@ export default class Persona {
     this.wantsXR = wantsXR() // Cache it
 
     const loadAvatar = debounce(async () => {
-      const avatarSignature = PersonaAvatarSignature.fromUser(this.user)
+      const avatarSignature = identityFromUser(this.user)
 
-      if (this.avatarSignature === null || !PersonaAvatarSignature.equals(avatarSignature, this.avatarSignature)) {
+      if (this.avatarSignature === null || !identityEquals(avatarSignature, this.avatarSignature)) {
         this.avatarSignature = avatarSignature
         const avatar = await LoadUserAvatar(this.scene, this.parent, this.uuid, { name: this.user.name, wallet: this.user.wallet })
 
         // Check that the signature captured in scope is the same as the one stored on the instance. This means
         // `loadAvatar` was not called again in the time between asynchronously loaded the avatar and now.
-        if (PersonaAvatarSignature.equals(avatarSignature, this.avatarSignature)) {
+        if (identityEquals(avatarSignature, this.avatarSignature)) {
           this.avatar?.disposeLocalAndRemote()
           this.avatar = avatar
           this.avatar.nametag = false
-          this.avatar.load()
+          await this.avatar.load()
+          // AvatarLoad may have fired before this finished and skipped loadCostume because !isLoaded(). Catch up now.
+          this.avatar.attachmentManager?.loadCostume()
         } else {
           avatar.disposeLocalAndRemote()
         }
@@ -90,7 +78,7 @@ export default class Persona {
     // Don't load the avatar resources in orbit mode;
     // Login is also not allowed in orbit mode
     // This can be changed in the future when we have readonly mode
-    if (this.scene.config.isOrbit) {
+    if (window.config.isOrbit) {
       return
     }
 
@@ -150,7 +138,7 @@ export default class Persona {
   // teleports a user without adding the previous location to the browser. Might be good for moving players
 
   isMoving() {
-    return !this.scene.cameraPosition.equalsWithEpsilon(this.position, this.wantsXR ? 0.05 : 0.02)
+    return !cameraPosition(this.scene).equalsWithEpsilon(this.position, this.wantsXR ? 0.05 : 0.02)
   }
 
   naviport(value: string) {
@@ -192,10 +180,11 @@ export default class Persona {
     this.audio?.playSound('persona.teleport')
 
     this.controls.resetWorldOffset(coords.position)
-    this.scene.cameraPosition.copyFrom(coords.position)
+    setCameraPosition(this.scene, coords.position)
 
     if (coords.rotation) {
-      this.scene.cameraRotation.y = coords.rotation.y
+      const r = cameraRotation(this.scene)
+      setCameraRotation(this.scene, new BABYLON.Vector3(r.x, coords.rotation.y, r.z))
     }
 
     this.controls.setFlying(coords.flying ?? false)
@@ -242,6 +231,14 @@ export default class Persona {
     // if in third person mode, only set avatar direction when walking (so that the avatar isn't following the camera direction)
     if (this.firstPersonView || this.state[this.state.length - 1] instanceof States.Moving) {
       this.rotation.y = rotation.y
+    }
+
+    // Conga: copy dance/emote from the person in front; the leader's animation reaches the whole line via network hops.
+    if (this.connector.inConga && controls.congaTarget && !controls.congaTarget.isDisposed()) {
+      const frontAnim = controls.congaTarget.getTransform().animation
+      if (isCongaSyncedDance(frontAnim)) {
+        this._animation = frontAnim
+      }
     }
 
     //Directly call move avatar function to move current user avatar
