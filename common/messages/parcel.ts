@@ -3,6 +3,7 @@
 
 import * as t from 'io-ts'
 import { FeatureRecord, NullableStr } from './feature'
+import { avatarRefCodec } from './avatar-ref'
 
 // Types are defined using io-ts instead of typescript
 // See https://github.com/gcanti/io-ts/blob/master/index.md for documentation
@@ -77,8 +78,7 @@ export type ParcelKind = t.TypeOf<typeof ParcelKind>
 export const FullParcelRecord = t.type(
   {
     id: t.number,
-    owner: t.string,
-    owner_name: NullableStr,
+    owner: avatarRefCodec,
     name: NullableStr,
     label: NullableStr,
     kind: ParcelKind,
@@ -90,7 +90,7 @@ export const FullParcelRecord = t.type(
       t.array(
         t.type({
           wallet: t.string,
-          role: t.union([t.literal('owner'), t.literal('contributor'), t.literal('renter'), t.literal('excluded')]),
+          role: t.union([t.literal('owner'), t.literal('contributor'), t.literal('excluded')]),
         }),
       ),
       t.null,
@@ -127,6 +127,7 @@ export const FullParcelRecord = t.type(
     settings: ParcelSettings,
     brightness: t.union([t.number, t.null, t.undefined]),
     vox: t.union([t.unknown, t.undefined]),
+    environment: t.union([t.string, t.null, t.undefined]),
   },
   'FullParcelRecord',
 )
@@ -158,7 +159,6 @@ export const MarketplaceParcelRecord = t.intersection([
     distance_to_center: FullParcelRecord.props.distance_to_center,
     distance_to_ocean: FullParcelRecord.props.distance_to_ocean,
     distance_to_closest_common: FullParcelRecord.props.distance_to_closest_common,
-    owner_name: FullParcelRecord.props.owner_name,
     address: FullParcelRecord.props.address,
   }),
 ])
@@ -176,7 +176,6 @@ export const NearbyParcelRecord = t.type(
     distance_to_closest_common: FullParcelRecord.props.distance_to_closest_common,
     suburb: FullParcelRecord.props.suburb,
     owner: FullParcelRecord.props.owner,
-    owner_name: FullParcelRecord.props.owner_name,
   },
   'NearbyParcelRecord',
 )
@@ -286,6 +285,7 @@ export const ParcelContentRecord = t.type(
     tileset: FullParcelRecord.props.tileset,
     brightness: FullParcelRecord.props.brightness,
     palette: FullParcelRecord.props.palette,
+    environment: FullParcelRecord.props.environment,
   },
   'ParcelContentRecord',
 )

@@ -3,18 +3,16 @@ import Skybox from '../terrain/skybox'
 import Horizon from '../terrain/horizon'
 import CustomSkybox from '../terrain/customSkybox'
 import UnderwaterSkybox from '../terrain/underwater-skybox'
-import type { Scene } from '../scene'
 import { StateObservable } from '../utils/state-observable'
 import { Environment } from './environment'
 import { TimeOfDay } from '../utils/time-of-day'
 import { DAY_BRIGHTNESS, DAY_FOG_COLOR, DAY_SUN_POSITION, NIGHT_BRIGHTNESS, NIGHT_FOG_COLOR, NIGHT_SUN_POSITION, UNDERWATER_CLEAR_COLOR, UNDERWATER_TINT, UNDERWATER_FOG_DENSITY } from './world-environment-constants'
 import { createEvent } from '../utils/EventEmitter'
 import { GraphicLevels } from '../graphic/graphic-engine'
+import { cameraPosition } from '../utils/camera'
 import { OCEAN_HEIGHT_OFFSET } from '../constants'
 
-type WorldScene = Scene
-
-export class WorldEnvironment extends Environment<WorldScene> {
+export class WorldEnvironment extends Environment {
   terrain?: Terrain
   horizon?: Horizon
   skybox?: Skybox
@@ -25,7 +23,7 @@ export class WorldEnvironment extends Environment<WorldScene> {
   private _isUnderwater: boolean | null = null
   private _groundStateObservable: StateObservable<'loaded' | 'unloaded'> | undefined
 
-  constructor(parent: BABYLON.TransformNode, scene: WorldScene) {
+  constructor(parent: BABYLON.TransformNode, scene: BABYLON.Scene) {
     super(parent, scene)
   }
 
@@ -45,7 +43,7 @@ export class WorldEnvironment extends Environment<WorldScene> {
       return false
     }
 
-    const cameraPos = this.scene.cameraPosition
+    const cameraPos = cameraPosition(this.scene)
 
     if (this.isAboveWaterSurface(cameraPos)) {
       return false
@@ -84,7 +82,7 @@ export class WorldEnvironment extends Environment<WorldScene> {
     if (this.isUnderwater) {
       return UNDERWATER_FOG_DENSITY
     }
-    if (this.scene.graphic.level === GraphicLevels.Custom && !this.scene.graphic.customFog) {
+    if (window.graphic.level === GraphicLevels.Custom && !window.graphic.customFog) {
       return 0
     }
     return super.fogDensity

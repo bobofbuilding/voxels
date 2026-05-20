@@ -7,19 +7,26 @@ if (process.env.NODE_ENV === 'development') {
 import { Component, render } from 'preact'
 import { Route, Router, type RouterOnChangeArgs } from 'preact-router'
 
-import AccountCollectibles from '../account/collectibles'
+import EditAccount from '../account/edit'
 import NewSpace from '../account/new-space'
 import Asset from './asset'
 import Assets from './assets'
+import AssetsNew from './assets-new'
 import EditAsset from './assets/edit'
-import { SignIn } from './auth/login'
+import { Login } from './auth/login'
 import Avatar from './avatar'
+import Costumer from './costumer'
+import CollectionEditPage from './collection-edit'
 import CollectionPage from './collection'
-import Collections from './components/list-of-collections'
+import PublishCollection from './collection-publish'
+import Collections from './collections'
+import CollectionsNew from './collections-new'
 import Snackbar from './components/snackbar'
 import Conduct from './conduct'
 import EventPage from './event-page'
 import Events from './events'
+import EventsNew from './events-new'
+import EventsEdit from './events-edit'
 import Explore from './explore'
 import Footer from './footer'
 import Home from './home'
@@ -28,12 +35,14 @@ import Islands from './islands'
 import Mail from './mail'
 import WorldMap from './map'
 import Parcel from './parcel'
+import ParcelEdit from './parcel-edit'
 import Parcels from './parcels'
 import Privacy from './privacy'
 import RenderAsset from './render/asset'
 import RenderCostume from './render/costume'
 import Search from './search'
 import Space from './space'
+import SpaceEdit from './space-edit'
 import Spaces from './spaces'
 import Terms from './terms'
 import Wearable from './wearable'
@@ -110,6 +119,7 @@ const Main = () => {
           <Search path="/search" />
 
           <Assets path="/assets" />
+          <AssetsNew path="/assets/new" />
           <Asset path="/assets/:id" />
           <EditAsset path="/assets/:id/edit" />
           <RenderAsset path="/assets/:id/render" />
@@ -118,10 +128,12 @@ const Main = () => {
           <Parcels path="/parcels" />
           <Parcel path="/parcels/:id" />
           <Parcel path="/parcels/:id/:section" />
+          <ParcelEdit path="/parcels/:id/edit" />
 
           <Spaces path="/spaces" />
           <NewSpace path="/spaces/new" />
           <Space path="/spaces/:id" />
+          <SpaceEdit path="/spaces/:id/edit" />
 
           <Islands path="/islands" />
           <Island path="/islands/:slug" />
@@ -135,16 +147,24 @@ const Main = () => {
           <Avatar path="/u/:walletOrName" />
           <Avatar path="/u/:walletOrName/:tab?" />
 
+          <Costumer path="/costumer" />
+          <Costumer path="/costumer/:costumeId" />
+
           <Collections path="/collections" />
+          <CollectionsNew path="/collections/new" />
+          <PublishCollection path="/collections/:mint/publish" />
+          <CollectionEditPage path="/collections/:id/edit" />
           <CollectionPage path="/collections/:id" />
-          <Wearable path="/collections/:chain_identifier/:address/:token_id" />
+          <Wearable path="/collections/:cid/:address/:tid" />
 
           <Womp path="/womps/:id" />
           <EventPage path="/events/:id" />
+          <EventsNew path="/events/new" />
+          <EventsEdit path="/events/:id/edit" />
           <Events path="/events" />
           <WompsPage path="/womps" />
 
-          <IslandsAdmin path="/admin/islands" />
+          <IslandsAdmin path="/propose/islands" />
         </Router>
         <Footer />
       </main>
@@ -196,13 +216,13 @@ function AccountRoutes(props: { path?: string }) {
   }, [])
 
   if (!app.signedIn) {
-    return <SignIn />
+    return <Login />
   }
 
   return (
     <Router>
+      <Route path="/account/edit" component={EditAccount} />
       <Route path="/account/:tab?" component={Home} />
-      <AccountCollectibles path="/account/collectibles" />
     </Router>
   )
 }

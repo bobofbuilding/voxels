@@ -1,5 +1,4 @@
 import type Parcel from './parcel'
-import type { Scene } from './scene'
 import { getFieldShape } from '../common/voxels/helpers'
 // import aoMeshVertexShader from './shaders/ao-mesh.vsh'
 // import aoMeshPixelShader from './shaders/ao-mesh.fsh'
@@ -42,7 +41,7 @@ export interface RawVoxelizedMeshData {
 export const GLASS_MAX_VIEW_DISTANCE = 64
 
 export class VoxelField {
-  private readonly scene: Scene
+  private readonly scene: BABYLON.Scene
   private readonly mesher: ParcelMesher
   private workerAPI: VoxelWorkerAPI | null = null
   private workerCleanup: (() => void) | null = null
@@ -50,7 +49,7 @@ export class VoxelField {
   private jobs: Record<number, (opaque: BABYLON.Mesh, glass: BABYLON.Mesh, collider: BABYLON.Mesh) => void> = {}
   private renderJob = 0
 
-  constructor(scene: Scene, mesher: ParcelMesher) {
+  constructor(scene: BABYLON.Scene, mesher: ParcelMesher) {
     this.scene = scene
     this.mesher = mesher
 

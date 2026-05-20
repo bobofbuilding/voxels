@@ -5,7 +5,8 @@ import { isInFuture } from '../../../common/helpers/time-helpers'
 import { Event } from '../../../common/messages/event'
 import ParcelEvent from '../helpers/event'
 import { Spinner } from '../spinner'
-import { fetchAPI, fetchOptions } from '../utils'
+import cachedFetch from '../helpers/cached-fetch'
+import { fetchOptions } from '../utils'
 import { EventTime } from './event-time'
 
 interface Props {
@@ -112,9 +113,11 @@ export default class EventCalendar extends Component<Props, State> {
   }
 
   private fetchEvents = () =>
-    fetchAPI(`/api/events/on/${this.props.numEvents}/${this.state.page}.json`, fetchOptions(this.controller)).then((data) => {
-      this.setState({ events: data.events || [], loaded: true })
-    })
+    cachedFetch(`/api/events/on/${this.props.numEvents}/${this.state.page}.json`, fetchOptions(this.controller))
+      .then((r) => r.json())
+      .then((data) => {
+        this.setState({ events: data.events || [], loaded: true })
+      })
 
   private eventsSorted() {
     return _.orderBy(

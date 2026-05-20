@@ -46,7 +46,7 @@ export default class NftImage extends Feature2D<NftImageRecord> {
   static blueFrameMaterial: NFTFrame
   static metadata: FeatureMetadata = {
     title: 'NFT Image',
-    subtitle: 'For NFTs you own',
+    subtitle: 'nfts you own',
     type: 'nft-image',
     image: '/icons/nft-image.png',
   }
@@ -519,9 +519,8 @@ class Editor extends FeatureEditor<NftImage> {
 
     const r = await opensea(nftInfo.contract, nftInfo.token, nftInfo.chain, app.state.wallet, cachebust)
 
-    if (r.ownership) {
-      this.setState({ isOwner: r.ownership.owner?.address?.toLowerCase() == app.state.wallet?.toLowerCase() })
-    }
+    const helper = new OpenseaAssetHelper(r)
+    this.setState({ isOwner: helper.isOwner(app.state.wallet) })
   }
 
   onBlendModeChange = (e: string) => {

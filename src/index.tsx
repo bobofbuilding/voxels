@@ -61,8 +61,8 @@ import MainLoop from './main-loop'
 import { createScene } from './init/scene'
 import { createEnvironment } from './init/environment'
 import { createWorld } from './init/world'
-import { sceneConfigFromURL } from './scene'
-import { Environment } from './enviroments/environment'
+import { sceneConfigFromURL, SceneConfig } from './scene-config'
+import type { Environment } from './enviroments/environment'
 import { PostProcesses } from './graphic/post-processes'
 import LutFactor from './graphic/lut-factor'
 import { ColorGrader } from './graphic/color-grading'
@@ -103,6 +103,14 @@ declare global {
     voxels: Voxels
 
     engine: BABYLON.Engine
+    scene: BABYLON.Scene
+    config: SceneConfig
+    graphic: GraphicEngine
+    draw: DrawDistance
+    fov: FOV
+    cameraSettings: CameraSettings
+    environment: Environment | undefined
+
     nameMesh: BABYLON.Mesh
     skyMat: BABYLON.GradientMaterial
 
@@ -226,20 +234,27 @@ declare global {
   }
 
   const sceneConfig = sceneConfigFromURL()
+  window.config = sceneConfig
 
   // the graphics engine keeps track of graphic settings and post-processing fx
   const graphic = new GraphicEngine(engine)
+  window.graphic = graphic
 
   // keeps track of how far we should render
   const draw = new DrawDistance(graphic, sceneConfig.isSpace)
+  window.draw = draw
 
   // keeps track of FOV settings
   const fov = new FOV()
+  window.fov = fov
 
   const cameraSettings = new CameraSettings()
+  window.cameraSettings = cameraSettings
+  window.environment = undefined
 
   // Create a main scene and stuff it with some scene globals
-  const scene = createScene(engine, graphic, draw, sceneConfig, fov, cameraSettings)
+  const scene = createScene(engine)
+  window.scene = scene
   // task runner, that attempts to run tasks without affecting framerate
 
   // if (isBatterySaver()) {
@@ -307,8 +322,8 @@ declare global {
     map = new Minimap(engine, connector)
     mapSettings = map.getSettings()
 
-    if (!scene.config.isBot) {
-      if (mapSettings.enabled && !scene.config.isOrbit && scene.config.wantsUI && !scene.config.isSpace) {
+    if (!window.config.isBot) {
+      if (mapSettings.enabled && !window.config.isOrbit && window.config.wantsUI && !window.config.isSpace) {
         mapScene = map.start(scene)
         main.setMapScene(mapScene)
       }
@@ -329,7 +344,7 @@ declare global {
     })
   }
 
-  if (!scene.config.isBot) {
+  if (!window.config.isBot) {
     main.start()
   }
 

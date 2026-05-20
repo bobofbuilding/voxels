@@ -6,7 +6,6 @@ import { PanelType } from '../../../web/src/components/panel'
 import Snackbar from '../../../web/src/components/snackbar'
 
 import Parcel from '../../parcel'
-import type { Scene } from '../../scene'
 import { SelectionMode } from '../../tools/voxel'
 import UserInterface from '../../user-interface'
 import CustomizeVoxels from './customize-voxels'
@@ -19,7 +18,7 @@ function useEffectEvent<T extends (...args: any[]) => any>(fn: T): T {
 
 interface Props {
   parcel: Parcel
-  scene: Scene
+  scene: BABYLON.Scene
 }
 
 const VoxelToolBelt = ({ parcel, scene }: Props) => {

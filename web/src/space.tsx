@@ -8,7 +8,6 @@ import EditableDescription from './components/Editable/editable-description'
 import { copyTextToClipboard, ssrFriendlyDocument } from '../../common/helpers/utils'
 import WompsList from './womps-list'
 import LoadingIcon from './components/loading-icon'
-import ParcelAdminPanel from './components/parcel-admin'
 import { SpaceRecord } from '../../common/messages/space'
 import Head from './components/head'
 
@@ -66,7 +65,7 @@ export default class Space extends Component<Props, State> {
     if (!app.signedIn) {
       return false
     }
-    return !!this.state.space && this.state.space.owner.toLowerCase() === app.state.wallet?.toLowerCase()
+    return app.isOwner(this.state.space?.owner)
   }
 
   get visitUrl() {
@@ -164,9 +163,8 @@ export default class Space extends Component<Props, State> {
 
     return (
       <section class="columns">
-        <EditableName value={space.name} path={this.props.path} isowner={this.isOwner} type={AssetType.Space} data={this.state.space} title="Name of this space" />
-
         <article>
+          <EditableName value={space.name} path={this.props.path} isowner={this.isOwner} type={AssetType.Space} data={this.state.space} title="Name of this space" />
           <Head title={this.name} description={space.description ?? `Visit this space`} url={`/spaces/${space.id}`}>
             <script id="space-json" data-space-id={space.id} type="application/json">
               {JSON.stringify(this.props.space)}
@@ -194,12 +192,9 @@ export default class Space extends Component<Props, State> {
             </div>
           )) ||
             space.description}
-        </article>
-        <div class="postscript">
           <h3>Womps</h3>
-
           <WompsList fetch={`/womps/at/space/${space.spaceId}.json`} />
-        </div>
+        </article>
         <aside class="push-header">
           <dl>
             <dt>Type</dt>
@@ -221,7 +216,7 @@ export default class Space extends Component<Props, State> {
             </dd>
           </dl>
 
-          <ParcelAdminPanel parcelOrSpace={space} onSave={this.refreshIframe.bind(this)} />
+          {this.isOwner && <a href={`/spaces/${space.id}/edit`}>Edit</a>}
         </aside>
       </section>
     )

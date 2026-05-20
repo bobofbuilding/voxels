@@ -3,7 +3,79 @@ import config from '../config'
 import { CollectibleBatchRecord, CollectibleInfoRecord } from '../messages/collectibles'
 import { ChainIdentifier, getChainIdByName, SUPPORTED_CHAINS_BY_ID } from './chain-helpers'
 
-export type CollectiblesData = CollectibleBatchRecord & { gif: string; quantity: number }
+export type CollectiblesData = CollectibleBatchRecord & {
+  gif: string
+  quantity: number
+  default_bone?: string
+  is_free?: boolean
+}
+
+function wearableMergeKey(w: Pick<CollectiblesData, 'token_id' | 'collection_id' | 'chain_id'>) {
+  return `${w.chain_id}:${w.collection_id}:${w.token_id}`
+}
+
+export function mergeOwnedAndFreeWearables(owned: CollectiblesData[], free: CollectiblesData[]): CollectiblesData[] {
+  const m = new Map<string, CollectiblesData>()
+  for (const f of free) {
+    m.set(wearableMergeKey(f), { ...f })
+  }
+  for (const o of owned) {
+    const k = wearableMergeKey(o)
+    const base = m.get(k)
+    if (base) {
+      m.set(k, {
+        ...base,
+        ...o,
+        quantity: o.quantity,
+        default_bone: o.default_bone || base.default_bone,
+        is_free: base.is_free || o.is_free,
+      })
+    } else {
+      m.set(k, o)
+    }
+  }
+  return [...m.values()]
+}
+
+function mapFreeWearableRow(row: Record<string, any>): CollectiblesData {
+  const tid = row.token_id ?? 0
+  const nm = row.name ?? ''
+  return {
+    id: row.id,
+    token_id: typeof tid == 'number' ? tid : parseInt(tid, 10),
+    name: nm,
+    description: row.description ?? null,
+    collection_id: row.collection_id,
+    category: row.category ?? null,
+    author: row.author ?? null,
+    hash: row.hash ?? '',
+    suppressed: !!row.suppressed,
+    chain_id: parseInt(String(row.chain_id ?? '1'), 10),
+    collection_address: row.collection_address ?? null,
+    collection_name: row.collection_name ?? null,
+    gif: config.wearablePreviewURL(String(tid), nm),
+    quantity: 1,
+    default_bone: typeof row.default_bone == 'string' && row.default_bone ? row.default_bone : undefined,
+    is_free: true,
+  }
+}
+
+export async function fetchMergedWearableCatalog(wallet: string | undefined): Promise<CollectiblesData[]> {
+  const [free, owned] = await Promise.all([fetchFreeWearablesData(), wallet ? fetchUsersCollectiblesData(wallet) : Promise.resolve([] as CollectiblesData[])])
+  return mergeOwnedAndFreeWearables(owned, free)
+}
+
+export async function fetchFreeWearablesData(): Promise<CollectiblesData[]> {
+  const r = await fetch('/api/wearables/free.json')
+  if (!r.ok) {
+    return []
+  }
+  const data = (await r.json()) as { success?: boolean; wearables?: Record<string, any>[] }
+  if (!data?.success || !data.wearables) {
+    return []
+  }
+  return data.wearables.map(mapFreeWearableRow)
+}
 
 /*
 /* Collectibles owned by that user 
@@ -21,7 +93,7 @@ export async function fetchUsersCollectiblesData(wallet: string | undefined, cac
       name: item.name ?? '',
       description: item.description ?? '',
       collection_id: item.collection_id,
-      category: null,
+      category: item.category ?? null,
       author: null,
       hash: item.hash ?? '',
       suppressed: item.suppressed ?? false,
@@ -30,6 +102,8 @@ export async function fetchUsersCollectiblesData(wallet: string | undefined, cac
       collection_name: null,
       gif: config.wearablePreviewURL(item.token_id?.toString() ?? '0', `Mock Item #${item.token_id}`),
       quantity: item.quantity ?? 0,
+      default_bone: undefined,
+      is_free: false,
     })
   }
 
@@ -90,6 +164,8 @@ export enum ContractTypes {
 }
 
 export type Collection = {
+  total?: number
+  authors?: number
   total_authors?: number
   total_wearables?: number
   id?: any
@@ -97,8 +173,7 @@ export type Collection = {
   chainid?: number
   chain_identifier?: string
   description?: string
-  owner?: string
-  owner_name?: string
+  owner?: any // AvatarRef
   address?: string
   chainId?: number
   collectiblesType?: string
@@ -126,8 +201,7 @@ export class CollectionHelper {
   name?: string
   chainid: number
   description?: string
-  owner?: string
-  owner_name?: string
+  owner?: any // AvatarRef
   address?: string
   collectiblesType?: string
   image_url?: string | null
@@ -165,7 +239,7 @@ export class CollectionHelper {
    * Returns basic information about this collection
    */
   async getData(cachebust = false) {
-    const url = `/api/collections/${this.id}.json`
+    const url = `/api/collections/${this.id}`
 
     // if (cachebust) {
     //   url += `?cb=${Date.now()}`
@@ -186,7 +260,7 @@ export class CollectionHelper {
   }
 
   async fetchCollectibles(page?: number, query?: string, sort?: string, asc?: boolean) {
-    const u = `/api/collections/${this.chainIdentifier}/${this.address!}/collectibles.json`
+    const u = `/api/collections/${this.id}/collectibles`
     const url = new URL(u, location.toString())
     const searchParams = {
       page,
@@ -204,26 +278,6 @@ export class CollectionHelper {
     } catch (err) {
       console.error(`fetchCollectibles error: ${err}`)
       return []
-    }
-  }
-
-  /**
-   * Returns basic information about this collection
-   */
-  async getCollectionInfo() {
-    let url = `${process.env.API}/collections/${this.chainIdentifier}/${this.address || ''}/info.json`
-    if (!this.address && this.id) {
-      url = `${process.env.API}/collections/${this.id}/info.json`
-    }
-
-    try {
-      const p = await fetch(url)
-      const r = await p.json()
-
-      return r.info
-    } catch (err) {
-      console.error(`getCollectionInfo error: ${err}`)
-      return {}
     }
   }
 }

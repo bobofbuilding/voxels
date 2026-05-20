@@ -1,15 +1,14 @@
 import { StateObservable } from '../utils/state-observable'
 import { Environment } from './environment'
-import type { Scene } from '../scene'
 import { createEvent } from '../utils/EventEmitter'
 
-export class ScratchpadEnvironment extends Environment<Scene> {
+export class ScratchpadEnvironment extends Environment {
   skybox?: BABYLON.Mesh
   ground?: BABYLON.Mesh
   groundMaterial: BABYLON.StandardMaterial | undefined
   groundTexture: BABYLON.Texture | undefined
 
-  constructor(parent: BABYLON.TransformNode, scene: Scene) {
+  constructor(parent: BABYLON.TransformNode, scene: BABYLON.Scene) {
     console.debug('Creating SpacesEnvironment')
     super(parent, scene)
   }

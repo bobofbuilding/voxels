@@ -1,9 +1,12 @@
 import { h } from 'preact'
 import { isMobile } from '../../common/helpers/detector'
 import { exitPointerLock } from '../../common/helpers/ui-helpers'
+import { encodeCoords } from '../../common/helpers/utils'
 import { ShowboxRecord } from '../../common/messages/feature'
 import { Room, RoomEvent, Track, createLocalScreenTracks, createLocalTracks } from 'livekit-client'
+import { app } from '../../web/src/state'
 import { Position, Rotation, Scale, Script } from '../../web/src/components/editor'
+import { cameraPosition, cameraRotation } from '../utils/camera'
 import { Advanced, FeatureEditor, FeatureEditorProps, FeatureID, SetParentDropdown, Toolbar, UuidReadOnly } from '../ui/features'
 import { FeatureMetadata, FeatureTemplate } from './_metadata'
 import { Feature2D } from './feature'
@@ -28,9 +31,11 @@ export default class Showbox extends Feature2D<ShowboxRecord> {
   livekitRoom: Room | null = null
   broadcastRoom: Room | null = null
   broadcastPanel: HTMLDivElement | null = null
+  thumbCanvas: HTMLCanvasElement | null = null
+  thumbInterval: ReturnType<typeof setInterval> | null = null
 
   roomName() {
-    return `p${this.parcel.id}`.slice(0, 9)
+    return `parcel-${this.parcel.id}`
   }
 
   get volume() {
@@ -88,7 +93,7 @@ export default class Showbox extends Feature2D<ShowboxRecord> {
     this._dispose()
     this.livekitRoom?.disconnect()
     this.livekitRoom = null
-    this.stopBroadcast()
+    this.stopBroadcast(true)
     this.broadcastPanel?.remove()
     this.broadcastPanel = null
     this.audio?.removeUserAudioReference(this)
@@ -207,7 +212,47 @@ export default class Showbox extends Feature2D<ShowboxRecord> {
     this.mesh.material = mat
   }
 
-  stopBroadcast() {
+  startThumbCapture(videoEl: HTMLVideoElement) {
+    if (!this.thumbCanvas) {
+      this.thumbCanvas = document.createElement('canvas')
+      this.thumbCanvas.width = 256
+      this.thumbCanvas.height = 144
+    }
+    const canvas = this.thumbCanvas
+    const ctx = canvas.getContext('2d')!
+    const room = this.roomName()
+    const id = this.parcel.id
+    const parcel = { id, name: this.parcel.name, address: this.parcel.address }
+    this.thumbInterval = setInterval(() => {
+      try {
+        ctx.drawImage(videoEl, 0, 0, 256, 144)
+        const thumbnail = canvas.toDataURL('image/jpeg', 0.2)
+        const coord = encodeCoords({ position: cameraPosition(this.scene), rotation: cameraRotation(this.scene) })
+        fetch(`/api/rooms/${room}/thumbnail`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ avatar: app.avatarRef, parcel, coord, thumbnail }),
+        }).catch(() => {})
+      } catch {}
+    }, 1000)
+  }
+
+  stopThumbCapture(silent = false) {
+    if (this.thumbInterval) {
+      clearInterval(this.thumbInterval)
+      this.thumbInterval = null
+    }
+    if (!silent) {
+      fetch(`/api/rooms/${this.roomName()}/thumbnail`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ thumbnail: null }),
+      }).catch(() => {})
+    }
+  }
+
+  stopBroadcast(silent = false) {
+    this.stopThumbCapture(silent)
     this.broadcastRoom?.disconnect()
     this.broadcastRoom = null
     this.audio?.removeUserAudioReference(this)
@@ -357,6 +402,7 @@ export default class Showbox extends Feature2D<ShowboxRecord> {
         if (videoTrack) {
           const el = videoTrack.attach() as HTMLVideoElement
           this.attachVideoToMesh(el, true)
+          this.startThumbCapture(el)
         }
 
         this.audio?.addUserAudioReference(this)
