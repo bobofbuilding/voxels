@@ -33,6 +33,7 @@ export default class Showbox extends Feature2D<ShowboxRecord> {
   broadcastPanel: HTMLDivElement | null = null
   thumbCanvas: HTMLCanvasElement | null = null
   thumbInterval: ReturnType<typeof setInterval> | null = null
+  hasActiveVideo = false
 
   roomName() {
     return `parcel-${this.parcel.id}`
@@ -85,6 +86,7 @@ export default class Showbox extends Feature2D<ShowboxRecord> {
     if (this.livekitRoom) {
       this.livekitRoom.disconnect()
       this.livekitRoom = null
+      this.hasActiveVideo = false
       this.audio?.removeUserAudioReference(this)
     }
   }
@@ -101,6 +103,7 @@ export default class Showbox extends Feature2D<ShowboxRecord> {
 
   setPreview() {
     if (this.disposed) return
+    if (this.hasActiveVideo) return
     const w = 640
     const h = 360
     const tex = new BABYLON.DynamicTexture(this.uniqueEntityName('texture'), { width: w, height: h }, this.scene, false)
@@ -114,7 +117,12 @@ export default class Showbox extends Feature2D<ShowboxRecord> {
     ctx.textAlign = 'center'
     ctx.fillStyle = '#f5f5f0'
 
-    if (this.parcel.canEdit) {
+    const hasRemoteBroadcaster = [...((this.livekitRoom as any)?.remoteParticipants?.values() ?? [])].some((p: any) => p?.videoTrackPublications?.size > 0 || p?.audioTrackPublications?.size > 0)
+
+    if (hasRemoteBroadcaster) {
+      ctx.fillStyle = '#888'
+      ctx.fillText('connecting to stream...', w / 2, h / 2)
+    } else if (this.parcel.canEdit) {
       ctx.fillText('showbox', w / 2, h / 2 - 20)
       const cta = '\u25CF click here to go live'
       const tw = ctx.measureText(cta).width
@@ -178,6 +186,9 @@ export default class Showbox extends Feature2D<ShowboxRecord> {
       if (track.kind === Track.Kind.Audio) {
         this.audio?.removeUserAudioReference(this)
       }
+      if (track.kind === Track.Kind.Video) {
+        this.hasActiveVideo = false
+      }
       this.setPreview()
     })
 
@@ -189,7 +200,11 @@ export default class Showbox extends Feature2D<ShowboxRecord> {
       }
     })
 
+    room.on(RoomEvent.ParticipantConnected, () => this.setPreview())
+    room.on(RoomEvent.ParticipantDisconnected, () => this.setPreview())
+
     await room.connect(LIVEKIT_URL, res.token).catch(() => null)
+    this.setPreview()
   }
 
   startBroadcastAudio() {
@@ -217,6 +232,7 @@ export default class Showbox extends Feature2D<ShowboxRecord> {
     el.autoplay = true
     el.play().catch(() => {})
 
+    this.hasActiveVideo = true
     const tex = new BABYLON.VideoTexture(this.uniqueEntityName('texture'), el, this.scene, false, false)
     tex.hasAlpha = false
 
@@ -274,6 +290,7 @@ export default class Showbox extends Feature2D<ShowboxRecord> {
     this.stopThumbCapture(silent)
     this.broadcastRoom?.disconnect()
     this.broadcastRoom = null
+    this.hasActiveVideo = false
     this.audio?.removeUserAudioReference(this)
   }
 
@@ -458,7 +475,8 @@ export default class Showbox extends Feature2D<ShowboxRecord> {
 
   onClick() {
     if (!this.broadcastRoom) {
-      if (this.parcel.canEdit && !(this.livekitRoom as any)?.remoteParticipants?.size) {
+      const hasRemoteBroadcaster = [...((this.livekitRoom as any)?.remoteParticipants?.values() ?? [])].some((p: any) => p?.videoTrackPublications?.size > 0 || p?.audioTrackPublications?.size > 0)
+      if (this.parcel.canEdit && !hasRemoteBroadcaster) {
         this.openBroadcastPanel()
       } else {
         this.startBroadcastAudio()
