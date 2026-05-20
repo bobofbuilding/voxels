@@ -57,6 +57,8 @@ export default class Showbox extends Feature2D<ShowboxRecord> {
   broadcastPanel: HTMLDivElement | null = null
   thumbCanvas: HTMLCanvasElement | null = null
   thumbInterval: ReturnType<typeof setInterval> | null = null
+  liveTimerInterval: ReturnType<typeof setInterval> | null = null
+  liveStartedAt: number | null = null
   hasActiveVideo = false
 
   roomName() {
@@ -320,6 +322,11 @@ export default class Showbox extends Feature2D<ShowboxRecord> {
     this.broadcastRoom = null
     this.hasActiveVideo = false
     this.audio?.removeUserAudioReference(this)
+    if (this.liveTimerInterval) {
+      clearInterval(this.liveTimerInterval)
+      this.liveTimerInterval = null
+    }
+    this.liveStartedAt = null
   }
 
   openBroadcastPanel() {
@@ -556,7 +563,12 @@ export default class Showbox extends Feature2D<ShowboxRecord> {
         goBtn.textContent = 'go live'
         goBtn.style.background = '#dc1e1e'
         this.setPreview()
-        panel.querySelector('span[data-dot]')?.remove()
+        panel.querySelectorAll('[data-dot]').forEach((el) => el.remove())
+        if (this.liveTimerInterval) {
+          clearInterval(this.liveTimerInterval)
+          this.liveTimerInterval = null
+        }
+        this.liveStartedAt = null
         ;[title, camLabel, camSel, micLabel, micSel, screenOpt, shareRow, status].forEach((el) => ((el as HTMLElement).style.display = ''))
         return
       }
@@ -605,11 +617,55 @@ export default class Showbox extends Feature2D<ShowboxRecord> {
         goBtn.disabled = false
         status.textContent = ''
         ;[title, camLabel, camSel, micLabel, micSel, screenOpt, shareRow, status].forEach((el) => ((el as HTMLElement).style.display = 'none'))
-        const dot = document.createElement('div')
-        dot.dataset.dot = '1'
-        dot.textContent = '\u25CF live'
-        Object.assign(dot.style, { color: '#dc1e1e', fontWeight: 'bold', fontSize: '14px', letterSpacing: '0.5px' })
-        panel.insertBefore(dot, moveRow)
+
+        // live header: pulsing red dot + count-up timer so the broadcaster sees they are actually streaming.
+        const liveHeader = document.createElement('div')
+        liveHeader.dataset.dot = '1'
+        Object.assign(liveHeader.style, { display: 'flex', alignItems: 'center', gap: '8px', color: '#dc1e1e', fontWeight: 'bold', fontSize: '14px', letterSpacing: '0.5px' })
+        const liveDot = document.createElement('span')
+        liveDot.textContent = '\u25CF'
+        Object.assign(liveDot.style, { animation: 'showbox-live-pulse 1.2s ease-in-out infinite' })
+        const liveLabel = document.createElement('span')
+        liveLabel.textContent = 'live'
+        const liveTimer = document.createElement('span')
+        Object.assign(liveTimer.style, { color: '#f5f5f0', marginLeft: 'auto', fontVariantNumeric: 'tabular-nums' })
+        liveTimer.textContent = '0:00'
+        liveHeader.append(liveDot, liveLabel, liveTimer)
+
+        if (!document.getElementById('showbox-live-pulse-style')) {
+          const styleEl = document.createElement('style')
+          styleEl.id = 'showbox-live-pulse-style'
+          styleEl.textContent = '@keyframes showbox-live-pulse { 0%, 100% { opacity: 1 } 50% { opacity: 0.3 } }'
+          document.head.appendChild(styleEl)
+        }
+
+        this.liveStartedAt = Date.now()
+        this.liveTimerInterval = setInterval(() => {
+          if (!this.liveStartedAt) return
+          const s = Math.floor((Date.now() - this.liveStartedAt) / 1000)
+          const m = Math.floor(s / 60)
+          const r = s % 60
+          liveTimer.textContent = `${m}:${r.toString().padStart(2, '0')}`
+        }, 1000)
+
+        // Self-preview video so the broadcaster can see exactly what the audience sees on the showbox.
+        // Also doubles as a "yes, your camera/screen is actually being streamed" confirmation.
+        if (videoTrack) {
+          const previewWrap = document.createElement('div')
+          previewWrap.dataset.dot = '1'
+          Object.assign(previewWrap.style, { position: 'relative', width: '100%', aspectRatio: '16 / 9', background: '#000', overflow: 'hidden' })
+          const previewVideo = videoTrack.attach() as HTMLVideoElement
+          previewVideo.muted = true
+          previewVideo.playsInline = true
+          Object.assign(previewVideo.style, { width: '100%', height: '100%', objectFit: 'cover', display: 'block' })
+          const previewLabel = document.createElement('div')
+          previewLabel.textContent = 'what your audience sees'
+          Object.assign(previewLabel.style, { position: 'absolute', bottom: '4px', left: '6px', color: '#f5f5f0', fontSize: '11px', background: 'rgba(0,0,0,0.6)', padding: '2px 6px' })
+          previewWrap.append(previewVideo, previewLabel)
+          panel.insertBefore(previewWrap, moveRow)
+        }
+
+        panel.insertBefore(liveHeader, panel.firstChild)
       } catch {
         status.textContent = 'failed to connect'
         goBtn.disabled = false
