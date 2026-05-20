@@ -65,12 +65,8 @@ export default function GuestPassesController(db: Db, passport: PassportStatic, 
     }
 
     const featureUuid = String(req.body?.feature_uuid ?? '').trim()
-    const name = String(req.body?.name ?? '')
-      .trim()
-      .slice(0, 64)
 
     if (!featureUuid) return res.status(400).json({ success: false, error: 'feature_uuid required' })
-    if (!name) return res.status(400).json({ success: false, error: 'name required' })
 
     const feature = parcel.getFeatureByUuid(featureUuid)
     if (!feature || feature.type !== 'showbox') {
@@ -80,7 +76,7 @@ export default function GuestPassesController(db: Db, passport: PassportStatic, 
     const token = crypto.randomBytes(24).toString('base64url')
     const createdBy = (req.user?.wallet ?? '').toLowerCase()
 
-    await db.query('sql/guest-passes/insert', `insert into guest_passes (token, parcel_id, feature_uuid, name, created_by) values ($1, $2, $3, $4, $5)`, [token, parcelId, featureUuid, name, createdBy])
+    await db.query('sql/guest-passes/insert', `insert into guest_passes (token, parcel_id, feature_uuid, name, created_by) values ($1, $2, $3, '', $4)`, [token, parcelId, featureUuid, createdBy])
 
     const pass = await loadGuestPass(db, token)
     res.json({ success: true, pass })
@@ -181,14 +177,15 @@ export default function GuestPassesController(db: Db, passport: PassportStatic, 
 
     const syntheticWallet = `guest:${token.slice(0, 12)}`.toLowerCase()
 
-    // Make sure an avatar row exists so /api/avatars/{wallet}.json returns ok and the
-    // chosen name shows up in chat / nametags. Upsert the display name on each redeem
-    // so renaming the pass propagates next time the guest opens the link.
+    // Avatar row for the synthetic wallet. Name is chosen by the guest in the broadcast dock,
+    // not by the parcel owner - only overwrite an existing name when the pass already has one.
     await db.query(
       'sql/guest-passes/upsert-avatar',
       `insert into avatars (owner, name, last_online)
        values ($1, $2, now())
-       on conflict (owner) do update set name = excluded.name, last_online = now()`,
+       on conflict (owner) do update set
+         last_online = now(),
+         name = case when excluded.name <> '' then excluded.name else avatars.name end`,
       [syntheticWallet, pass.name],
     )
 

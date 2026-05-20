@@ -1,4 +1,5 @@
 import { Component, h } from 'preact'
+import { decodeJwt } from 'jose'
 import { isMobile } from '../../common/helpers/detector'
 import { exitPointerLock } from '../../common/helpers/ui-helpers'
 import { encodeCoords } from '../../common/helpers/utils'
@@ -37,6 +38,17 @@ function isGuestForShowbox(uuid: string): boolean {
     return new URL(window.location.href).searchParams.get('show') === uuid
   } catch {
     return false
+  }
+}
+
+function guestPassToken(): string | null {
+  try {
+    const key = app.state.key
+    if (!key) return null
+    const payload = decodeJwt(key) as { guest_pass?: string }
+    return payload.guest_pass ?? null
+  } catch {
+    return null
   }
 }
 
@@ -416,10 +428,10 @@ export default class Showbox extends Feature2D<ShowboxRecord> {
     screenOpt.append(screenChk, ' use screenshare instead of camera')
     if (mobile) screenOpt.style.display = 'none' // screenshare from a phone is unreliable; stick to the camera
 
-    // Identity row. Owners are signed in with their voxels profile, so this is read-only for them.
-    // Guests came in via /live/:token with whatever name the owner typed - let them tweak it before the show.
+    // Identity row. Owners use their voxels profile. Guests pick their own name here before going live.
     const isGuest = isGuestForShowbox(this.uuid)
-    const guestToken = isGuest ? (new URL(window.location.href).pathname.match(/^\/live\/([^/]+)/)?.[1] ?? null) : null
+    const guestToken = isGuest ? guestPassToken() : null
+    let guestNameInput: HTMLInputElement | null = null
 
     const identityRow = document.createElement('div')
     Object.assign(identityRow.style, { display: 'flex', flexDirection: 'column', gap: '4px' })
@@ -427,8 +439,10 @@ export default class Showbox extends Feature2D<ShowboxRecord> {
     identityLabel.textContent = isGuest ? 'name on stream' : 'streaming as'
     if (isGuest && guestToken) {
       const nameInput = document.createElement('input')
+      guestNameInput = nameInput
       nameInput.type = 'text'
       nameInput.value = app.state.name ?? ''
+      nameInput.placeholder = 'e.g. DJ ANON'
       nameInput.maxLength = 64
       Object.assign(nameInput.style, { width: '100%', background: '#1a1a1a', color: '#f5f5f0', border: '1px solid #333', padding: '8px', fontFamily: 'inherit', minHeight: '36px', boxSizing: 'border-box' })
       const nameStatus = document.createElement('small')
@@ -652,6 +666,31 @@ export default class Showbox extends Feature2D<ShowboxRecord> {
         return
       }
 
+      if (isGuest) {
+        const nextName = guestNameInput?.value.trim() || app.state.name?.trim() || ''
+        if (!nextName) {
+          status.textContent = 'pick a name on stream first'
+          return
+        }
+        if (guestToken && nextName !== app.state.name) {
+          status.textContent = 'saving name...'
+          try {
+            const r = await fetch(`/api/guest/${guestToken}/name`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              credentials: 'include',
+              body: JSON.stringify({ name: nextName }),
+            })
+            const j = await r.json()
+            if (!j.success) throw new Error(j.error || 'failed')
+            app.setName(nextName)
+          } catch {
+            status.textContent = 'could not save name'
+            return
+          }
+        }
+      }
+
       status.textContent = 'connecting...'
       goBtn.disabled = true
 
@@ -845,8 +884,8 @@ Showbox.Editor = Editor
 // that let an invited broadcaster (artist, speaker, DJ) go live on this showbox without an account.
 type Pass = { token: string; parcel_id: number; feature_uuid: string; name: string; created_at: string; revoked_at: string | null }
 
-class GuestPasses extends Component<{ feature: Showbox }, { passes: Pass[]; loading: boolean; name: string; creating: boolean; error: string | null }> {
-  state = { passes: [] as Pass[], loading: true, name: '', creating: false, error: null as string | null }
+class GuestPasses extends Component<{ feature: Showbox }, { passes: Pass[]; loading: boolean; creating: boolean; error: string | null }> {
+  state = { passes: [] as Pass[], loading: true, creating: false, error: null as string | null }
 
   componentDidMount() {
     this.refresh()
@@ -872,22 +911,16 @@ class GuestPasses extends Component<{ feature: Showbox }, { passes: Pass[]; load
   }
 
   async create() {
-    const name = this.state.name.trim()
-    if (!name) {
-      this.setState({ error: 'Pick a name first' })
-      return
-    }
     this.setState({ creating: true, error: null })
     try {
       const r = await fetch(`/api/parcels/${this.parcelId()}/guest-passes`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ feature_uuid: this.featureUuid(), name }),
+        body: JSON.stringify({ feature_uuid: this.featureUuid() }),
       })
       const j = await r.json()
       if (!j.success) throw new Error(j.error || 'Could not create link')
-      this.setState({ name: '' })
       await this.refresh()
     } catch (e: any) {
       this.setState({ error: e?.message ?? 'Could not create link' })
@@ -928,7 +961,7 @@ class GuestPasses extends Component<{ feature: Showbox }, { passes: Pass[]; load
     return (
       <div className="f">
         <label>Guest broadcast links</label>
-        <small>One-tap broadcast link for someone without a voxels account - artists, speakers, anyone you invite. They land on this showbox with a go-live button. Their chosen name floats above their avatar, no label.</small>
+        <small>One-tap broadcast link for someone without a voxels account - artists, speakers, anyone you invite. They pick their own name when they open the link. No voxels account needed.</small>
 
         <div className="f">
           <label>share-with-audience show link</label>
@@ -937,16 +970,6 @@ class GuestPasses extends Component<{ feature: Showbox }, { passes: Pass[]; load
         </div>
 
         <div className="f">
-          <label>name on stream</label>
-          <input
-            type="text"
-            value={this.state.name}
-            placeholder="e.g. DJ ANON, Dr Lee, ..."
-            onChange={(e) => this.setState({ name: e.currentTarget.value })}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') this.create()
-            }}
-          />
           <button onClick={() => this.create()} disabled={this.state.creating}>
             {this.state.creating ? 'creating...' : 'create link'}
           </button>
@@ -961,7 +984,7 @@ class GuestPasses extends Component<{ feature: Showbox }, { passes: Pass[]; load
               {active.map((p) => (
                 <tr key={p.token}>
                   <td>
-                    <strong>{p.name}</strong>
+                    <strong>{p.name?.trim() || 'name not chosen yet'}</strong>
                     <br />
                     <input type="text" readOnly value={this.liveUrl(p.token)} onClick={(e) => (e.currentTarget as HTMLInputElement).select()} style={{ width: '100%' }} />
                   </td>
