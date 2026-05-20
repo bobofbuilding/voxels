@@ -366,3 +366,57 @@ export const firstStringParam = <T>(param: T): string | undefined => {
     return undefined
   }
 }
+
+/** Home page live strip: one card per row in Redis / SSE. */
+export type LiveStripEntry = {
+  room: string
+  ts?: number
+  viewers?: number
+}
+
+/** Pick a random stream for a discovery slot. Prefer streams that started in the last 10 minutes. */
+function pickDiscoverySlot(pool: LiveStripEntry[]): LiveStripEntry | undefined {
+  if (!pool.length) return undefined
+  const freshMs = 10 * 60 * 1000
+  const fresh = pool.filter((e) => e.ts && Date.now() - e.ts < freshMs)
+  const pick = fresh.length ? fresh : pool
+  return pick[Math.floor(Math.random() * pick.length)]
+}
+
+/**
+ * Order live thumbnails for the home page swipe strip.
+ *
+ * Slot 1: most viewers (flashmob gravity - join the crowd)
+ * Slot 2: random discovery (someone else gets shine; fresh streams weighted)
+ * Slot 3: second most viewers
+ * Slot 4: random discovery
+ * Rest: by viewer count descending
+ *
+ * <=2 streams: just sort by viewers, no random slots.
+ */
+export function orderLiveStrip<T extends LiveStripEntry>(entries: T[]): T[] {
+  if (entries.length <= 2) {
+    return [...entries].sort((a, b) => (b.viewers ?? 0) - (a.viewers ?? 0))
+  }
+
+  const byViewers = [...entries].sort((a, b) => (b.viewers ?? 0) - (a.viewers ?? 0))
+  const used = new Set<string>()
+  const out: T[] = []
+
+  const take = (e: T | undefined) => {
+    if (!e || used.has(e.room)) return
+    used.add(e.room)
+    out.push(e)
+  }
+
+  take(byViewers[0])
+  take(pickDiscoverySlot(byViewers.filter((e) => !used.has(e.room))))
+  take(byViewers.find((e) => !used.has(e.room)))
+  take(pickDiscoverySlot(byViewers.filter((e) => !used.has(e.room))))
+
+  for (const e of byViewers) {
+    take(e)
+  }
+
+  return out
+}
