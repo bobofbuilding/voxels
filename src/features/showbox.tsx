@@ -332,23 +332,91 @@ export default class Showbox extends Feature2D<ShowboxRecord> {
 
     exitPointerLock()
 
+    // Compute the show url once - mobile branch and desktop dock both need it.
+    const p = this.parcel
+    const center = new BABYLON.Vector3((p.x1 + p.x2) / 2, p.y1, (p.z1 + p.z2) / 2)
+    const showCoords = encodeCoords({ position: center, rotation: new BABYLON.Vector3(0, 0, 0) })
+    const showUrl = `${window.location.origin}/play?coords=${encodeURIComponent(showCoords)}&show=${this.uuid}`
+
+    // Mobile: short-circuit. WebRTC broadcasting from a phone while running the 3D engine is fragile,
+    // and a cramped popup is worse than a clean "open this on desktop" notice. Audience is mobile-fine;
+    // broadcasters need a real computer.
+    if (mobile) {
+      const panel = document.createElement('div')
+      this.broadcastPanel = panel
+      Object.assign(panel.style, {
+        position: 'fixed',
+        zIndex: '999999',
+        inset: '0',
+        background: '#0d0d0d',
+        color: '#f5f5f0',
+        padding: '2rem 1.25rem',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '1rem',
+        fontFamily: '"Source Code Pro", monospace',
+        fontSize: '15px',
+      })
+
+      const title = document.createElement('div')
+      title.textContent = 'Showbox'
+      Object.assign(title.style, { fontWeight: 'bold', fontSize: '18px' })
+
+      const msg = document.createElement('div')
+      msg.textContent = 'broadcasting needs a real keyboard, camera, and a stable upload. open this link on your desktop:'
+      msg.style.lineHeight = '1.4'
+
+      const linkInput = document.createElement('input')
+      linkInput.type = 'text'
+      linkInput.readOnly = true
+      linkInput.value = window.location.href
+      Object.assign(linkInput.style, { width: '100%', background: '#1a1a1a', color: '#f5f5f0', border: '1px solid #333', padding: '12px', fontFamily: 'inherit', fontSize: '14px' })
+      linkInput.onclick = () => linkInput.select()
+
+      const copyBtn = document.createElement('button')
+      copyBtn.textContent = 'copy link'
+      Object.assign(copyBtn.style, { background: '#dc1e1e', color: '#f5f5f0', border: '0', padding: '14px 16px', cursor: 'pointer', fontFamily: 'inherit', fontSize: '15px', minHeight: '48px' })
+      copyBtn.onclick = () => {
+        navigator.clipboard.writeText(window.location.href).catch(() => {})
+        copyBtn.textContent = 'copied - now open on desktop'
+      }
+
+      const hint = document.createElement('div')
+      hint.textContent = 'audience can stay on mobile - they just watch and chat.'
+      Object.assign(hint.style, { color: '#888', fontSize: '13px' })
+
+      const closeBtn = document.createElement('button')
+      closeBtn.textContent = 'close'
+      Object.assign(closeBtn.style, { background: '#333', color: '#f5f5f0', border: '0', padding: '12px 16px', cursor: 'pointer', fontFamily: 'inherit', fontSize: '15px', minHeight: '44px' })
+      closeBtn.onclick = () => {
+        panel.remove()
+        this.broadcastPanel = null
+      }
+
+      panel.append(title, msg, linkInput, copyBtn, hint, closeBtn)
+      document.body.appendChild(panel)
+      return
+    }
+
     const panel = document.createElement('div')
     this.broadcastPanel = panel
     Object.assign(panel.style, {
       position: 'fixed',
       zIndex: '999999',
-      top: '50%',
-      left: '50%',
-      transform: 'translate(-50%, -50%)',
+      top: '12px',
+      right: '12px',
       background: '#0d0d0d',
       color: '#f5f5f0',
       padding: '1rem',
       display: 'flex',
       flexDirection: 'column',
       gap: '0.75rem',
-      minWidth: '320px',
+      width: '340px',
+      maxHeight: 'calc(100vh - 24px)',
+      overflowY: 'auto',
       fontFamily: '"Source Code Pro", monospace',
       fontSize: '13px',
+      boxShadow: '0 4px 24px rgba(0,0,0,0.6)',
     })
 
     const title = document.createElement('div')
@@ -372,11 +440,6 @@ export default class Showbox extends Feature2D<ShowboxRecord> {
     screenOpt.append(screenChk, ' use screenshare instead of camera')
 
     // share row - one-click copy or post the show link, so the broadcaster can drop it on X / instagram without leaving the dock.
-    const p = this.parcel
-    const center = new BABYLON.Vector3((p.x1 + p.x2) / 2, p.y1, (p.z1 + p.z2) / 2)
-    const showCoords = encodeCoords({ position: center, rotation: new BABYLON.Vector3(0, 0, 0) })
-    const showUrl = `${window.location.origin}/play?coords=${encodeURIComponent(showCoords)}&show=${this.uuid}`
-
     const shareRow = document.createElement('div')
     Object.assign(shareRow.style, { display: 'flex', flexDirection: 'column', gap: '4px', borderTop: '1px solid #222', borderBottom: '1px solid #222', padding: '8px 0' })
     const shareLabel = document.createElement('label')
@@ -386,13 +449,13 @@ export default class Showbox extends Feature2D<ShowboxRecord> {
     shareInput.type = 'text'
     shareInput.readOnly = true
     shareInput.value = showUrl
-    Object.assign(shareInput.style, { width: '100%', background: '#1a1a1a', color: '#f5f5f0', border: '1px solid #333', padding: '4px', fontFamily: 'inherit' })
+    Object.assign(shareInput.style, { width: '100%', background: '#1a1a1a', color: '#f5f5f0', border: '1px solid #333', padding: '8px', fontFamily: 'inherit', minHeight: '36px' })
     shareInput.onclick = () => shareInput.select()
     const shareBtnRow = document.createElement('div')
     Object.assign(shareBtnRow.style, { display: 'flex', gap: '0.5rem' })
     const copyBtn = document.createElement('button')
     copyBtn.textContent = 'copy'
-    Object.assign(copyBtn.style, { background: '#333', color: '#f5f5f0', border: '0', padding: '6px 12px', cursor: 'pointer', fontFamily: 'inherit', flex: '1' })
+    Object.assign(copyBtn.style, { background: '#333', color: '#f5f5f0', border: '0', padding: '8px 12px', cursor: 'pointer', fontFamily: 'inherit', flex: '1', minHeight: '36px' })
     copyBtn.onclick = () => {
       navigator.clipboard.writeText(showUrl).catch(() => {})
       copyBtn.textContent = 'copied'
@@ -400,7 +463,7 @@ export default class Showbox extends Feature2D<ShowboxRecord> {
     }
     const xBtn = document.createElement('button')
     xBtn.textContent = 'post on x'
-    Object.assign(xBtn.style, { background: '#333', color: '#f5f5f0', border: '0', padding: '6px 12px', cursor: 'pointer', fontFamily: 'inherit', flex: '1' })
+    Object.assign(xBtn.style, { background: '#333', color: '#f5f5f0', border: '0', padding: '8px 12px', cursor: 'pointer', fontFamily: 'inherit', flex: '1', minHeight: '36px' })
     xBtn.onclick = () => {
       const text = `going live in voxels - ${showUrl}`
       window.open(`https://x.com/intent/tweet?text=${encodeURIComponent(text)}`, '_blank', 'noopener')
@@ -425,13 +488,13 @@ export default class Showbox extends Feature2D<ShowboxRecord> {
     DOCK_DANCES.forEach((d) => {
       const b = document.createElement('button')
       b.textContent = d.label
-      Object.assign(b.style, { background: '#1a1a1a', color: '#f5f5f0', border: '1px solid #333', padding: '4px 8px', cursor: 'pointer', fontFamily: 'inherit', flex: '1', minWidth: '60px' })
+      Object.assign(b.style, { background: '#1a1a1a', color: '#f5f5f0', border: '1px solid #333', padding: '8px 10px', cursor: 'pointer', fontFamily: 'inherit', flex: '1', minWidth: '60px', minHeight: '36px' })
       b.onclick = () => playMove(d.anim)
       danceRow.appendChild(b)
     })
     const stopMoveBtn = document.createElement('button')
     stopMoveBtn.textContent = 'idle'
-    Object.assign(stopMoveBtn.style, { background: '#1a1a1a', color: '#888', border: '1px solid #333', padding: '4px 8px', cursor: 'pointer', fontFamily: 'inherit', flex: '1', minWidth: '60px' })
+    Object.assign(stopMoveBtn.style, { background: '#1a1a1a', color: '#888', border: '1px solid #333', padding: '8px 10px', cursor: 'pointer', fontFamily: 'inherit', flex: '1', minWidth: '60px', minHeight: '36px' })
     stopMoveBtn.onclick = () => playMove(null)
     danceRow.appendChild(stopMoveBtn)
 
@@ -440,7 +503,7 @@ export default class Showbox extends Feature2D<ShowboxRecord> {
     DOCK_EMOJIS.forEach((e) => {
       const b = document.createElement('button')
       b.textContent = e
-      Object.assign(b.style, { background: '#1a1a1a', border: '1px solid #333', padding: '4px 8px', cursor: 'pointer', fontFamily: 'inherit', flex: '1', fontSize: '16px', minWidth: '36px' })
+      Object.assign(b.style, { background: '#1a1a1a', border: '1px solid #333', padding: '6px 8px', cursor: 'pointer', fontFamily: 'inherit', flex: '1', fontSize: '18px', minWidth: '40px', minHeight: '36px' })
       b.onclick = () => window.connector?.emote(e)
       emojiRow.appendChild(b)
     })
@@ -451,11 +514,11 @@ export default class Showbox extends Feature2D<ShowboxRecord> {
 
     const goBtn = document.createElement('button')
     goBtn.textContent = 'go live'
-    Object.assign(goBtn.style, { background: '#dc1e1e', color: '#f5f5f0', border: '0', padding: '8px 16px', cursor: 'pointer', fontFamily: 'inherit' })
+    Object.assign(goBtn.style, { background: '#dc1e1e', color: '#f5f5f0', border: '0', padding: '12px 16px', cursor: 'pointer', fontFamily: 'inherit', flex: '2', minHeight: '44px', fontWeight: 'bold' })
 
     const closeBtn = document.createElement('button')
     closeBtn.textContent = 'close'
-    Object.assign(closeBtn.style, { background: '#333', color: '#f5f5f0', border: '0', padding: '8px 16px', cursor: 'pointer', fontFamily: 'inherit' })
+    Object.assign(closeBtn.style, { background: '#333', color: '#f5f5f0', border: '0', padding: '12px 16px', cursor: 'pointer', fontFamily: 'inherit', flex: '1', minHeight: '44px' })
     closeBtn.onclick = () => {
       panel.remove()
       this.broadcastPanel = null
@@ -491,19 +554,10 @@ export default class Showbox extends Feature2D<ShowboxRecord> {
       if (this.broadcastRoom) {
         this.stopBroadcast()
         goBtn.textContent = 'go live'
+        goBtn.style.background = '#dc1e1e'
         this.setPreview()
         panel.querySelector('span[data-dot]')?.remove()
         ;[title, camLabel, camSel, micLabel, micSel, screenOpt, shareRow, status].forEach((el) => ((el as HTMLElement).style.display = ''))
-        Object.assign(panel.style, {
-          top: '50%',
-          left: '50%',
-          right: 'auto',
-          transform: 'translate(-50%, -50%)',
-          padding: '1rem',
-          minWidth: '320px',
-          flexDirection: 'column',
-          borderRadius: '0',
-        })
         return
       }
 
@@ -546,28 +600,16 @@ export default class Showbox extends Feature2D<ShowboxRecord> {
 
         this.audio?.addUserAudioReference(this)
 
-        goBtn.textContent = 'stop'
+        goBtn.textContent = 'stop streaming'
+        goBtn.style.background = '#444'
         goBtn.disabled = false
         status.textContent = ''
         ;[title, camLabel, camSel, micLabel, micSel, screenOpt, shareRow, status].forEach((el) => ((el as HTMLElement).style.display = 'none'))
-        Object.assign(panel.style, {
-          top: '12px',
-          left: 'auto',
-          right: '12px',
-          transform: 'none',
-          padding: '6px 10px',
-          minWidth: 'unset',
-          flexDirection: 'row',
-          alignItems: 'center',
-          gap: '8px',
-          borderRadius: '999px',
-        })
-        const dot = document.createElement('span')
+        const dot = document.createElement('div')
         dot.dataset.dot = '1'
         dot.textContent = '\u25CF live'
-        dot.style.color = '#dc1e1e'
-        dot.style.fontWeight = 'bold'
-        panel.insertBefore(dot, row)
+        Object.assign(dot.style, { color: '#dc1e1e', fontWeight: 'bold', fontSize: '14px', letterSpacing: '0.5px' })
+        panel.insertBefore(dot, moveRow)
       } catch {
         status.textContent = 'failed to connect'
         goBtn.disabled = false
