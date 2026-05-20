@@ -369,12 +369,13 @@
         text-align: left;
         text-decoration: underline;
       }
-      .dock .share-block,
       .dock .moves {
         display: none;
       }
-      .dock.extras-open .share-block,
       .dock.extras-open .moves {
+        display: flex;
+      }
+      #mobile-live .dock .share-block {
         display: flex;
       }
       .dock .dock-footer {
@@ -676,17 +677,16 @@
             </div>
           </div>
           <div class="dock-footer">
+            <div class="share-block">
+              <label>fan link</label>
+              <div class="share-btns"><button class="go" style="flex: 2">copy link for fans</button><button>post on x</button></div>
+            </div>
             <div class="btn-row">
               <button class="go stop">stop streaming</button>
               <button class="close">close</button>
             </div>
           </div>
-          <button type="button" class="extras-toggle" id="mock-extras-toggle">share & emotes</button>
-          <div class="share-block">
-            <label>show link - share with your fans</label>
-            <input type="text" readonly value="https://www.voxels.com/play?coords=W@1282E,1007N" />
-            <div class="share-btns"><button>copy</button><button>post on x</button></div>
-          </div>
+          <button type="button" class="extras-toggle" id="mock-extras-toggle">emotes</button>
           <div class="moves"><button>dance</button><button>hype</button><button>clap</button><button>spin</button><button>savage</button><button style="color: #888">idle</button></div>
           <div class="moves">
             <button class="emoji">&#128293;</button><button class="emoji">&#128079;</button><button class="emoji">&#10084;</button> <button class="emoji">&#128514;</button><button class="emoji">&#128079;</button
@@ -744,7 +744,7 @@
       if (mockExtrasToggle && mobileLiveDock) {
         mockExtrasToggle.onclick = () => {
           const on = mobileLiveDock.classList.toggle('extras-open')
-          mockExtrasToggle.textContent = on ? 'hide share & emotes' : 'share & emotes'
+          mockExtrasToggle.textContent = on ? 'hide emotes' : 'emotes'
         }
       }
 
