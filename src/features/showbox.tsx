@@ -436,7 +436,7 @@ export default class Showbox extends Feature2D<ShowboxRecord> {
     const identityRow = document.createElement('div')
     Object.assign(identityRow.style, { display: 'flex', flexDirection: 'column', gap: '4px' })
     const identityLabel = document.createElement('label')
-    identityLabel.textContent = isGuest ? 'name on stream' : 'streaming as'
+    identityLabel.textContent = isGuest ? 'Name' : 'streaming as'
     if (isGuest && guestToken) {
       const nameInput = document.createElement('input')
       guestNameInput = nameInput
