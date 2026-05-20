@@ -31,7 +31,6 @@ export const featuresInfo: FeatureMetadata[] = [
   Button.metadata,
   Cube.metadata,
   GuestBook.metadata,
-  PoapDispenser.metadata,
   Image.metadata,
   Lantern.metadata,
   Megavox.metadata,
@@ -44,10 +43,7 @@ export const featuresInfo: FeatureMetadata[] = [
   Richtext.metadata,
   Sign.metadata,
   SpawnPoint.metadata,
-  TextInput.metadata,
-  SliderInput.metadata,
   Video.metadata,
-  VidScreen.metadata,
   VoxModel.metadata,
   Youtube.metadata,
 ]

@@ -8,16 +8,34 @@ import OurCamera from './utils/our-camera'
 import { isLoaded } from '../utils/loading-done'
 import Feature, { MeshExtended } from '../features/feature'
 import Avatar from '../avatar'
-import type { Scene } from '../scene'
+import { cameraPosition, cameraRotation } from '../utils/camera'
 import type { Environment } from '../enviroments/environment'
 import { hasPointerLock } from '../../common/helpers/ui-helpers'
 import { IControls } from './iControls'
+import { Animations } from '../avatar-animations'
 
 export const CAMERA_DISTANCE = isMobile() ? 2.5 : 1.5
 export const MIN_CAMERA_DISTANCE = 0.5
 export const MAX_CAMERA_DISTANCE = 10
 const CAMERA_EASE_OUT = 1.4
 const SWIM_LEVEL = -2
+
+/** Meters behind the person in front (each hop of the snake). */
+const CONGA_FOLLOW_DISTANCE = 1.35
+/** Extra depth when the line has stopped so the cluster is not on top of each other. */
+const CONGA_STOPPED_EXTRA_BACK = 0.28
+/** Max side offset per player when stopped (meters), scaled by group blend. */
+const CONGA_LATERAL_PER_SLOT = 0.48
+
+/** Stable -3..3 slot from uuid so each follower picks a different side offset when grouped. */
+function congaLateralSlot(uuid: string): number {
+  let h = 2166136261
+  for (let i = 0; i < uuid.length; i++) {
+    h ^= uuid.charCodeAt(i)
+    h = Math.imul(h, 16777619)
+  }
+  return (((h % 7) + 7) % 7) - 3
+}
 
 const WALK_TO_RUN_EASE = new BABYLON.SineEase()
 WALK_TO_RUN_EASE.setEasingMode(BABYLON.EasingFunction.EASINGMODE_EASEIN)
@@ -90,6 +108,16 @@ export default abstract class Controls implements IControls {
 
   grounded = true
 
+  congaTarget: Avatar | null = null
+  /** Leader's inConga can arrive a few ticks late over multiplayer. */
+  private congaSyncGraceUntil = 0
+  private congaSawLeaderInConga = false
+  /** Track movement of person in front; when still, blend toward arc / group layout. */
+  private congaTargetPrevPos: BABYLON.Vector3 | null = null
+  private congaGroupBlend = 0
+  /** Flying mode before joining conga; restored in stopConga. */
+  private congaFlyingRestore: boolean | null = null
+
   MAX_PICK_DISTANCE = 20
   gravityDisabledOverride: boolean | null = null
   audioContext: AudioContext = undefined!
@@ -99,7 +127,7 @@ export default abstract class Controls implements IControls {
   private _containingParcels: number[] = []
 
   constructor(
-    protected scene: Scene,
+    protected scene: BABYLON.Scene,
     protected canvas: HTMLCanvasElement,
   ) {
     this.user = window.user
@@ -128,7 +156,7 @@ export default abstract class Controls implements IControls {
     this.reticuleHighlight.setEnabled(false)
     this.reticuleHighlight.parent = this.camera
 
-    if (isDesktop() && this.scene.config.wantsUI) {
+    if (isDesktop() && window.config.wantsUI) {
       this.scene.registerBeforeRender(() => {
         // Show the reticule in 20% visibility in 3rd person mode.
         this.reticuleNormal.visibility = hasPointerLock() || this.hasGamepad ? (this.firstPersonView ? 1 : 0.2) : 0
@@ -136,13 +164,14 @@ export default abstract class Controls implements IControls {
       })
     }
 
-    if (!this.scene.config.isOrbit) {
+    if (!window.config.isOrbit) {
       this.scene.onBeforeRenderObservable.add(() => {
         if (this.initialCameraPos) {
           console.warn('this.initialCameraPos already set in onBeforeRenderObservable(). suspected logic error')
         }
+        this.updateConga()
         // let persona update its position from the camera, since we are steering the camera
-        this.persona.update(this.scene.cameraPosition, this.scene.cameraRotation, this)
+        this.persona.update(cameraPosition(this.scene), cameraRotation(this.scene), this)
         this.swimming = this.persona.isSwimming(SWIM_LEVEL) ?? this.swimming
         // store the position before we do camera adjustment in perspectiveAdjustment
         this.initialCameraPos = this.camera.position.clone()
@@ -203,7 +232,7 @@ export default abstract class Controls implements IControls {
       this.enterFirstPerson()
       animateFov(0.45)
     } else {
-      animateFov(this.scene.fov.value)
+      animateFov(window.fov.value)
     }
   }
 
@@ -391,12 +420,12 @@ export default abstract class Controls implements IControls {
 
   // called on spawn and teleport
   public invalidateGroundLoaded() {
-    if (!this.scene.environment) {
+    if (!window.environment) {
       throw new Error('invalidateGroundLoaded() called before attachEnvironment()!')
     }
 
     //TODO: Instead of switching on environment type here, this logic should probably be moved into methods in SpaceEnvironment and WorldEnvironment that override an abstract Environment method
-    if (this.scene.config.isSpace) {
+    if (window.config.isSpace) {
       // Spaces always contain exactly one Parcel with ID 0
       this._containingParcels = [0]
       this._containingParcelsWaitState = 'waiting-for-colliders'
@@ -413,7 +442,7 @@ export default abstract class Controls implements IControls {
       })
     }
 
-    this.scene.environment.invalidateGroundLoaded()
+    window.environment.invalidateGroundLoaded()
   }
 
   // this is called by the render loop in index.ts
@@ -480,8 +509,136 @@ export default abstract class Controls implements IControls {
     return true
   }
 
+  startConga(target: Avatar) {
+    if (target.isDisposed()) return
+    this.congaTarget = target
+    this.congaSyncGraceUntil = Date.now() + 2500
+    this.congaSawLeaderInConga = false
+    this.congaTargetPrevPos = null
+    this.congaGroupBlend = 0
+    this.congaFlyingRestore = this.flying
+    this.connector.bumpCongaFollowUi()
+    if (this.firstPersonView) this.enterThirdPerson()
+  }
+
+  stopConga() {
+    const restoreFly = this.congaFlyingRestore
+    this.congaTarget = null
+    this.congaSyncGraceUntil = 0
+    this.congaSawLeaderInConga = false
+    this.congaTargetPrevPos = null
+    this.congaGroupBlend = 0
+    this.congaFlyingRestore = null
+    if (restoreFly !== null) {
+      this.setFlying(restoreFly)
+    }
+    // Must clear; leaving via keys only called stopConga() and left inConga true (looked like "leading" with no target).
+    this.connector.clearCongaLeaderStartedBanner()
+    this.connector.inConga = false
+    this.connector.beginCongaJoinHintSuppressionAfterLeave()
+  }
+
+  /** Walk toward conga head using each avatar's congaFollowsUuid (who they follow). Old clients omit it; then `first` is used. */
+  private resolveCongaLeaderAvatar(first: Avatar): Avatar {
+    let L: Avatar = first
+    const seen = new Set<string>()
+    for (let i = 0; i < 24; i++) {
+      const fid = L.congaFollowsUuid
+      if (!fid) return L
+      if (seen.has(L.uuid)) return first
+      seen.add(L.uuid)
+      const next = this.connector.findAvatar(fid) as Avatar | null
+      if (!next?.inConga) return L
+      L = next
+    }
+    return L
+  }
+
+  private updateConga() {
+    const target = this.congaTarget
+    if (!target || !target.hasPosition || target.isDisposed()) {
+      if (this.congaTarget) this.stopConga()
+      return
+    }
+
+    if (!target.inConga) {
+      if (this.congaSawLeaderInConga) {
+        this.stopConga()
+        return
+      }
+      if (Date.now() >= this.congaSyncGraceUntil) {
+        this.stopConga()
+        return
+      }
+    } else {
+      this.congaSawLeaderInConga = true
+    }
+
+    const leaderAv = this.resolveCongaLeaderAvatar(target)
+    const leaderFlying = leaderAv.getTransform().animation === Animations.Floating
+    if (leaderFlying !== this.flying) {
+      this.setFlying(leaderFlying)
+    }
+
+    // match leader's facing direction
+    this.camera.rotation.y = target.orientation.y
+
+    const forward = new BABYLON.Vector3(Math.sin(target.orientation.y), 0, Math.cos(target.orientation.y))
+    let right = BABYLON.Vector3.Cross(BABYLON.Vector3.Up(), forward)
+    if (right.lengthSquared() < 1e-10) {
+      right = new BABYLON.Vector3(1, 0, 0)
+    } else {
+      right.normalize()
+    }
+
+    const dir = target.position.subtract(this.camera.position)
+    dir.y = 0
+    const gapHz = dir.length()
+    const gap3 = BABYLON.Vector3.Distance(target.position, this.camera.position)
+    if (leaderFlying ? gap3 > 30 : gapHz > 30) {
+      const tp = target.position.subtract(forward.scale(CONGA_FOLLOW_DISTANCE))
+      if (!leaderFlying) {
+        tp.y = this.camera.position.y
+      }
+      this.persona.teleportNoHistory({ position: tp })
+      return
+    }
+
+    const deltaTime = Math.min(this.scene.getEngine().getDeltaTime() / 1000, 0.1)
+
+    const prev = this.congaTargetPrevPos
+    if (prev) {
+      const targetMoved = BABYLON.Vector3.Distance(target.position, prev) > 0.022
+      if (targetMoved) {
+        this.congaGroupBlend = Math.max(0, this.congaGroupBlend - deltaTime * 4)
+      } else {
+        this.congaGroupBlend = Math.min(1, this.congaGroupBlend + deltaTime * 1.75)
+      }
+    }
+    this.congaTargetPrevPos = target.position.clone()
+
+    const g = this.congaGroupBlend
+    const backDist = CONGA_FOLLOW_DISTANCE + CONGA_STOPPED_EXTRA_BACK * g
+    const lateral = congaLateralSlot(this.connector.persona.uuid) * CONGA_LATERAL_PER_SLOT * g
+    const desired = target.position.subtract(forward.scale(backDist)).add(right.scale(lateral))
+    if (!leaderFlying) {
+      desired.y = this.camera.position.y
+    }
+
+    let pull = desired.subtract(this.camera.position)
+    if (!leaderFlying) {
+      pull.y = 0
+    }
+    const pullLen = pull.length()
+    if (pullLen < 0.015) return
+
+    pull.normalize()
+    const step = Math.min(1, deltaTime * (3 + pullLen * 1.8))
+    this.camera.position.addInPlace(pull.scale(Math.min(pullLen, pullLen * step)))
+  }
+
   getCoords() {
-    if (this.scene.config.isSpace) {
+    if (window.config.isSpace) {
       // if we're in a space, we use create coordinates based on the camera position since Spaces are centered at 0,0,0
       return encodeCoords({ position: this.camera.position, rotation: this.camera.rotation })
     }

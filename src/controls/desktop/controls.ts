@@ -7,16 +7,13 @@ import { unmountComponentAtNode } from 'preact/compat'
 import { createFirstPersonCamera } from '../utils/fps-camera'
 import { decodeCoordsFromURL } from '../../utils/helpers'
 import { hasPointerLock } from '../../../common/helpers/ui-helpers'
-import { isSafari } from '../../../common/helpers/detector'
-import { Scene } from '../../scene'
-
 const POINTER_WHEEL_MULTIPLIER = 0.001
 export default class DesktopControls extends Controls {
   keyboardInput?: LocaleKeyboardMoveInput
   origUpdatePointerPosition?: () => void
   nerfingClickEvents = false
 
-  constructor(scene: Scene, canvas: HTMLCanvasElement) {
+  constructor(scene: BABYLON.Scene, canvas: HTMLCanvasElement) {
     super(scene, canvas)
 
     // disable picking unless in pointer lock mode
@@ -72,6 +69,38 @@ export default class DesktopControls extends Controls {
     this.featureSelectorObservable = this.featureSelectorObservable.bind(this)
 
     this.addFeatureSelector()
+
+    // spawn in third person; enterThirdPerson needs window.persona, so retry until it's ready
+    const tryThird = () => {
+      if (this.persona) {
+        this.enterThirdPerson()
+      } else {
+        requestAnimationFrame(tryThird)
+      }
+    }
+    requestAnimationFrame(tryThird)
+
+    this.startSpawnGroundCheck()
+  }
+
+  // on spawn we want to drop out of fly mode if there's solid ground within 2m below the user.
+  // poll every 100ms; bail after 10s and assume the user is meant to be flying.
+  private startSpawnGroundCheck() {
+    const start = Date.now()
+    const id = setInterval(() => {
+      if (Date.now() - start > 10_000) {
+        clearInterval(id)
+        return
+      }
+      if (!this.persona) return
+      const origin = this.persona.position.add(this.worldOffset.position)
+      const ray = new BABYLON.Ray(origin, new BABYLON.Vector3(0, -1, 0), 2)
+      const hit = this.scene.pickWithRay(ray, (e) => e.checkCollisions, true)
+      if (hit?.hit) {
+        this.setFlying(false)
+        clearInterval(id)
+      }
+    }, 100)
   }
 
   /// POINTERLOCK
@@ -175,16 +204,6 @@ export default class DesktopControls extends Controls {
   }
 
   addPointerLockHandler() {
-    if (isSafari()) {
-      ;(<any>this.scene._inputManager)._updatePointerPosition = () => {
-        // Safari-specific override - disables pointer position updates due to compatibility issues
-        // This prevents input manager from updating pointer coordinates on Safari
-      }
-
-      this.babylonNormalMouse()
-      return
-    }
-
     // Pointerlock listener to only enable babylon picking behaviour while in pointerlock
     this.onPointerLockChange = this.onPointerLockChange.bind(this)
     document.addEventListener('pointerlockchange', this.onPointerLockChange)
@@ -270,6 +289,11 @@ export default class DesktopControls extends Controls {
 
       this.shiftKey = e.shiftKey
       this.ctrlKey = e.ctrlKey || e.metaKey
+
+      const congaCancelKeys = ['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Escape']
+      if (this.congaTarget && congaCancelKeys.includes(e.code)) {
+        this.stopConga()
+      }
 
       if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') {
         this.run()
@@ -413,10 +437,6 @@ export default class DesktopControls extends Controls {
 
     // Chrome return as promise here
     this.canvas.focus()
-
-    if (isSafari()) {
-      return
-    }
 
     const maybePromise: unknown = this.canvas.requestPointerLock()
     if (maybePromise instanceof Promise) {

@@ -1,6 +1,7 @@
 import { Fragment } from 'preact'
 import ParcelHelper from '../../../../common/helpers/parcel-helper'
 import { ParcelRecord } from '../../../../common/messages/parcel'
+import { AvatarLink } from '../avatar-link'
 
 interface ParcelDetailsProps {
   parcel: ParcelRecord & { traffic_visits?: number } // special case
@@ -49,7 +50,7 @@ export function ParcelDetails(props: ParcelDetailsProps) {
         {props.parcel.traffic_visits && <dd>{props.parcel.traffic_visits} Visits</dd>}
         <dt>Owner</dt>
         <dd>
-          <a href={`/u/${props.parcel.owner}`}>{props.parcel.owner.substring(0, 10) + '...'}</a>
+          <AvatarLink avatar={props.parcel.owner} />
         </dd>
         <dt>Size</dt>
         <dd>
