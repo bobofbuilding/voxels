@@ -28,6 +28,19 @@ export function isGuestWallet(wallet: string | undefined | null): boolean {
   return !!wallet && wallet.startsWith('guest:')
 }
 
+function isMobileUserAgent(ua: string): boolean {
+  return /mobile|android|iphone|ipad|ipod/i.test(ua)
+}
+
+function guestPlayRedirectQuery(parcelLocation: string, featureUuid: string, userAgent: string): string {
+  const qs = new URLSearchParams({ coords: parcelLocation, show: featureUuid })
+  if (isMobileUserAgent(userAgent)) {
+    qs.set('isolate', 'true')
+    qs.set('distance', 'close')
+  }
+  return qs.toString()
+}
+
 export async function loadGuestPass(db: Db, token: string): Promise<GuestPassRow | null> {
   const r = await db.query('sql/guest-passes/get', `select * from guest_passes where token = $1`, [token])
   return r.rows[0] ?? null
@@ -201,6 +214,7 @@ export default function GuestPassesController(db: Db, passport: PassportStatic, 
       .sign(JWT_SECRET_KEY)
 
     res.cookie('jwt', jwt, { maxAge: GUEST_JWT_TTL_SECONDS * 1000, httpOnly: false, sameSite: 'lax' })
-    res.redirect(302, `/play?coords=${encodeURIComponent(parcel.location)}&show=${encodeURIComponent(pass.feature_uuid)}`)
+    const playQs = guestPlayRedirectQuery(parcel.location, pass.feature_uuid, String(req.headers['user-agent'] ?? ''))
+    res.redirect(302, `/play?${playQs}`)
   })
 }
