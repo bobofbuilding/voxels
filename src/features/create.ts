@@ -20,10 +20,11 @@ import SliderInput from './slider-input'
 import Video from './video'
 import VidScreen from './vid-screen'
 import VoxModel, { Megavox } from './vox-model'
+import Showbox from './showbox'
 import Youtube from './youtube'
 import GuestBook from './guest-book'
 import PoseBall from './pose-ball'
-import { FeatureRecord, FeatureType } from '../../common/messages/feature'
+import { FeatureRecord, FeatureType, YoutubeRecord } from '../../common/messages/feature'
 import PoapDispenser from './poap-dispenser'
 import PolytextV2 from './polytext-v2'
 import Parcel from '../parcel'
@@ -45,8 +46,16 @@ export const createFeature = (scene: Scene, parcel: Parcel, uuid: string, descri
       return new VidScreen(scene, parcel, uuid, description)
     case 'video':
       return new Video(scene, parcel, uuid, description)
-    case 'youtube':
+    case 'youtube': {
+      const desc = description as YoutubeRecord
+      if (desc.broadcasting) {
+        const { broadcasting: _b, ...rest } = desc
+        return new Showbox(scene, parcel, uuid, { ...rest, type: 'showbox' })
+      }
       return new Youtube(scene, parcel, uuid, description)
+    }
+    case 'showbox':
+      return new Showbox(scene, parcel, uuid, description)
     case 'nft-image':
       return new NftImage(scene, parcel, uuid, description)
     case 'collectible-model':
@@ -148,6 +157,7 @@ export const pivotToBottomOfBoundingBoxDefault = (type: FeatureType, scale?: num
     case 'video':
     case 'vid-screen':
     case 'youtube':
+    case 'showbox':
       // for all of the above, pivot is in the centre
       return scale ? scale[1] / 2 : featureTemplates[type].scale[1] / 2
     case 'lantern':
