@@ -4,8 +4,11 @@ import { isMobile } from '../../common/helpers/detector'
 import { exitPointerLock } from '../../common/helpers/ui-helpers'
 import { encodeCoords } from '../../common/helpers/utils'
 import { ShowboxRecord } from '../../common/messages/feature'
+import { effect } from '@preact/signals'
 import { Room, RoomEvent, Track, createLocalScreenTracks, createLocalTracks } from 'livekit-client'
+import { avatarName } from '../../common/messages/avatar-ref'
 import { app } from '../../web/src/state'
+import { messageList, type ChatMessageRecord } from '../connector'
 import { Position, Rotation, Scale, Script } from '../../web/src/components/editor'
 import { Animations } from '../avatar-animations'
 import { EmoteAnimation, Idle } from '../states'
@@ -67,6 +70,7 @@ export default class Showbox extends Feature2D<ShowboxRecord> {
   livekitRoom: Room | null = null
   broadcastRoom: Room | null = null
   broadcastPanel: HTMLDivElement | null = null
+  broadcastChatDispose: (() => void) | null = null
   thumbCanvas: HTMLCanvasElement | null = null
   thumbInterval: ReturnType<typeof setInterval> | null = null
   liveTimerInterval: ReturnType<typeof setInterval> | null = null
@@ -349,6 +353,10 @@ export default class Showbox extends Feature2D<ShowboxRecord> {
       this.audioMeterCtx.close().catch(() => {})
       this.audioMeterCtx = null
     }
+    if (this.broadcastChatDispose) {
+      this.broadcastChatDispose()
+      this.broadcastChatDispose = null
+    }
   }
 
   openBroadcastPanel() {
@@ -573,7 +581,69 @@ export default class Showbox extends Feature2D<ShowboxRecord> {
     row.style.gap = '0.5rem'
     row.append(goBtn, closeBtn)
 
-    panel.append(title, identityRow, camLabel, camSel, micLabel, micSel, screenOpt, shareRow, moveRow, status, row)
+    // Guests need chat in the dock - especially on mobile where the panel covers the default chat UI.
+    let chatSection: HTMLDivElement | null = null
+    if (isGuest) {
+      const chatLabel = document.createElement('label')
+      chatLabel.textContent = 'chat'
+      chatSection = document.createElement('div')
+      Object.assign(chatSection.style, {
+        flex: mobile ? '1 1 35%' : '1 1 auto',
+        minHeight: mobile ? '100px' : '120px',
+        maxHeight: mobile ? '32vh' : '180px',
+        overflowY: 'auto',
+        background: '#1a1a1a',
+        border: '1px solid #333',
+        padding: '8px',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '4px',
+        fontSize: mobile ? '14px' : '12px',
+        lineHeight: '1.4',
+      })
+      const chatMessages = document.createElement('div')
+      Object.assign(chatMessages.style, { display: 'flex', flexDirection: 'column', gap: '4px' })
+      chatSection.append(chatMessages)
+
+      const chatLineName = (m: ChatMessageRecord) => {
+        if (m.avatarRef) return avatarName(m.avatarRef)
+        const avatar = m.avatar ? window.connector?.findAvatar(m.avatar) : null
+        return avatar?.name || 'anon'
+      }
+
+      const renderDockChat = () => {
+        chatMessages.replaceChildren()
+        const msgs = messageList.value.slice(-30)
+        if (!msgs.length) {
+          const empty = document.createElement('div')
+          empty.style.color = '#888'
+          empty.textContent = 'audience chat shows up here'
+          chatMessages.append(empty)
+          return
+        }
+        for (const m of msgs) {
+          const line = document.createElement('div')
+          const who = document.createElement('span')
+          who.style.color = '#f5b942'
+          who.style.fontWeight = 'bold'
+          who.textContent = chatLineName(m) + ': '
+          const body = document.createElement('span')
+          body.textContent = m.text
+          line.append(who, body)
+          chatMessages.append(line)
+        }
+        chatSection!.scrollTop = chatSection!.scrollHeight
+      }
+
+      this.broadcastChatDispose = effect(() => {
+        messageList.value
+        renderDockChat()
+      })
+
+      panel.append(title, identityRow, camLabel, camSel, micLabel, micSel, screenOpt, chatLabel, chatSection, shareRow, moveRow, status, row)
+    } else {
+      panel.append(title, identityRow, camLabel, camSel, micLabel, micSel, screenOpt, shareRow, moveRow, status, row)
+    }
     document.body.appendChild(panel)
 
     navigator.mediaDevices.enumerateDevices().then((devices) => {
@@ -795,7 +865,7 @@ export default class Showbox extends Feature2D<ShowboxRecord> {
           Object.assign(meterFill.style, { width: '0%', height: '100%', background: '#22c55e', transition: 'width 60ms linear' })
           meterTrack.append(meterFill)
           previewWrap.append(previewVideo, previewLabel, meterTrack)
-          panel.insertBefore(previewWrap, moveRow)
+          panel.insertBefore(previewWrap, chatSection ?? moveRow)
 
           meterFillEl = meterFill
           const audioMst = (liveAudioTrack as any)?.mediaStreamTrack as MediaStreamTrack | undefined
