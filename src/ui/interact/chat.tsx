@@ -207,9 +207,9 @@ const ChatInput = () => {
   const [currentMessage, setMessage] = useState<string>('')
   const inputRef = useRef<HTMLInputElement>(null)
 
-  // Guest-pass sessions are invited broadcasters - read-only chat so the link can't be used to grief.
-  if (app.state.wallet?.startsWith('guest:')) {
-    return <small style="padding: 0 0.5rem; color: #888">read-only while broadcasting</small>
+  // Mobile guests chat from the broadcast dock (panel covers this UI). Desktop guests use normal chat here.
+  if (app.state.wallet?.startsWith('guest:') && isMobile()) {
+    return <small style="padding: 0 0.5rem; color: #888">chat in the broadcast panel</small>
   }
 
   const say = (e: Event) => {
