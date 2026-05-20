@@ -205,6 +205,11 @@ const ChatInput = () => {
   const [currentMessage, setMessage] = useState<string>('')
   const inputRef = useRef<HTMLInputElement>(null)
 
+  // Guest-pass sessions are invited broadcasters - read-only chat so the link can't be used to grief.
+  if (app.state.wallet?.startsWith('guest:')) {
+    return null
+  }
+
   const say = (e: Event) => {
     setMessage('')
 
