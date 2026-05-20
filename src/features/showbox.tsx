@@ -6,10 +6,22 @@ import { ShowboxRecord } from '../../common/messages/feature'
 import { Room, RoomEvent, Track, createLocalScreenTracks, createLocalTracks } from 'livekit-client'
 import { app } from '../../web/src/state'
 import { Position, Rotation, Scale, Script } from '../../web/src/components/editor'
+import { Animations } from '../avatar-animations'
+import { EmoteAnimation, Idle } from '../states'
 import { cameraPosition, cameraRotation } from '../utils/camera'
 import { Advanced, FeatureEditor, FeatureEditorProps, FeatureID, SetParentDropdown, Toolbar, UuidReadOnly } from '../ui/features'
 import { FeatureMetadata, FeatureTemplate } from './_metadata'
 import { Feature2D } from './feature'
+
+// Quick-access subset for the broadcast dock. Full list lives in src/ui/interact/emote.tsx.
+const DOCK_DANCES: Array<{ label: string; anim: Animations }> = [
+  { label: 'dance', anim: Animations.Dance },
+  { label: 'hype', anim: Animations.Hype },
+  { label: 'clap', anim: Animations.Applause },
+  { label: 'spin', anim: Animations.Spin },
+  { label: 'savage', anim: Animations.Savage },
+]
+const DOCK_EMOJIS = ['🔥', '🙌', '❤️', '😂', '👏', '🎉']
 
 const DEFAULT_VOLUME = 0.7
 const MAX_VOLUME = 1
@@ -396,6 +408,44 @@ export default class Showbox extends Feature2D<ShowboxRecord> {
     shareBtnRow.append(copyBtn, xBtn)
     shareRow.append(shareLabel, shareInput, shareBtnRow)
 
+    // quick-access dance + emoji reactions, available before and during the stream.
+    // Plays the move on the broadcaster's avatar via window.persona so the audience sees it.
+    const moveRow = document.createElement('div')
+    Object.assign(moveRow.style, { display: 'flex', flexDirection: 'column', gap: '4px' })
+    const danceRow = document.createElement('div')
+    Object.assign(danceRow.style, { display: 'flex', gap: '4px', flexWrap: 'wrap' })
+    const playMove = (anim: Animations | null) => {
+      const persona = window.persona
+      const controls = window.connector?.controls
+      if (!persona || !controls) return
+      persona.popState(controls)
+      if (anim) persona.setState({ state: new EmoteAnimation(anim) }, controls)
+      else persona.setState({ state: new Idle() }, controls)
+    }
+    DOCK_DANCES.forEach((d) => {
+      const b = document.createElement('button')
+      b.textContent = d.label
+      Object.assign(b.style, { background: '#1a1a1a', color: '#f5f5f0', border: '1px solid #333', padding: '4px 8px', cursor: 'pointer', fontFamily: 'inherit', flex: '1', minWidth: '60px' })
+      b.onclick = () => playMove(d.anim)
+      danceRow.appendChild(b)
+    })
+    const stopMoveBtn = document.createElement('button')
+    stopMoveBtn.textContent = 'idle'
+    Object.assign(stopMoveBtn.style, { background: '#1a1a1a', color: '#888', border: '1px solid #333', padding: '4px 8px', cursor: 'pointer', fontFamily: 'inherit', flex: '1', minWidth: '60px' })
+    stopMoveBtn.onclick = () => playMove(null)
+    danceRow.appendChild(stopMoveBtn)
+
+    const emojiRow = document.createElement('div')
+    Object.assign(emojiRow.style, { display: 'flex', gap: '4px', flexWrap: 'wrap' })
+    DOCK_EMOJIS.forEach((e) => {
+      const b = document.createElement('button')
+      b.textContent = e
+      Object.assign(b.style, { background: '#1a1a1a', border: '1px solid #333', padding: '4px 8px', cursor: 'pointer', fontFamily: 'inherit', flex: '1', fontSize: '16px', minWidth: '36px' })
+      b.onclick = () => window.connector?.emote(e)
+      emojiRow.appendChild(b)
+    })
+    moveRow.append(danceRow, emojiRow)
+
     const status = document.createElement('div')
     status.style.color = '#888'
 
@@ -417,7 +467,7 @@ export default class Showbox extends Feature2D<ShowboxRecord> {
     row.style.gap = '0.5rem'
     row.append(goBtn, closeBtn)
 
-    panel.append(title, camLabel, camSel, micLabel, micSel, screenOpt, shareRow, status, row)
+    panel.append(title, camLabel, camSel, micLabel, micSel, screenOpt, shareRow, moveRow, status, row)
     document.body.appendChild(panel)
 
     navigator.mediaDevices.enumerateDevices().then((devices) => {
