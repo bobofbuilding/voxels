@@ -1,15 +1,14 @@
 // ABOUTME: Solid-color skybox that renders in front of other skyboxes when underwater
 // ABOUTME: Clipped at water surface using scene clip plane
 
-import type { Scene } from '../scene'
 import { OCEAN_HEIGHT_OFFSET } from '../constants'
 
 export default class UnderwaterSkybox {
   private mesh: BABYLON.Mesh
   private material: BABYLON.StandardMaterial
-  private scene: Scene
+  private scene: BABYLON.Scene
 
-  constructor(scene: Scene, color: BABYLON.Color3) {
+  constructor(scene: BABYLON.Scene, color: BABYLON.Color3) {
     this.scene = scene
 
     const material = new BABYLON.StandardMaterial('skybox/underwater', scene)
@@ -26,8 +25,8 @@ export default class UnderwaterSkybox {
     const updateScale = (drawDistance: number) => {
       mesh.scaling.setAll(drawDistance * 1.75)
     }
-    updateScale(scene.draw.distance)
-    scene.draw.addEventListener('distance-changed', (e) => updateScale(e.detail))
+    updateScale(window.draw.distance)
+    window.draw.addEventListener('distance-changed', (e) => updateScale(e.detail))
 
     mesh.material = material
     mesh.infiniteDistance = true

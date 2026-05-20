@@ -1,4 +1,5 @@
-\restrict AMOmwf1LRjL6g9j1NDUfjD9bHTJXFowqEpJdNdzzeTYGcLlCTSaG4rHjuajSXi1
+\restrict Ie3SMC4agiorrcXjdC1UsvBVaLVu1FgEB0b6XNCsKRdh4aOfuV84MaGXQYIX1Nv
+CREATE SCHEMA metrics;
 CREATE EXTENSION IF NOT EXISTS citext WITH SCHEMA public;
 COMMENT ON EXTENSION citext IS 'data type for case-insensitive character strings';
 CREATE EXTENSION IF NOT EXISTS cube WITH SCHEMA public;
@@ -51,23 +52,18 @@ CREATE FUNCTION public.apply_migration(migration_name text, ddl text) RETURNS bo
       RETURN FALSE;
     END;
     $$;
-CREATE FUNCTION public.get_or_create_user_uuid(_email text, OUT id uuid) RETURNS uuid
+CREATE FUNCTION public.get_or_create_user_uuid(_email text, OUT id text) RETURNS text
     LANGUAGE plpgsql
     AS $$
-    BEGIN
-    LOOP
-       BEGIN  -- start inner block inside loop to handle possible exception
-       SELECT INTO id users.id FROM users WHERE users.email = _email;
-       IF NOT FOUND THEN
-          INSERT INTO users (email, created_at) VALUES (_email, NOW()) RETURNING users.id INTO id;
-       END IF;
-       EXCEPTION WHEN UNIQUE_VIOLATION THEN     -- inserted in concurrent session.
-          RAISE NOTICE 'It actually happened!'; -- hardly ever happens
-       END;
-       EXIT WHEN id IS NOT NULL;          -- else keep looping
-    END LOOP;
-    END
-    $$;
+  BEGIN
+    SELECT owner INTO id FROM avatars WHERE lower(email) = lower(_email);
+    IF NOT FOUND THEN
+      id := uuidv7()::text;
+      INSERT INTO avatars (id, owner, email, last_online)
+        VALUES (id::uuid, id, lower(_email), now());
+    END IF;
+  END
+  $$;
 CREATE FUNCTION public.null_if_invalid_string(json_input json, record_id uuid) RETURNS json
     LANGUAGE plpgsql
     AS $$
@@ -143,6 +139,70 @@ ALTER TEXT SEARCH CONFIGURATION public.simple_english
     ADD MAPPING FOR "int" WITH simple;
 ALTER TEXT SEARCH CONFIGURATION public.simple_english
     ADD MAPPING FOR uint WITH simple;
+CREATE TABLE metrics.day_00 (
+    client_id bigint NOT NULL,
+    action "char" NOT NULL,
+    parcel integer,
+    "position" public.cube NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL
+)
+WITH (autovacuum_enabled='false');
+CREATE TABLE metrics.day_01 (
+    client_id bigint NOT NULL,
+    action "char" NOT NULL,
+    parcel integer,
+    "position" public.cube NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL
+)
+WITH (autovacuum_enabled='false');
+CREATE TABLE metrics.day_02 (
+    client_id bigint NOT NULL,
+    action "char" NOT NULL,
+    parcel integer,
+    "position" public.cube NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL
+)
+WITH (autovacuum_enabled='false');
+CREATE TABLE metrics.day_03 (
+    client_id bigint NOT NULL,
+    action "char" NOT NULL,
+    parcel integer,
+    "position" public.cube NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL
+)
+WITH (autovacuum_enabled='false');
+CREATE TABLE metrics.day_04 (
+    client_id bigint NOT NULL,
+    action "char" NOT NULL,
+    parcel integer,
+    "position" public.cube NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL
+)
+WITH (autovacuum_enabled='false');
+CREATE TABLE metrics.day_05 (
+    client_id bigint NOT NULL,
+    action "char" NOT NULL,
+    parcel integer,
+    "position" public.cube NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL
+)
+WITH (autovacuum_enabled='false');
+CREATE TABLE metrics.day_06 (
+    client_id bigint NOT NULL,
+    action "char" NOT NULL,
+    parcel integer,
+    "position" public.cube NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL
+)
+WITH (autovacuum_enabled='false');
+CREATE TABLE metrics.day_07 (
+    client_id bigint NOT NULL,
+    action "char" NOT NULL,
+    parcel integer,
+    "position" public.cube NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL
+)
+WITH (autovacuum_enabled='false');
 CREATE TABLE public.applied_migrations (
     identifier text NOT NULL,
     ddl text NOT NULL,
@@ -166,7 +226,6 @@ CREATE TABLE public.asset_library (
     updated_at timestamp without time zone DEFAULT now()
 );
 CREATE TABLE public.avatars (
-    id integer NOT NULL,
     owner text,
     name text,
     settings json,
@@ -179,15 +238,11 @@ CREATE TABLE public.avatars (
     costume_id integer,
     created_at timestamp without time zone DEFAULT now(),
     last_online timestamp without time zone DEFAULT now(),
-    type public.avatar_type DEFAULT 'woody'::public.avatar_type NOT NULL
+    type public.avatar_type DEFAULT 'woody'::public.avatar_type NOT NULL,
+    home_id integer,
+    email text,
+    id uuid DEFAULT uuidv7() NOT NULL
 );
-CREATE SEQUENCE public.avatars_id_seq
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-ALTER SEQUENCE public.avatars_id_seq OWNED BY public.avatars.id;
 CREATE TABLE public.banned_users (
     id integer NOT NULL,
     wallet text NOT NULL,
@@ -460,7 +515,8 @@ CREATE TABLE public.parcel_events (
     created_at timestamp without time zone DEFAULT now(),
     starts_at timestamp with time zone DEFAULT now(),
     expires_at timestamp with time zone DEFAULT (now() + '01:00:00'::interval),
-    category character varying(255)
+    category character varying(255),
+    location text
 );
 CREATE SEQUENCE public.parcel_events_id_seq
     START WITH 1
@@ -473,6 +529,15 @@ CREATE TABLE public.parcel_users (
     parcel_id integer NOT NULL,
     wallet text NOT NULL,
     role text DEFAULT 'contributor'::text NOT NULL
+);
+CREATE TABLE public.passkeys (
+    username text NOT NULL,
+    user_uuid uuid NOT NULL,
+    credential_id bytea NOT NULL,
+    public_key bytea NOT NULL,
+    counter bigint DEFAULT 0 NOT NULL,
+    transports text[],
+    created_at timestamp with time zone DEFAULT now() NOT NULL
 );
 CREATE SEQUENCE public.properties_id_seq
     START WITH 3027
@@ -536,7 +601,9 @@ CREATE TABLE public.wearables (
     custom_attributes json[],
     suppressed boolean DEFAULT false,
     category text DEFAULT 'accessory'::text,
-    default_settings json
+    default_settings json,
+    is_free boolean DEFAULT false NOT NULL,
+    default_bone text
 );
 CREATE MATERIALIZED VIEW public.search_corpus AS
  WITH src AS (
@@ -552,7 +619,7 @@ CREATE MATERIALIZED VIEW public.search_corpus AS
             w.name,
             w.description,
             w.created_at,
-            'wearable'::text
+            'wearable'::text AS text
            FROM public.wearables w
         UNION ALL
          SELECT av.owner AS id,
@@ -562,14 +629,14 @@ CREATE MATERIALIZED VIEW public.search_corpus AS
                     ELSE NULL::text
                 END AS "case",
             av.created_at,
-            'avatar'::text
+            'avatar'::text AS text
            FROM public.avatars av
         UNION ALL
          SELECT (s.id)::text AS id,
             s.name,
-            NULL::text,
+            NULL::text AS text,
             s.created_at,
-            'space'::text
+            'space'::text AS text
            FROM public.spaces s
           WHERE (s.unlisted IS DISTINCT FROM true)
         UNION ALL
@@ -577,7 +644,7 @@ CREATE MATERIALIZED VIEW public.search_corpus AS
             al.name,
             al.description,
             al.created_at,
-            'asset'::text
+            'asset'::text AS text
            FROM public.asset_library al
         )
  SELECT id,
@@ -613,11 +680,6 @@ CREATE SEQUENCE public.traffic_id_seq
     NO MAXVALUE
     CACHE 1;
 ALTER SEQUENCE public.traffic_id_seq OWNED BY public.traffic.id;
-CREATE TABLE public.users (
-    id uuid DEFAULT public.uuid_generate_v4(),
-    email text,
-    created_at timestamp without time zone
-);
 CREATE TABLE public.womps (
     id integer NOT NULL,
     author text,
@@ -641,7 +703,6 @@ CREATE SEQUENCE public.womps_id_seq
     NO MAXVALUE
     CACHE 1;
 ALTER SEQUENCE public.womps_id_seq OWNED BY public.womps.id;
-ALTER TABLE ONLY public.avatars ALTER COLUMN id SET DEFAULT nextval('public.avatars_id_seq'::regclass);
 ALTER TABLE ONLY public.banned_users ALTER COLUMN id SET DEFAULT nextval('public.blocked_users_id_seq'::regclass);
 ALTER TABLE ONLY public.collections ALTER COLUMN id SET DEFAULT nextval('public.collections_id_seq'::regclass);
 ALTER TABLE ONLY public.comments ALTER COLUMN id SET DEFAULT nextval('public.comments_id_seq'::regclass);
@@ -663,6 +724,8 @@ ALTER TABLE ONLY public.applied_migrations
     ADD CONSTRAINT applied_migrations_pkey PRIMARY KEY (identifier);
 ALTER TABLE ONLY public.asset_library
     ADD CONSTRAINT asset_library_pkey PRIMARY KEY (id);
+ALTER TABLE ONLY public.avatars
+    ADD CONSTRAINT avatars_email_key UNIQUE (email);
 ALTER TABLE ONLY public.avatars
     ADD CONSTRAINT avatars_pkey PRIMARY KEY (id);
 ALTER TABLE ONLY public.banned_users
@@ -693,6 +756,10 @@ ALTER TABLE ONLY public.parcel_events
     ADD CONSTRAINT parcel_events_pkey PRIMARY KEY (id);
 ALTER TABLE ONLY public.parcel_users
     ADD CONSTRAINT parcel_wallet_constraint UNIQUE (parcel_id, wallet);
+ALTER TABLE ONLY public.passkeys
+    ADD CONSTRAINT passkeys_credential_id_key UNIQUE (credential_id);
+ALTER TABLE ONLY public.passkeys
+    ADD CONSTRAINT passkeys_pkey PRIMARY KEY (username);
 ALTER TABLE ONLY public.properties
     ADD CONSTRAINT properties_pkey PRIMARY KEY (id);
 ALTER TABLE ONLY public.property_versions
@@ -715,6 +782,22 @@ ALTER TABLE ONLY public.wearables
     ADD CONSTRAINT wearables_pkey PRIMARY KEY (id);
 ALTER TABLE ONLY public.womps
     ADD CONSTRAINT womps_pkey PRIMARY KEY (id);
+CREATE INDEX idx_day_00_parcel ON metrics.day_00 USING btree (parcel);
+CREATE INDEX idx_day_00_time ON metrics.day_00 USING brin (created_at);
+CREATE INDEX idx_day_01_parcel ON metrics.day_01 USING btree (parcel);
+CREATE INDEX idx_day_01_time ON metrics.day_01 USING brin (created_at);
+CREATE INDEX idx_day_02_parcel ON metrics.day_02 USING btree (parcel);
+CREATE INDEX idx_day_02_time ON metrics.day_02 USING brin (created_at);
+CREATE INDEX idx_day_03_parcel ON metrics.day_03 USING btree (parcel);
+CREATE INDEX idx_day_03_time ON metrics.day_03 USING brin (created_at);
+CREATE INDEX idx_day_04_parcel ON metrics.day_04 USING btree (parcel);
+CREATE INDEX idx_day_04_time ON metrics.day_04 USING brin (created_at);
+CREATE INDEX idx_day_05_parcel ON metrics.day_05 USING btree (parcel);
+CREATE INDEX idx_day_05_time ON metrics.day_05 USING brin (created_at);
+CREATE INDEX idx_day_06_parcel ON metrics.day_06 USING btree (parcel);
+CREATE INDEX idx_day_06_time ON metrics.day_06 USING brin (created_at);
+CREATE INDEX idx_day_07_parcel ON metrics.day_07 USING btree (parcel);
+CREATE INDEX idx_day_07_time ON metrics.day_07 USING brin (created_at);
 CREATE INDEX asset_library_author_index ON public.asset_library USING btree (lower(author));
 CREATE UNIQUE INDEX asset_library_hash_index ON public.asset_library USING btree (hash);
 CREATE UNIQUE INDEX avatar_owner ON public.avatars USING btree (owner);
@@ -742,6 +825,7 @@ CREATE INDEX lower_avatar_name ON public.avatars USING btree (lower(name));
 CREATE INDEX lower_avatar_owner ON public.avatars USING btree (lower(owner));
 CREATE INDEX owner_index ON public.properties USING btree (lower(owner));
 CREATE INDEX parcel_id_index ON public.property_versions USING btree (parcel_id);
+CREATE INDEX passkeys_user_uuid_idx ON public.passkeys USING btree (user_uuid);
 CREATE INDEX properties_lower_name ON public.properties USING btree (lower(name));
 CREATE INDEX properties_minted_idx1 ON public.properties USING btree (minted);
 CREATE UNIQUE INDEX report_id_index ON public.reports USING btree (id);
@@ -750,10 +834,9 @@ CREATE INDEX suburbs_id_name ON public.suburbs USING btree (id, name);
 CREATE UNIQUE INDEX unique_token_wallet ON public.favorites USING btree (wallet, token_id, contract_address);
 CREATE UNIQUE INDEX user_rights_idx ON public.parcel_users USING btree (parcel_id, lower(wallet));
 CREATE UNIQUE INDEX wallet_parcel_id_idx ON public.favorites USING btree (wallet, token_id);
+CREATE INDEX wearables_is_free_idx ON public.wearables USING btree (is_free) WHERE is_free;
 CREATE INDEX womps_author ON public.womps USING btree (lower(author));
 CREATE UNIQUE INDEX womps_id ON public.womps USING btree (id);
 CREATE INDEX womps_parcel_id ON public.womps USING btree (parcel_id);
 CREATE TRIGGER wearables_recalculate_total_wearables_trigger AFTER INSERT ON public.wearables FOR EACH ROW WHEN ((new.token_id IS NOT NULL)) EXECUTE FUNCTION public.recalculate_total_wearables();
-ALTER TABLE ONLY public.properties
-    ADD CONSTRAINT suburb_cascading_foreign_key FOREIGN KEY (suburb_id) REFERENCES public.suburbs(id) ON DELETE CASCADE;
-\unrestrict AMOmwf1LRjL6g9j1NDUfjD9bHTJXFowqEpJdNdzzeTYGcLlCTSaG4rHjuajSXi1
+\unrestrict Ie3SMC4agiorrcXjdC1UsvBVaLVu1FgEB0b6XNCsKRdh4aOfuV84MaGXQYIX1Nv

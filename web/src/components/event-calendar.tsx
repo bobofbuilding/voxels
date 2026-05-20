@@ -5,7 +5,8 @@ import { isInFuture } from '../../../common/helpers/time-helpers'
 import { Event } from '../../../common/messages/event'
 import ParcelEvent from '../helpers/event'
 import { Spinner } from '../spinner'
-import { fetchAPI, fetchOptions } from '../utils'
+import cachedFetch from '../helpers/cached-fetch'
+import { fetchOptions } from '../utils'
 import { EventTime } from './event-time'
 
 interface Props {
@@ -18,7 +19,6 @@ interface Props {
 interface State {
   events: Event[]
   page: number
-  total: number
   loaded?: boolean
 }
 
@@ -26,7 +26,6 @@ export default class EventCalendar extends Component<Props, State> {
   state: State = {
     events: [],
     page: 0,
-    total: 0,
     loaded: false,
   }
   private controller: AbortController | undefined = undefined
@@ -36,8 +35,7 @@ export default class EventCalendar extends Component<Props, State> {
   }
 
   private get nextPage() {
-    if (!this.props.numEvents) return false
-    return (this.state.page + 1) * this.props.numEvents < this.state.total
+    return true
   }
 
   componentDidMount() {
@@ -45,7 +43,7 @@ export default class EventCalendar extends Component<Props, State> {
       this.controller.abort('ABORT: quitting component')
     }
     this.controller = new AbortController()
-    return Promise.all([this.fetchTotal(), this.fetchEvents()])
+    return this.fetchEvents()
   }
 
   componentDidUpdate(prevProps: Props, prevState: State) {
@@ -114,15 +112,12 @@ export default class EventCalendar extends Component<Props, State> {
     )
   }
 
-  private fetchTotal = () =>
-    fetchAPI(`/api/stats/info-ongoing-events.json`, fetchOptions(this.controller)).then((r) => {
-      this.setState({ total: r.stats?.[0]?.num_ongoing_events || 0 })
-    })
-
   private fetchEvents = () =>
-    fetchAPI(`/api/events/on/${this.props.numEvents}/${this.state.page}.json`, fetchOptions(this.controller)).then((data) => {
-      this.setState({ events: data.events || [], loaded: true })
-    })
+    cachedFetch(`/api/events/on/${this.props.numEvents}/${this.state.page}.json`, fetchOptions(this.controller))
+      .then((r) => r.json())
+      .then((data) => {
+        this.setState({ events: data.events || [], loaded: true })
+      })
 
   private eventsSorted() {
     return _.orderBy(

@@ -2,7 +2,6 @@ export enum AssetType {
   Parcel = 'parcels',
   Space = 'spaces',
   Costume = 'costumes',
-  Avatar = 'avatars',
   Snapshot = 'snapshot',
   Collectible = 'collectible',
 }
@@ -32,8 +31,6 @@ export async function saveAsset(
       return await saveParcel(id, content)
     case AssetType.Space:
       return await saveSpace(id, content)
-    case AssetType.Avatar:
-      return await saveAvatar(content)
     case AssetType.Costume:
       return await saveCostume(id, content)
     case AssetType.Snapshot:
@@ -56,11 +53,6 @@ export async function saveSpace(id: any, content: any): Promise<any> {
 export async function saveParcel(id: any, content: any): Promise<any> {
   const url = `/grid/parcels/${id}`
   return await sendSave(url, content)
-}
-
-export async function saveAvatar(content: any): Promise<any> {
-  const url = `/api/avatar`
-  return await sendSave(url, content, 'POST')
 }
 
 export async function saveCostume(id: any, content: any): Promise<any> {

@@ -1,10 +1,9 @@
-import type { Scene } from '../../scene'
 import { Component } from 'preact'
 import { onDragStart } from '../dialog'
 
 interface Props {
   onClose?: () => void
-  scene: Scene
+  scene: BABYLON.Scene
 }
 
 export class HelpOverlay extends Component<Props> {
