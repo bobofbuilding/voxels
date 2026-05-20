@@ -456,6 +456,57 @@ export default class Showbox extends Feature2D<ShowboxRecord> {
     screenChk.type = 'checkbox'
     screenOpt.append(screenChk, ' use screenshare instead of camera')
 
+    // Identity row. Owners are signed in with their voxels profile, so this is read-only for them.
+    // Guests came in via /live/:token with whatever name the owner typed - let them tweak it before the show.
+    const isGuest = isGuestForShowbox(this.uuid)
+    const guestToken = isGuest ? (new URL(window.location.href).pathname.match(/^\/live\/([^/]+)/)?.[1] ?? null) : null
+
+    const identityRow = document.createElement('div')
+    Object.assign(identityRow.style, { display: 'flex', flexDirection: 'column', gap: '4px' })
+    const identityLabel = document.createElement('label')
+    identityLabel.textContent = isGuest ? 'name on stream' : 'streaming as'
+    if (isGuest && guestToken) {
+      const nameInput = document.createElement('input')
+      nameInput.type = 'text'
+      nameInput.value = app.state.name ?? ''
+      nameInput.maxLength = 64
+      Object.assign(nameInput.style, { width: '100%', background: '#1a1a1a', color: '#f5f5f0', border: '1px solid #333', padding: '8px', fontFamily: 'inherit', minHeight: '36px', boxSizing: 'border-box' })
+      const nameStatus = document.createElement('small')
+      nameStatus.style.color = '#888'
+      let saveTimer: ReturnType<typeof setTimeout> | null = null
+      const save = async () => {
+        const next = nameInput.value.trim()
+        if (!next || next === app.state.name) return
+        nameStatus.textContent = 'saving...'
+        try {
+          const r = await fetch(`/api/guest/${guestToken}/name`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ name: next }),
+          })
+          const j = await r.json()
+          if (!j.success) throw new Error(j.error || 'failed')
+          app.setName(next)
+          nameStatus.textContent = 'saved'
+          setTimeout(() => (nameStatus.textContent = ''), 1500)
+        } catch {
+          nameStatus.textContent = 'could not save'
+        }
+      }
+      nameInput.oninput = () => {
+        if (saveTimer) clearTimeout(saveTimer)
+        saveTimer = setTimeout(save, 600)
+      }
+      nameInput.onblur = save
+      identityRow.append(identityLabel, nameInput, nameStatus)
+    } else {
+      const nameDisplay = document.createElement('div')
+      nameDisplay.textContent = app.state.name ?? '(set your name in your voxels profile)'
+      Object.assign(nameDisplay.style, { background: '#1a1a1a', border: '1px solid #333', padding: '8px', color: '#f5f5f0', minHeight: '36px', boxSizing: 'border-box', display: 'flex', alignItems: 'center' })
+      identityRow.append(identityLabel, nameDisplay)
+    }
+
     // share row - shown only once the broadcaster is actually live. Before going live it's noise;
     // after going live they want to drop the link on x / instagram to pull people in.
     const shareRow = document.createElement('div')
@@ -548,7 +599,7 @@ export default class Showbox extends Feature2D<ShowboxRecord> {
     row.style.gap = '0.5rem'
     row.append(goBtn, closeBtn)
 
-    panel.append(title, camLabel, camSel, micLabel, micSel, screenOpt, shareRow, moveRow, status, row)
+    panel.append(title, identityRow, camLabel, camSel, micLabel, micSel, screenOpt, shareRow, moveRow, status, row)
     document.body.appendChild(panel)
 
     navigator.mediaDevices.enumerateDevices().then((devices) => {
@@ -580,7 +631,7 @@ export default class Showbox extends Feature2D<ShowboxRecord> {
           this.liveTimerInterval = null
         }
         this.liveStartedAt = null
-        ;[title, camLabel, camSel, micLabel, micSel, screenOpt, status].forEach((el) => ((el as HTMLElement).style.display = ''))
+        ;[title, identityRow, camLabel, camSel, micLabel, micSel, screenOpt, status].forEach((el) => ((el as HTMLElement).style.display = ''))
         shareRow.style.display = 'none'
         moveRow.style.display = 'none'
         return
@@ -629,7 +680,7 @@ export default class Showbox extends Feature2D<ShowboxRecord> {
         goBtn.style.background = '#444'
         goBtn.disabled = false
         status.textContent = ''
-        ;[title, camLabel, camSel, micLabel, micSel, screenOpt, status].forEach((el) => ((el as HTMLElement).style.display = 'none'))
+        ;[title, identityRow, camLabel, camSel, micLabel, micSel, screenOpt, status].forEach((el) => ((el as HTMLElement).style.display = 'none'))
         shareRow.style.display = 'flex'
         moveRow.style.display = 'flex'
 
