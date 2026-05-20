@@ -609,8 +609,9 @@ export default class Showbox extends Feature2D<ShowboxRecord> {
     row.style.gap = '0.5rem'
     row.append(goBtn, closeBtn)
 
-    // Guests need chat in the dock - especially on mobile where the panel covers the default chat UI.
+    // Guest chat in the dock when live only (setup stays minimal). Mobile needs this - panel covers world chat.
     let chatSection: HTMLDivElement | null = null
+    let chatRow: HTMLDivElement | null = null
     if (isGuest) {
       const chatLabel = document.createElement('label')
       chatLabel.textContent = 'chat'
@@ -668,7 +669,11 @@ export default class Showbox extends Feature2D<ShowboxRecord> {
         renderDockChat()
       })
 
-      panel.append(title, identityRow, deviceRow, screenOpt, deviceToggle, chatLabel, chatSection, shareRow, moveRow, status, row)
+      chatRow = document.createElement('div')
+      Object.assign(chatRow.style, { display: 'none', flexDirection: 'column', gap: '4px' })
+      chatRow.append(chatLabel, chatSection)
+
+      panel.append(title, identityRow, deviceRow, screenOpt, deviceToggle, chatRow, shareRow, moveRow, status, row)
     } else {
       panel.append(title, identityRow, deviceRow, screenOpt, deviceToggle, shareRow, moveRow, status, row)
     }
@@ -764,6 +769,7 @@ export default class Showbox extends Feature2D<ShowboxRecord> {
         deviceToggle.textContent = 'change camera or mic'
         shareRow.style.display = 'none'
         moveRow.style.display = 'none'
+        if (chatRow) chatRow.style.display = 'none'
         return
       }
 
@@ -843,6 +849,7 @@ export default class Showbox extends Feature2D<ShowboxRecord> {
         deviceToggle.textContent = 'change camera or mic'
         shareRow.style.display = 'flex'
         moveRow.style.display = 'flex'
+        if (chatRow) chatRow.style.display = 'flex'
 
         // live header: pulsing red dot + count-up timer so the broadcaster sees they are actually streaming.
         const liveHeader = document.createElement('div')
