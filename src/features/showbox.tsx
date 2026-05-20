@@ -439,6 +439,31 @@ export default class Showbox extends Feature2D<ShowboxRecord> {
     screenOpt.append(screenChk, ' use screenshare instead of camera')
     if (mobile) screenOpt.style.display = 'none' // screenshare from a phone is unreliable; stick to the camera
 
+    const deviceRow = document.createElement('div')
+    Object.assign(deviceRow.style, { display: 'flex', flexDirection: 'column', gap: '4px' })
+    deviceRow.append(camLabel, camSel, micLabel, micSel)
+
+    const deviceToggle = document.createElement('button')
+    deviceToggle.type = 'button'
+    deviceToggle.textContent = 'change camera or mic'
+    Object.assign(deviceToggle.style, {
+      display: 'none',
+      background: 'transparent',
+      color: '#888',
+      border: '0',
+      padding: '4px 0',
+      cursor: 'pointer',
+      fontFamily: 'inherit',
+      fontSize: '12px',
+      textAlign: 'left',
+      textDecoration: 'underline',
+    })
+    deviceToggle.onclick = () => {
+      const open = deviceRow.style.display !== 'none'
+      deviceRow.style.display = open ? 'none' : 'flex'
+      deviceToggle.textContent = open ? 'change camera or mic' : 'hide camera and mic'
+    }
+
     // Identity row. Owners use their voxels profile. Guests pick their own name here before going live.
     const isGuest = isGuestForShowbox(this.uuid)
     const guestToken = isGuest ? guestPassToken() : null
@@ -643,9 +668,9 @@ export default class Showbox extends Feature2D<ShowboxRecord> {
         renderDockChat()
       })
 
-      panel.append(title, identityRow, camLabel, camSel, micLabel, micSel, screenOpt, chatLabel, chatSection, shareRow, moveRow, status, row)
+      panel.append(title, identityRow, deviceRow, screenOpt, deviceToggle, chatLabel, chatSection, shareRow, moveRow, status, row)
     } else {
-      panel.append(title, identityRow, camLabel, camSel, micLabel, micSel, screenOpt, shareRow, moveRow, status, row)
+      panel.append(title, identityRow, deviceRow, screenOpt, deviceToggle, shareRow, moveRow, status, row)
     }
     document.body.appendChild(panel)
 
@@ -733,7 +758,10 @@ export default class Showbox extends Feature2D<ShowboxRecord> {
           this.liveTimerInterval = null
         }
         this.liveStartedAt = null
-        ;[title, identityRow, screenOpt, status].forEach((el) => ((el as HTMLElement).style.display = ''))
+        ;[title, identityRow, deviceRow, screenOpt, status].forEach((el) => ((el as HTMLElement).style.display = ''))
+        deviceToggle.style.display = 'none'
+        deviceRow.style.display = 'flex'
+        deviceToggle.textContent = 'change camera or mic'
         shareRow.style.display = 'none'
         moveRow.style.display = 'none'
         return
@@ -810,6 +838,9 @@ export default class Showbox extends Feature2D<ShowboxRecord> {
         goBtn.disabled = false
         status.textContent = ''
         ;[title, identityRow, screenOpt, status].forEach((el) => ((el as HTMLElement).style.display = 'none'))
+        deviceRow.style.display = 'none'
+        deviceToggle.style.display = 'block'
+        deviceToggle.textContent = 'change camera or mic'
         shareRow.style.display = 'flex'
         moveRow.style.display = 'flex'
 
@@ -869,6 +900,7 @@ export default class Showbox extends Feature2D<ShowboxRecord> {
           meterTrack.append(meterFill)
           previewWrap.append(previewVideo, previewLabel, meterTrack)
           panel.insertBefore(previewWrap, chatSection ?? moveRow)
+          previewWrap.insertAdjacentElement('afterend', deviceToggle)
 
           meterFillEl = meterFill
           const audioMst = (liveAudioTrack as any)?.mediaStreamTrack as MediaStreamTrack | undefined
