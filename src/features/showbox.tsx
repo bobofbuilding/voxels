@@ -446,9 +446,10 @@ export default class Showbox extends Feature2D<ShowboxRecord> {
     screenChk.type = 'checkbox'
     screenOpt.append(screenChk, ' use screenshare instead of camera')
 
-    // share row - one-click copy or post the show link, so the broadcaster can drop it on X / instagram without leaving the dock.
+    // share row - shown only once the broadcaster is actually live. Before going live it's noise;
+    // after going live they want to drop the link on x / instagram to pull people in.
     const shareRow = document.createElement('div')
-    Object.assign(shareRow.style, { display: 'flex', flexDirection: 'column', gap: '4px', borderTop: '1px solid #222', borderBottom: '1px solid #222', padding: '8px 0' })
+    Object.assign(shareRow.style, { display: 'none', flexDirection: 'column', gap: '4px', borderTop: '1px solid #222', borderBottom: '1px solid #222', padding: '8px 0' })
     const shareLabel = document.createElement('label')
     shareLabel.textContent = 'show link'
     shareLabel.style.color = '#888'
@@ -478,10 +479,10 @@ export default class Showbox extends Feature2D<ShowboxRecord> {
     shareBtnRow.append(copyBtn, xBtn)
     shareRow.append(shareLabel, shareInput, shareBtnRow)
 
-    // quick-access dance + emoji reactions, available before and during the stream.
-    // Plays the move on the broadcaster's avatar via window.persona so the audience sees it.
+    // quick-access dance + emoji reactions. Hidden until live - pre-stream they just add noise,
+    // mid-stream they are the main way to react to chat without leaving the dock.
     const moveRow = document.createElement('div')
-    Object.assign(moveRow.style, { display: 'flex', flexDirection: 'column', gap: '4px' })
+    Object.assign(moveRow.style, { display: 'none', flexDirection: 'column', gap: '4px' })
     const danceRow = document.createElement('div')
     Object.assign(danceRow.style, { display: 'flex', gap: '4px', flexWrap: 'wrap' })
     const playMove = (anim: Animations | null) => {
@@ -569,7 +570,9 @@ export default class Showbox extends Feature2D<ShowboxRecord> {
           this.liveTimerInterval = null
         }
         this.liveStartedAt = null
-        ;[title, camLabel, camSel, micLabel, micSel, screenOpt, shareRow, status].forEach((el) => ((el as HTMLElement).style.display = ''))
+        ;[title, camLabel, camSel, micLabel, micSel, screenOpt, status].forEach((el) => ((el as HTMLElement).style.display = ''))
+        shareRow.style.display = 'none'
+        moveRow.style.display = 'none'
         return
       }
 
@@ -616,7 +619,9 @@ export default class Showbox extends Feature2D<ShowboxRecord> {
         goBtn.style.background = '#444'
         goBtn.disabled = false
         status.textContent = ''
-        ;[title, camLabel, camSel, micLabel, micSel, screenOpt, shareRow, status].forEach((el) => ((el as HTMLElement).style.display = 'none'))
+        ;[title, camLabel, camSel, micLabel, micSel, screenOpt, status].forEach((el) => ((el as HTMLElement).style.display = 'none'))
+        shareRow.style.display = 'flex'
+        moveRow.style.display = 'flex'
 
         // live header: pulsing red dot + count-up timer so the broadcaster sees they are actually streaming.
         const liveHeader = document.createElement('div')
