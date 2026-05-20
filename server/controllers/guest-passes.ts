@@ -124,6 +124,33 @@ export default function GuestPassesController(db: Db, passport: PassportStatic, 
     res.json({ success: true })
   })
 
+  // Guest can update their own display name. Auth via the guest_pass jwt - if it doesn't match
+  // the pass in the path, reject. Updates both the pass row and the synthetic avatar row so the
+  // new name shows up on next page load for everyone in the parcel.
+  app.patch('/api/guest/:token/name', passport.authenticate('jwt', { session: false }), async (req: VoxelsUserRequest, res: Response) => {
+    const token = String(req.params.token)
+    const user = req.user as (typeof req.user & { guest_pass?: string }) | undefined
+    if (!user?.guest_pass || user.guest_pass !== token) {
+      return res.status(403).json({ success: false, error: 'Not your pass' })
+    }
+
+    const pass = await loadGuestPass(db, token)
+    if (!pass || pass.revoked_at) {
+      return res.status(404).json({ success: false, error: 'Invalid or revoked link' })
+    }
+
+    const name = String(req.body?.name ?? '')
+      .trim()
+      .slice(0, 64)
+    if (!name) return res.status(400).json({ success: false, error: 'name required' })
+
+    await db.query('sql/guest-passes/update-name', `update guest_passes set name = $1 where token = $2`, [name, token])
+    const syntheticWallet = `guest:${token.slice(0, 12)}`.toLowerCase()
+    await db.query('sql/guest-passes/rename-avatar', `update avatars set name = $1 where owner = $2`, [name, syntheticWallet])
+
+    res.json({ success: true, name })
+  })
+
   // Public: lookup pass info from token (used by the live page)
   app.get('/api/guest/:token', async (req, res) => {
     const pass = await loadGuestPass(db, String(req.params.token))
