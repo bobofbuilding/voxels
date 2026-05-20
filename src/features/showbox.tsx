@@ -59,6 +59,8 @@ export default class Showbox extends Feature2D<ShowboxRecord> {
   thumbInterval: ReturnType<typeof setInterval> | null = null
   liveTimerInterval: ReturnType<typeof setInterval> | null = null
   liveStartedAt: number | null = null
+  audioMeterRaf: number | null = null
+  audioMeterCtx: AudioContext | null = null
   hasActiveVideo = false
 
   roomName() {
@@ -327,6 +329,14 @@ export default class Showbox extends Feature2D<ShowboxRecord> {
       this.liveTimerInterval = null
     }
     this.liveStartedAt = null
+    if (this.audioMeterRaf) {
+      cancelAnimationFrame(this.audioMeterRaf)
+      this.audioMeterRaf = null
+    }
+    if (this.audioMeterCtx) {
+      this.audioMeterCtx.close().catch(() => {})
+      this.audioMeterCtx = null
+    }
   }
 
   openBroadcastPanel() {
@@ -660,14 +670,54 @@ export default class Showbox extends Feature2D<ShowboxRecord> {
           previewWrap.dataset.dot = '1'
           Object.assign(previewWrap.style, { position: 'relative', width: '100%', aspectRatio: '16 / 9', background: '#000', overflow: 'hidden' })
           const previewVideo = videoTrack.attach() as HTMLVideoElement
-          previewVideo.muted = true
+          previewVideo.muted = true // critical - never echo the broadcaster's own voice back at them
+          previewVideo.volume = 0
           previewVideo.playsInline = true
           Object.assign(previewVideo.style, { width: '100%', height: '100%', objectFit: 'cover', display: 'block' })
           const previewLabel = document.createElement('div')
           previewLabel.textContent = 'what your audience sees'
-          Object.assign(previewLabel.style, { position: 'absolute', bottom: '4px', left: '6px', color: '#f5f5f0', fontSize: '11px', background: 'rgba(0,0,0,0.6)', padding: '2px 6px' })
-          previewWrap.append(previewVideo, previewLabel)
+          Object.assign(previewLabel.style, { position: 'absolute', top: '4px', left: '6px', color: '#f5f5f0', fontSize: '11px', background: 'rgba(0,0,0,0.6)', padding: '2px 6px' })
+
+          // Audio meter overlay: thin bar at the bottom of the preview that pulses with mic input.
+          // Tells the broadcaster their mic is actually picking up sound without needing to hear themselves.
+          const meterTrack = document.createElement('div')
+          Object.assign(meterTrack.style, { position: 'absolute', bottom: '0', left: '0', right: '0', height: '5px', background: 'rgba(0,0,0,0.5)' })
+          const meterFill = document.createElement('div')
+          Object.assign(meterFill.style, { width: '0%', height: '100%', background: '#22c55e', transition: 'width 60ms linear' })
+          meterTrack.append(meterFill)
+          previewWrap.append(previewVideo, previewLabel, meterTrack)
           panel.insertBefore(previewWrap, moveRow)
+
+          const audioTrack = tracks.find((t) => t.kind === Track.Kind.Audio)
+          const audioMst = (audioTrack as any)?.mediaStreamTrack as MediaStreamTrack | undefined
+          if (audioMst) {
+            try {
+              const ctx = new AudioContext()
+              this.audioMeterCtx = ctx
+              const source = ctx.createMediaStreamSource(new MediaStream([audioMst]))
+              const analyser = ctx.createAnalyser()
+              analyser.fftSize = 512
+              source.connect(analyser) // intentionally NOT connected to ctx.destination - no playback, no feedback loop
+              const data = new Uint8Array(analyser.frequencyBinCount)
+              const tick = () => {
+                analyser.getByteTimeDomainData(data)
+                let sum = 0
+                for (let i = 0; i < data.length; i++) {
+                  const v = (data[i] - 128) / 128
+                  sum += v * v
+                }
+                const pct = Math.min(100, Math.sqrt(sum / data.length) * 200)
+                meterFill.style.width = pct + '%'
+                meterFill.style.background = pct > 85 ? '#dc1e1e' : pct > 60 ? '#f5b942' : '#22c55e'
+                this.audioMeterRaf = requestAnimationFrame(tick)
+              }
+              tick()
+            } catch {
+              meterTrack.remove()
+            }
+          } else {
+            meterTrack.remove()
+          }
         }
 
         panel.insertBefore(liveHeader, panel.firstChild)
