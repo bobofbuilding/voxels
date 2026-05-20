@@ -1,7 +1,7 @@
 import { Component, Fragment } from 'preact'
 import { useEffect, useRef, useState } from 'preact/hooks'
 import { avatarName } from '../../common/messages/avatar-ref'
-import { jitterCoord } from '../../common/helpers/utils'
+import { jitterCoord, orderLiveStrip } from '../../common/helpers/utils'
 import { currentVersion } from '../../common/version'
 import { Event } from '../../common/messages/event'
 import Head from './components/head'
@@ -26,7 +26,7 @@ type RESummary = {
 }
 
 type LiveParcel = { id: number; name?: string; address: string }
-type LiveEntry = { room: string; parcel: LiveParcel; coord?: string; avatar: any; thumbnail: string }
+type LiveEntry = { room: string; parcel: LiveParcel; coord?: string; avatar: any; thumbnail: string; viewers?: number; ts?: number }
 
 function LiveSection() {
   const [streams, setStreams] = useState<Map<string, LiveEntry>>(new Map())
@@ -41,7 +41,7 @@ function LiveSection() {
         const next = new Map(prev)
         if (msg.type === 'snapshot') msg.entries.forEach((s: LiveEntry) => next.set(s.room, s))
         else if (msg.type === 'remove') next.delete(msg.parcel)
-        else next.set(msg.room, msg as LiveEntry)
+        else next.set(msg.room, { ...next.get(msg.room), ...msg } as LiveEntry)
         return next
       })
     }
@@ -50,9 +50,11 @@ function LiveSection() {
 
   if (streams.size === 0) return <p>no one is live right now</p>
 
+  const ordered = orderLiveStrip([...streams.values()])
+
   return (
     <ul class="live-streams">
-      {[...streams.values()].map((s) => (
+      {ordered.map((s) => (
         <li key={s.room}>
           <a href={s.coord ? `/play?coords=${jitterCoord(s.coord)}` : `/parcels/${s.parcel.id}`}>
             <img loading="lazy" src={s.thumbnail} alt="" />
