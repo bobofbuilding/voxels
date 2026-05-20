@@ -349,11 +349,11 @@ export default class Showbox extends Feature2D<ShowboxRecord> {
 
     exitPointerLock()
 
-    // Compute the show url once - mobile branch and desktop dock both need it.
-    const p = this.parcel
-    const center = new BABYLON.Vector3((p.x1 + p.x2) / 2, p.y1, (p.z1 + p.z2) / 2)
-    const showCoords = encodeCoords({ position: center, rotation: new BABYLON.Vector3(0, 0, 0) })
-    const showUrl = `${window.location.origin}/play?coords=${encodeURIComponent(showCoords)}&show=${this.uuid}`
+    // Audience share url - a regular voxels /play coords link that lands right next to the showbox.
+    // No special query params; viewers just walk into the parcel and see/hear the stream.
+    const showPos = this.absolutePosition ?? new BABYLON.Vector3((this.parcel.x1 + this.parcel.x2) / 2, this.parcel.y1, (this.parcel.z1 + this.parcel.z2) / 2)
+    const showCoords = encodeCoords({ position: showPos, rotation: new BABYLON.Vector3(0, 0, 0) })
+    const showUrl = `${window.location.origin}/play?coords=${encodeURIComponent(showCoords)}`
 
     // Mobile: short-circuit. WebRTC broadcasting from a phone while running the 3D engine is fragile,
     // and a cramped popup is worse than a clean "open this on desktop" notice. Audience is mobile-fine;
@@ -921,10 +921,10 @@ class GuestPasses extends Component<{ feature: Showbox }, { passes: Pass[]; load
   }
 
   showUrl() {
-    const p = this.props.feature.parcel
-    const center = new BABYLON.Vector3((p.x1 + p.x2) / 2, p.y1, (p.z1 + p.z2) / 2)
-    const coords = encodeCoords({ position: center, rotation: new BABYLON.Vector3(0, 0, 0) })
-    return `${window.location.origin}/play?coords=${encodeURIComponent(coords)}&show=${this.featureUuid()}`
+    const f = this.props.feature
+    const pos = f.absolutePosition ?? new BABYLON.Vector3((f.parcel.x1 + f.parcel.x2) / 2, f.parcel.y1, (f.parcel.z1 + f.parcel.z2) / 2)
+    const coords = encodeCoords({ position: pos, rotation: new BABYLON.Vector3(0, 0, 0) })
+    return `${window.location.origin}/play?coords=${encodeURIComponent(coords)}`
   }
 
   render() {
