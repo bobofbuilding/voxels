@@ -37,6 +37,7 @@ function guestPlayRedirectQuery(parcelLocation: string, featureUuid: string, use
   if (isMobileUserAgent(userAgent)) {
     qs.set('isolate', 'true')
     qs.set('distance', 'close')
+    qs.set('ui', 'off')
   }
   return qs.toString()
 }
