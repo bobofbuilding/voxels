@@ -609,17 +609,17 @@ export default class Showbox extends Feature2D<ShowboxRecord> {
     row.style.gap = '0.5rem'
     row.append(goBtn, closeBtn)
 
-    // Guest chat in the dock when live only (setup stays minimal). Mobile needs this - panel covers world chat.
+    // Mobile guest chat lives in the dock when live - full-screen panel covers world chat. Desktop uses normal chat.
     let chatSection: HTMLDivElement | null = null
     let chatRow: HTMLDivElement | null = null
-    if (isGuest) {
+    if (isGuest && mobile) {
       const chatLabel = document.createElement('label')
       chatLabel.textContent = 'chat'
       chatSection = document.createElement('div')
       Object.assign(chatSection.style, {
-        flex: mobile ? '1 1 35%' : '1 1 auto',
-        minHeight: mobile ? '100px' : '120px',
-        maxHeight: mobile ? '32vh' : '180px',
+        flex: '1 1 35%',
+        minHeight: '100px',
+        maxHeight: '32vh',
         overflowY: 'auto',
         background: '#1a1a1a',
         border: '1px solid #333',
@@ -627,7 +627,7 @@ export default class Showbox extends Feature2D<ShowboxRecord> {
         display: 'flex',
         flexDirection: 'column',
         gap: '4px',
-        fontSize: mobile ? '14px' : '12px',
+        fontSize: '14px',
         lineHeight: '1.4',
       })
       const chatMessages = document.createElement('div')
@@ -669,9 +669,49 @@ export default class Showbox extends Feature2D<ShowboxRecord> {
         renderDockChat()
       })
 
+      const chatReplyRow = document.createElement('div')
+      Object.assign(chatReplyRow.style, { display: 'flex', gap: '0.5rem' })
+      const chatInput = document.createElement('input')
+      chatInput.type = 'text'
+      chatInput.placeholder = 'reply to chat'
+      Object.assign(chatInput.style, {
+        flex: '1',
+        background: '#1a1a1a',
+        color: '#f5f5f0',
+        border: '1px solid #333',
+        padding: '8px',
+        fontFamily: 'inherit',
+        minHeight: '36px',
+      })
+      const chatSend = document.createElement('button')
+      chatSend.textContent = 'send'
+      Object.assign(chatSend.style, {
+        background: '#333',
+        color: '#f5f5f0',
+        border: '0',
+        padding: '8px 12px',
+        cursor: 'pointer',
+        fontFamily: 'inherit',
+        minHeight: '36px',
+      })
+      const sendDockChat = () => {
+        const t = chatInput.value.trim()
+        if (!t) return
+        window.connector?.sendMessage(t)
+        chatInput.value = ''
+      }
+      chatSend.onclick = sendDockChat
+      chatInput.onkeydown = (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault()
+          sendDockChat()
+        }
+      }
+      chatReplyRow.append(chatInput, chatSend)
+
       chatRow = document.createElement('div')
       Object.assign(chatRow.style, { display: 'none', flexDirection: 'column', gap: '4px' })
-      chatRow.append(chatLabel, chatSection)
+      chatRow.append(chatLabel, chatSection, chatReplyRow)
 
       panel.append(title, identityRow, deviceRow, screenOpt, deviceToggle, chatRow, shareRow, moveRow, status, row)
     } else {
