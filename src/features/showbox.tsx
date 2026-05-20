@@ -579,9 +579,64 @@ export default class Showbox extends Feature2D<ShowboxRecord> {
       })
     })
 
+    // Live track refs + audio meter rewiring. Both updated on initial publish and on mid-stream device swap.
+    let liveVideoTrack: any = null
+    let liveAudioTrack: any = null
+    let meterFillEl: HTMLDivElement | null = null
+    const wireAudioMeter = (mst: MediaStreamTrack | undefined | null) => {
+      if (this.audioMeterRaf) {
+        cancelAnimationFrame(this.audioMeterRaf)
+        this.audioMeterRaf = null
+      }
+      if (this.audioMeterCtx) {
+        this.audioMeterCtx.close().catch(() => {})
+        this.audioMeterCtx = null
+      }
+      if (!mst || !meterFillEl) return
+      try {
+        const ctx = new AudioContext()
+        this.audioMeterCtx = ctx
+        const source = ctx.createMediaStreamSource(new MediaStream([mst]))
+        const analyser = ctx.createAnalyser()
+        analyser.fftSize = 512
+        source.connect(analyser)
+        const data = new Uint8Array(analyser.frequencyBinCount)
+        const tick = () => {
+          if (!meterFillEl) return
+          analyser.getByteTimeDomainData(data)
+          let sum = 0
+          for (let i = 0; i < data.length; i++) {
+            const v = (data[i] - 128) / 128
+            sum += v * v
+          }
+          const pct = Math.min(100, Math.sqrt(sum / data.length) * 200)
+          meterFillEl.style.width = pct + '%'
+          meterFillEl.style.background = pct > 85 ? '#dc1e1e' : pct > 60 ? '#f5b942' : '#22c55e'
+          this.audioMeterRaf = requestAnimationFrame(tick)
+        }
+        tick()
+      } catch {}
+    }
+
+    // Mid-stream device swaps via livekit setDeviceId - swaps underlying MediaStreamTrack on the existing publication, no renegotiate.
+    camSel.onchange = async () => {
+      if (this.broadcastRoom && liveVideoTrack && camSel.value) {
+        await liveVideoTrack.setDeviceId(camSel.value).catch(() => {})
+      }
+    }
+    micSel.onchange = async () => {
+      if (this.broadcastRoom && liveAudioTrack && micSel.value) {
+        await liveAudioTrack.setDeviceId(micSel.value).catch(() => {})
+        wireAudioMeter(liveAudioTrack.mediaStreamTrack)
+      }
+    }
+
     goBtn.onclick = async () => {
       if (this.broadcastRoom) {
         this.stopBroadcast()
+        liveVideoTrack = null
+        liveAudioTrack = null
+        meterFillEl = null
         goBtn.textContent = 'go live'
         goBtn.style.background = '#dc1e1e'
         this.setPreview()
@@ -591,7 +646,7 @@ export default class Showbox extends Feature2D<ShowboxRecord> {
           this.liveTimerInterval = null
         }
         this.liveStartedAt = null
-        ;[title, identityRow, camLabel, camSel, micLabel, micSel, screenOpt, status].forEach((el) => ((el as HTMLElement).style.display = ''))
+        ;[title, identityRow, screenOpt, status].forEach((el) => ((el as HTMLElement).style.display = ''))
         shareRow.style.display = 'none'
         moveRow.style.display = 'none'
         return
@@ -628,6 +683,8 @@ export default class Showbox extends Feature2D<ShowboxRecord> {
         }
 
         const videoTrack = tracks.find((t) => t.kind === Track.Kind.Video)
+        liveVideoTrack = videoTrack ?? null
+        liveAudioTrack = tracks.find((t) => t.kind === Track.Kind.Audio) ?? null
         if (videoTrack) {
           const el = videoTrack.attach() as HTMLVideoElement
           this.attachVideoToMesh(el, true)
@@ -640,7 +697,7 @@ export default class Showbox extends Feature2D<ShowboxRecord> {
         goBtn.style.background = '#444'
         goBtn.disabled = false
         status.textContent = ''
-        ;[title, identityRow, camLabel, camSel, micLabel, micSel, screenOpt, status].forEach((el) => ((el as HTMLElement).style.display = 'none'))
+        ;[title, identityRow, screenOpt, status].forEach((el) => ((el as HTMLElement).style.display = 'none'))
         shareRow.style.display = 'flex'
         moveRow.style.display = 'flex'
 
@@ -701,36 +758,10 @@ export default class Showbox extends Feature2D<ShowboxRecord> {
           previewWrap.append(previewVideo, previewLabel, meterTrack)
           panel.insertBefore(previewWrap, moveRow)
 
-          const audioTrack = tracks.find((t) => t.kind === Track.Kind.Audio)
-          const audioMst = (audioTrack as any)?.mediaStreamTrack as MediaStreamTrack | undefined
-          if (audioMst) {
-            try {
-              const ctx = new AudioContext()
-              this.audioMeterCtx = ctx
-              const source = ctx.createMediaStreamSource(new MediaStream([audioMst]))
-              const analyser = ctx.createAnalyser()
-              analyser.fftSize = 512
-              source.connect(analyser) // intentionally NOT connected to ctx.destination - no playback, no feedback loop
-              const data = new Uint8Array(analyser.frequencyBinCount)
-              const tick = () => {
-                analyser.getByteTimeDomainData(data)
-                let sum = 0
-                for (let i = 0; i < data.length; i++) {
-                  const v = (data[i] - 128) / 128
-                  sum += v * v
-                }
-                const pct = Math.min(100, Math.sqrt(sum / data.length) * 200)
-                meterFill.style.width = pct + '%'
-                meterFill.style.background = pct > 85 ? '#dc1e1e' : pct > 60 ? '#f5b942' : '#22c55e'
-                this.audioMeterRaf = requestAnimationFrame(tick)
-              }
-              tick()
-            } catch {
-              meterTrack.remove()
-            }
-          } else {
-            meterTrack.remove()
-          }
+          meterFillEl = meterFill
+          const audioMst = (liveAudioTrack as any)?.mediaStreamTrack as MediaStreamTrack | undefined
+          if (audioMst) wireAudioMeter(audioMst)
+          else meterTrack.remove()
         }
 
         panel.insertBefore(liveHeader, panel.firstChild)
