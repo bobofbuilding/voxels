@@ -8,7 +8,6 @@ import { isInFuture } from '../../../common/helpers/time-helpers'
 import { Event } from '../../../common/messages/event'
 import type { SingleParcelRecord } from '../../../common/messages/parcel'
 import ParcelEvent from '../helpers/event'
-import { toggleEventManagerWindow } from '../popup-ui/event-manager'
 import { app } from '../state'
 import { fetchOptions } from '../utils'
 
@@ -86,9 +85,8 @@ export default class ParcelEventItem extends Component<Props, State> {
       return
     }
 
-    const isParcelOwner = app.state.wallet && app.state.wallet.localeCompare(this.props.parcel.owner, undefined, { sensitivity: 'accent' }) === 0
-    const onUpdate = () => this.updateEvent()
-    const eventAdmin = this.props.showEventManager && isParcelOwner && <button onClick={() => toggleEventManagerWindow(this.props.parcel, onUpdate, onUpdate, onUpdate)}>{this.state.event ? 'Manage' : 'Create'} event</button>
+    const isParcelOwner = app.isOwner(this.props.parcel.owner)
+    const eventAdmin = this.props.showEventManager && isParcelOwner && <a href={`/events/new?parcel_id=${(this.props.parcel as any).id}`}>{this.state.event ? 'Manage' : 'Create'} event</a>
 
     if (!this.state.event) {
       return this.props.noevent ? (

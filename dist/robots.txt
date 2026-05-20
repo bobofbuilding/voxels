@@ -2,4 +2,4 @@ User-agent: *
 Allow: /
 Disallow: /api/admin/
 Disallow: /admin/
-Sitemap: https://www.cryptovoxels.com/sitemap.txt
+Sitemap: https://www.voxels.com/sitemap.txt

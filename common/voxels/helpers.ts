@@ -1,6 +1,5 @@
 import { unzlibSync, zlibSync } from 'fflate'
-import type { NdArray } from 'ndarray'
-import * as ndarray from 'ndarray'
+import ndarray, { type NdArray } from 'ndarray'
 import { VoxelSize } from './constants'
 import fill from './ndarray-fill'
 

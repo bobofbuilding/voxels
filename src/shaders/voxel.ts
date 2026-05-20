@@ -1,11 +1,10 @@
 import { generateCacheKey, getCachedMaterial, cacheMaterial } from '../materials/cache'
-import type { Scene } from '../scene'
 import VertexShader from './ao-mesh.vsh'
 import FragmentShader from './ao-mesh.fsh'
 import { defaultColors } from '../../common/content/blocks'
 
 // Frame-tracked onBind: Ensures uniforms are only updated once per frame per material instance
-function createFrameTrackedOnBind(material: BABYLON.ShaderMaterial, scene: Scene) {
+function createFrameTrackedOnBind(material: BABYLON.ShaderMaterial, scene: BABYLON.Scene) {
   let lastUpdateFrame = -1
 
   return () => {
@@ -15,14 +14,14 @@ function createFrameTrackedOnBind(material: BABYLON.ShaderMaterial, scene: Scene
     if (currentFrame !== lastUpdateFrame) {
       lastUpdateFrame = currentFrame
 
-      if (scene.environment) {
-        material.setVector3('lightDirection', scene.environment.sunPosition)
+      if (window.environment) {
+        material.setVector3('lightDirection', window.environment.sunPosition)
       }
     }
   }
 }
 
-export function createVoxelMaterial(name: string, scene: Scene, texture: BABYLON.Texture, palette?: BABYLON.Color3[], brightness = 1.0, tileSize = 128, tileCount = 4.0): BABYLON.Material {
+export function createVoxelMaterial(name: string, scene: BABYLON.Scene, texture: BABYLON.Texture, palette?: BABYLON.Color3[], brightness = 1.0, tileSize = 128, tileCount = 4.0): BABYLON.Material {
   const cacheKey = generateCacheKey('voxel', { texture, palette, brightness, tileSize, tileCount })
 
   const cached = getCachedMaterial(cacheKey)
@@ -63,7 +62,7 @@ export function createVoxelMaterial(name: string, scene: Scene, texture: BABYLON
   }
 
   // Set environment parameters (lighting, fog, etc)
-  scene.environment?.setShaderParameters(material, brightness)
+  window.environment?.setShaderParameters(material, brightness)
 
   // Use frame-tracked onBind callback
   material.onBind = createFrameTrackedOnBind(material, scene)

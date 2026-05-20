@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'preact/compat'
 import { LibraryAsset } from '../../library-asset'
 import { app } from '../../../web/src/state'
+import { avatarName } from '../../../common/messages/avatar-ref'
 import { AssetNameInput } from './asset-name-input'
 import Panel, { PanelType } from '../../../web/src/components/panel'
 import { CollectibleDescriptionInput } from './collectible-description-input'
@@ -45,7 +46,7 @@ export function AssetBrowserInspector(props: Props) {
     return null
   }
 
-  const isUserAuthor = libraryAsset.author.toLowerCase() === app.state.wallet?.toLowerCase()
+  const isUserAuthor = app.isOwner(libraryAsset.author)
   const isModerator = !!app.state.moderator
   const isFeatureOrGroup = libraryAsset.type !== 'script'
 
@@ -154,7 +155,7 @@ export function AssetBrowserInspector(props: Props) {
               <dd>{isUserAuthor ? <CollectibleDescriptionInput asset={libraryAsset} onSave={onUpdate} /> : libraryAsset.description}</dd>
 
               <dt>Author</dt>
-              <dd>{libraryAsset.author_name || libraryAsset.author}</dd>
+              <dd>{libraryAsset.author ? avatarName(libraryAsset.author as any) : ''}</dd>
 
               <dt>Category</dt>
               <dd>{isUserAuthor ? <AssetCategoryInput asset={libraryAsset} onSave={onUpdate} /> : libraryAsset.category}</dd>

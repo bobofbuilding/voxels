@@ -1,12 +1,11 @@
 import { useEffect, useRef } from 'preact/hooks'
 import { isMobileMedia } from './detector'
 
-// Attempt to unlock
+// Attempt to unlock. Also blur the canvas so the pointer-lock handler doesn't re-acquire on the next click.
 export const exitPointerLock = () => {
-  document.exitPointerLock = document.exitPointerLock || (document as any)['mozExitPointerLock']
-  if (document.exitPointerLock) {
-    document.exitPointerLock()
-  }
+  if (!document.pointerLockElement) return
+  document.exitPointerLock?.()
+  ;(document.activeElement as HTMLElement | null)?.blur?.()
 }
 
 // allows people to use the space bar to click links and element for for accessibility, e.g. the right hand parcel-tabs

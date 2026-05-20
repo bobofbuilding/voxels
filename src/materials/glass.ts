@@ -1,4 +1,3 @@
-import type { Scene } from '../scene'
 import { cacheMaterial, generateCacheKey, getCachedMaterial } from './cache'
 import { ColorInput, toColor3 } from './color-utils'
 
@@ -10,7 +9,7 @@ export interface GlassConfig {
   indexOfRefraction?: number
 }
 
-export function createGlassMaterial(scene: Scene, config: GlassConfig = {}): BABYLON.Material {
+export function createGlassMaterial(scene: BABYLON.Scene, config: GlassConfig = {}): BABYLON.Material {
   // Parse color if provided
   const parsedTint = config.tint ? toColor3(config.tint) : undefined
 

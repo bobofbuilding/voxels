@@ -1,12 +1,11 @@
 import { isTablet } from '../../../common/helpers/detector'
 import Connector from '../../connector'
-import type { Scene } from '../../scene'
 import { MinimapSettings } from '../../minimap'
 
-export default function MobileButtons({ connector, scene, minimapSettings }: { connector: Connector; scene: Scene; minimapSettings: MinimapSettings }) {
+export default function MobileButtons({ connector, scene, minimapSettings }: { connector: Connector; scene: BABYLON.Scene; minimapSettings: MinimapSettings }) {
   return (
     <div class="mobile-buttons">
-      <div style={(isTablet() && scene.config.isGrid && { bottom: '200px' }) as any} className="mobile-controls-container">
+      <div style={(isTablet() && window.config.isGrid && { bottom: '200px' }) as any} className="mobile-controls-container">
         <button className="camera-view-button hex-button" onClick={() => connector.controls.togglePerspective()}>
           Zoom
         </button>

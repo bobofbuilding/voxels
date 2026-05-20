@@ -29,6 +29,7 @@ const types: Readonly<FeatureType[]> = [
   'vid-screen',
   'vox-model',
   'youtube',
+  'showbox',
 ] as const
 
 const p = {} as Parcel
