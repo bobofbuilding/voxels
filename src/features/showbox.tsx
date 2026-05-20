@@ -1,4 +1,4 @@
-import { h } from 'preact'
+import { Component, h } from 'preact'
 import { isMobile } from '../../common/helpers/detector'
 import { exitPointerLock } from '../../common/helpers/ui-helpers'
 import { encodeCoords } from '../../common/helpers/utils'
@@ -15,6 +15,18 @@ const DEFAULT_VOLUME = 0.7
 const MAX_VOLUME = 1
 const LIVEKIT_URL = 'https://voxels-7pvk06qt.livekit.cloud'
 const mobile = isMobile()
+
+// True when the page was opened via /live/:token and the guest pass targets this showbox.
+// The synthetic wallet `guest:*` and `?show=<uuid>` are both set by the server on redeem.
+function isGuestForShowbox(uuid: string): boolean {
+  const w = app.state.wallet
+  if (!w || !w.startsWith('guest:')) return false
+  try {
+    return new URL(window.location.href).searchParams.get('show') === uuid
+  } catch {
+    return false
+  }
+}
 
 export default class Showbox extends Feature2D<ShowboxRecord> {
   static metadata: FeatureMetadata = {
@@ -80,6 +92,10 @@ export default class Showbox extends Feature2D<ShowboxRecord> {
     if (!this.livekitRoom) {
       this.connectViewer()
     }
+    // Guest pass redirects with ?show=<uuid> - auto-open the broadcast dock so they don't have to find/click the panel.
+    if (isGuestForShowbox(this.uuid) && !this.broadcastPanel) {
+      setTimeout(() => this.openBroadcastPanel(), 250)
+    }
   }
 
   onExit = () => {
@@ -122,7 +138,7 @@ export default class Showbox extends Feature2D<ShowboxRecord> {
     if (hasRemoteBroadcaster) {
       ctx.fillStyle = '#888'
       ctx.fillText('connecting to stream...', w / 2, h / 2)
-    } else if (this.parcel.canEdit) {
+    } else if (this.parcel.canEdit || isGuestForShowbox(this.uuid)) {
       ctx.fillText('showbox', w / 2, h / 2 - 20)
       const cta = '\u25CF click here to go live'
       const tw = ctx.measureText(cta).width
@@ -476,7 +492,7 @@ export default class Showbox extends Feature2D<ShowboxRecord> {
   onClick() {
     if (!this.broadcastRoom) {
       const hasRemoteBroadcaster = [...((this.livekitRoom as any)?.remoteParticipants?.values() ?? [])].some((p: any) => p?.videoTrackPublications?.size > 0 || p?.audioTrackPublications?.size > 0)
-      if (this.parcel.canEdit && !hasRemoteBroadcaster) {
+      if ((this.parcel.canEdit || isGuestForShowbox(this.uuid)) && !hasRemoteBroadcaster) {
         this.openBroadcastPanel()
       } else {
         this.startBroadcastAudio()
@@ -517,6 +533,7 @@ class Editor extends FeatureEditor<Showbox> {
           <Position feature={this.props.feature} key={this.props.feature.position.toString()} />
           <Scale feature={this.props.feature} key={this.props.feature.scale.toString()} />
           <Rotation feature={this.props.feature} key={this.props.feature.rotation.toString()} />
+          <GuestPasses feature={this.props.feature} />
           <Advanced>
             <FeatureID feature={this.props.feature} />
             <SetParentDropdown feature={this.props.feature} />
@@ -539,3 +556,156 @@ class Editor extends FeatureEditor<Showbox> {
 }
 
 Showbox.Editor = Editor
+
+// Owner-facing panel inside the Showbox editor. Create/list/revoke guest pass links
+// that let an invited broadcaster (artist, speaker, DJ) go live on this showbox without an account.
+type Pass = { token: string; parcel_id: number; feature_uuid: string; name: string; created_at: string; revoked_at: string | null }
+
+class GuestPasses extends Component<{ feature: Showbox }, { passes: Pass[]; loading: boolean; name: string; creating: boolean; error: string | null }> {
+  state = { passes: [] as Pass[], loading: true, name: '', creating: false, error: null as string | null }
+
+  componentDidMount() {
+    this.refresh()
+  }
+
+  parcelId() {
+    return this.props.feature.parcel.id
+  }
+
+  featureUuid() {
+    return this.props.feature.uuid
+  }
+
+  async refresh() {
+    try {
+      const r = await fetch(`/api/parcels/${this.parcelId()}/guest-passes`, { credentials: 'include' })
+      const j = await r.json()
+      const all: Pass[] = j.passes ?? []
+      this.setState({ passes: all.filter((p) => p.feature_uuid === this.featureUuid()), loading: false })
+    } catch {
+      this.setState({ loading: false })
+    }
+  }
+
+  async create() {
+    const name = this.state.name.trim()
+    if (!name) {
+      this.setState({ error: 'Pick a name first' })
+      return
+    }
+    this.setState({ creating: true, error: null })
+    try {
+      const r = await fetch(`/api/parcels/${this.parcelId()}/guest-passes`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ feature_uuid: this.featureUuid(), name }),
+      })
+      const j = await r.json()
+      if (!j.success) throw new Error(j.error || 'Could not create link')
+      this.setState({ name: '' })
+      await this.refresh()
+    } catch (e: any) {
+      this.setState({ error: e?.message ?? 'Could not create link' })
+    } finally {
+      this.setState({ creating: false })
+    }
+  }
+
+  async revoke(token: string) {
+    if (!confirm('Revoke this link? They will be kicked if currently live.')) return
+    await fetch(`/api/parcels/${this.parcelId()}/guest-passes/${encodeURIComponent(token)}`, {
+      method: 'DELETE',
+      credentials: 'include',
+    }).catch(() => {})
+    await this.refresh()
+  }
+
+  copy(text: string) {
+    navigator.clipboard.writeText(text).catch(() => {})
+  }
+
+  liveUrl(token: string) {
+    return `${window.location.origin}/live/${token}`
+  }
+
+  showUrl() {
+    const p = this.props.feature.parcel
+    const center = new BABYLON.Vector3((p.x1 + p.x2) / 2, p.y1, (p.z1 + p.z2) / 2)
+    const coords = encodeCoords({ position: center, rotation: new BABYLON.Vector3(0, 0, 0) })
+    return `${window.location.origin}/play?coords=${encodeURIComponent(coords)}&show=${this.featureUuid()}`
+  }
+
+  render() {
+    if (!this.props.feature.parcel.canEdit) return null
+    const active = this.state.passes.filter((p) => !p.revoked_at)
+    const revoked = this.state.passes.filter((p) => p.revoked_at)
+
+    return (
+      <div className="f">
+        <label>Guest broadcast links</label>
+        <small>One-tap broadcast link for someone without a voxels account - artists, speakers, anyone you invite. They land on this showbox with a go-live button. Their chosen name floats above their avatar, no label.</small>
+
+        <div className="f">
+          <label>share-with-audience show link</label>
+          <input type="text" readOnly value={this.showUrl()} onClick={(e) => (e.currentTarget as HTMLInputElement).select()} />
+          <small>Post on socials. Drops viewers in front of this showbox.</small>
+        </div>
+
+        <div className="f">
+          <label>name on stream</label>
+          <input
+            type="text"
+            value={this.state.name}
+            placeholder="e.g. DJ ANON, Dr Lee, ..."
+            onChange={(e) => this.setState({ name: e.currentTarget.value })}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') this.create()
+            }}
+          />
+          <button onClick={() => this.create()} disabled={this.state.creating}>
+            {this.state.creating ? 'creating...' : 'create link'}
+          </button>
+          {this.state.error && <div style={{ color: '#dc1e1e' }}>{this.state.error}</div>}
+        </div>
+
+        {this.state.loading && <small>loading...</small>}
+
+        {active.length > 0 && (
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <tbody>
+              {active.map((p) => (
+                <tr key={p.token}>
+                  <td>
+                    <strong>{p.name}</strong>
+                    <br />
+                    <input type="text" readOnly value={this.liveUrl(p.token)} onClick={(e) => (e.currentTarget as HTMLInputElement).select()} style={{ width: '100%' }} />
+                  </td>
+                  <td style={{ verticalAlign: 'top' }}>
+                    <button onClick={() => this.copy(this.liveUrl(p.token))}>copy</button>
+                    <button onClick={() => this.revoke(p.token)}>revoke</button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+
+        {revoked.length > 0 && (
+          <details>
+            <summary>{revoked.length} revoked</summary>
+            <ul>
+              {revoked.map((p) => (
+                <li key={p.token}>
+                  <small>
+                    {p.name} - revoked {new Date(p.revoked_at!).toLocaleDateString()}
+                  </small>
+                </li>
+              ))}
+            </ul>
+          </details>
+        )}
+      </div>
+    )
+  }
+}
