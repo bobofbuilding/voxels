@@ -359,6 +359,43 @@ export default class Showbox extends Feature2D<ShowboxRecord> {
     screenChk.type = 'checkbox'
     screenOpt.append(screenChk, ' use screenshare instead of camera')
 
+    // share row - one-click copy or post the show link, so the broadcaster can drop it on X / instagram without leaving the dock.
+    const p = this.parcel
+    const center = new BABYLON.Vector3((p.x1 + p.x2) / 2, p.y1, (p.z1 + p.z2) / 2)
+    const showCoords = encodeCoords({ position: center, rotation: new BABYLON.Vector3(0, 0, 0) })
+    const showUrl = `${window.location.origin}/play?coords=${encodeURIComponent(showCoords)}&show=${this.uuid}`
+
+    const shareRow = document.createElement('div')
+    Object.assign(shareRow.style, { display: 'flex', flexDirection: 'column', gap: '4px', borderTop: '1px solid #222', borderBottom: '1px solid #222', padding: '8px 0' })
+    const shareLabel = document.createElement('label')
+    shareLabel.textContent = 'show link'
+    shareLabel.style.color = '#888'
+    const shareInput = document.createElement('input')
+    shareInput.type = 'text'
+    shareInput.readOnly = true
+    shareInput.value = showUrl
+    Object.assign(shareInput.style, { width: '100%', background: '#1a1a1a', color: '#f5f5f0', border: '1px solid #333', padding: '4px', fontFamily: 'inherit' })
+    shareInput.onclick = () => shareInput.select()
+    const shareBtnRow = document.createElement('div')
+    Object.assign(shareBtnRow.style, { display: 'flex', gap: '0.5rem' })
+    const copyBtn = document.createElement('button')
+    copyBtn.textContent = 'copy'
+    Object.assign(copyBtn.style, { background: '#333', color: '#f5f5f0', border: '0', padding: '6px 12px', cursor: 'pointer', fontFamily: 'inherit', flex: '1' })
+    copyBtn.onclick = () => {
+      navigator.clipboard.writeText(showUrl).catch(() => {})
+      copyBtn.textContent = 'copied'
+      setTimeout(() => (copyBtn.textContent = 'copy'), 1500)
+    }
+    const xBtn = document.createElement('button')
+    xBtn.textContent = 'post on x'
+    Object.assign(xBtn.style, { background: '#333', color: '#f5f5f0', border: '0', padding: '6px 12px', cursor: 'pointer', fontFamily: 'inherit', flex: '1' })
+    xBtn.onclick = () => {
+      const text = `going live in voxels - ${showUrl}`
+      window.open(`https://x.com/intent/tweet?text=${encodeURIComponent(text)}`, '_blank', 'noopener')
+    }
+    shareBtnRow.append(copyBtn, xBtn)
+    shareRow.append(shareLabel, shareInput, shareBtnRow)
+
     const status = document.createElement('div')
     status.style.color = '#888'
 
@@ -380,7 +417,7 @@ export default class Showbox extends Feature2D<ShowboxRecord> {
     row.style.gap = '0.5rem'
     row.append(goBtn, closeBtn)
 
-    panel.append(title, camLabel, camSel, micLabel, micSel, screenOpt, status, row)
+    panel.append(title, camLabel, camSel, micLabel, micSel, screenOpt, shareRow, status, row)
     document.body.appendChild(panel)
 
     navigator.mediaDevices.enumerateDevices().then((devices) => {
@@ -406,7 +443,7 @@ export default class Showbox extends Feature2D<ShowboxRecord> {
         goBtn.textContent = 'go live'
         this.setPreview()
         panel.querySelector('span[data-dot]')?.remove()
-        ;[title, camLabel, camSel, micLabel, micSel, screenOpt, status].forEach((el) => ((el as HTMLElement).style.display = ''))
+        ;[title, camLabel, camSel, micLabel, micSel, screenOpt, shareRow, status].forEach((el) => ((el as HTMLElement).style.display = ''))
         Object.assign(panel.style, {
           top: '50%',
           left: '50%',
@@ -462,7 +499,7 @@ export default class Showbox extends Feature2D<ShowboxRecord> {
         goBtn.textContent = 'stop'
         goBtn.disabled = false
         status.textContent = ''
-        ;[title, camLabel, camSel, micLabel, micSel, screenOpt, status].forEach((el) => ((el as HTMLElement).style.display = 'none'))
+        ;[title, camLabel, camSel, micLabel, micSel, screenOpt, shareRow, status].forEach((el) => ((el as HTMLElement).style.display = 'none'))
         Object.assign(panel.style, {
           top: '12px',
           left: 'auto',
