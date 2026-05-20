@@ -469,7 +469,7 @@ export default class Showbox extends Feature2D<ShowboxRecord> {
       }
       mobileExtrasBtn = document.createElement('button')
       mobileExtrasBtn.type = 'button'
-      mobileExtrasBtn.textContent = 'share & emotes'
+      mobileExtrasBtn.textContent = 'emotes'
       Object.assign(mobileExtrasBtn.style, {
         display: 'none',
         background: 'transparent',
@@ -485,9 +485,8 @@ export default class Showbox extends Feature2D<ShowboxRecord> {
       })
       mobileExtrasBtn.onclick = () => {
         mobileExtrasOpen = !mobileExtrasOpen
-        shareRow.style.display = mobileExtrasOpen ? 'flex' : 'none'
         moveRow.style.display = mobileExtrasOpen ? 'flex' : 'none'
-        mobileExtrasBtn!.textContent = mobileExtrasOpen ? 'hide share & emotes' : 'share & emotes'
+        mobileExtrasBtn!.textContent = mobileExtrasOpen ? 'hide emotes' : 'emotes'
       }
     }
     if (mobile) {
@@ -641,10 +640,11 @@ export default class Showbox extends Feature2D<ShowboxRecord> {
     const copyBtn = document.createElement('button')
     copyBtn.textContent = 'copy'
     Object.assign(copyBtn.style, { background: '#333', color: '#f5f5f0', border: '0', padding: '8px 12px', cursor: 'pointer', fontFamily: 'inherit', flex: '1', minHeight: '36px' })
+    const copyBtnLabel = mobile ? 'copy link for fans' : 'copy'
     copyBtn.onclick = () => {
       navigator.clipboard.writeText(showUrl).catch(() => {})
       copyBtn.textContent = 'copied'
-      setTimeout(() => (copyBtn.textContent = 'copy'), 1500)
+      setTimeout(() => (copyBtn.textContent = copyBtnLabel), 1500)
     }
     const xBtn = document.createElement('button')
     xBtn.textContent = 'post on x'
@@ -655,6 +655,12 @@ export default class Showbox extends Feature2D<ShowboxRecord> {
     }
     shareBtnRow.append(copyBtn, xBtn)
     shareRow.append(shareLabel, shareInput, shareBtnRow)
+    if (mobile) {
+      shareLabel.textContent = 'fan link'
+      shareInput.style.display = 'none'
+      copyBtn.textContent = 'copy link for fans'
+      Object.assign(copyBtn.style, { background: '#dc1e1e', fontWeight: 'bold', flex: '2' })
+    }
 
     // quick-access dance + emoji reactions. Hidden until live - pre-stream they just add noise,
     // mid-stream they are the main way to react to chat without leaving the dock.
@@ -844,9 +850,9 @@ export default class Showbox extends Feature2D<ShowboxRecord> {
         flexShrink: '0',
         paddingBottom: 'max(8px, env(safe-area-inset-bottom))',
       })
-      dockFooter.append(row)
+      dockFooter.append(shareRow, row)
 
-      panel.append(title, identityRow, deviceRow, screenOpt, deviceToggle, chatRow, dockFooter, mobileExtrasBtn!, shareRow, moveRow, status)
+      panel.append(title, identityRow, deviceRow, screenOpt, deviceToggle, chatRow, dockFooter, mobileExtrasBtn!, moveRow, status)
     } else {
       panel.append(title, identityRow, deviceRow, screenOpt, deviceToggle, shareRow, moveRow, status, row)
     }
@@ -1027,7 +1033,7 @@ export default class Showbox extends Feature2D<ShowboxRecord> {
         deviceToggle.textContent = 'change camera or mic'
         if (mobile) {
           mobileExtrasOpen = false
-          shareRow.style.display = 'none'
+          shareRow.style.display = 'flex'
           moveRow.style.display = 'none'
           if (mobileExtrasBtn) mobileExtrasBtn.style.display = 'block'
         } else {
