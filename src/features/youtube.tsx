@@ -246,6 +246,11 @@ export default class Youtube extends Feature2D<YoutubeRecord> {
   async setPreview() {
     if (this.disposed) return
 
+    if (this.isTwitch) {
+      this.setTwitchPreview()
+      return
+    }
+
     let texture: BABYLON.Texture
     if (this.description.previewUrl) {
       texture = await fetchTexture(this.scene, this.previewUrl, this.abortController.signal, { transparent: false, stretch: true })
@@ -267,7 +272,60 @@ export default class Youtube extends Feature2D<YoutubeRecord> {
     }
   }
 
+  setTwitchPreview() {
+    if (this.disposed) return
+    const channel = this.videoId ?? 'unknown'
+    const w = 640
+    const h = 360
+    const tex = new BABYLON.DynamicTexture(this.uniqueEntityName('tpreview' as any), { width: w, height: h }, this.scene, false)
+    const ctx = tex.getContext() as CanvasRenderingContext2D
+    const font = 'bold 18px "Source Code Pro", monospace'
+
+    ctx.fillStyle = '#1a1a1e'
+    ctx.fillRect(0, 0, w, h)
+
+    ctx.font = font
+    ctx.textBaseline = 'middle'
+    ctx.textAlign = 'center'
+    ctx.fillStyle = '#9146ff'
+    ctx.fillText('twitch / ' + channel, w / 2, h / 2 - 40)
+
+    ctx.fillStyle = '#f5f5f0'
+    ctx.fillText('twitch embedding is disabled', w / 2, h / 2)
+
+    const cta = '\u25B6 open on twitch.tv'
+    const tw = ctx.measureText(cta).width
+    const padX = 14
+    const padY = 10
+    const bw = tw + padX * 2
+    const bh = 20 + padY * 2
+    const bx = w / 2 - bw / 2
+    const by = h / 2 + 30
+    ctx.fillStyle = 'rgba(145,70,255,0.85)'
+    ctx.fillRect(bx, by, bw, bh)
+    ctx.fillStyle = '#f5f5f0'
+    ctx.fillText(cta, w / 2, by + bh / 2)
+
+    tex.update()
+    tex.hasAlpha = false
+
+    const material = new BABYLON.StandardMaterial(this.uniqueEntityName('material'), this.scene)
+    material.diffuseTexture = tex
+    material.backFaceCulling = false
+    material.zOffset = -4
+    material.specularColor.set(0, 0, 0)
+    material.emissiveColor.set(1, 1, 1)
+    material.blockDirtyMechanism = true
+
+    if (this.mesh) this.mesh.material = material
+  }
+
   onClick() {
+    if (this.isTwitch) {
+      window.open('https://twitch.tv/' + this.videoId, '_blank')
+      this.parcelScript?.dispatch('click', this, {})
+      return
+    }
     if (this.playing) {
       if (this.paused) {
         this.unpause()

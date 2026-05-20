@@ -639,7 +639,7 @@ export default class ParcelScript {
     if (!(f as any)['play']) return
 
     const setRollOffFactor = (f: any): number => {
-      if (!['audio', 'youtube', 'video'].includes(f.type)) return (f.description as any).rollOffFactor
+      if (!['audio', 'youtube', 'video', 'showbox'].includes(f.type)) return (f.description as any).rollOffFactor
       if (this.isWithin()) return (f.description as any).rollOffFactor
       if (((f.description as any).rolloffFactor || 1) >= 0.8) f.rollOffFactor
       return 1.2

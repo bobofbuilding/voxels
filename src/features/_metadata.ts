@@ -20,6 +20,7 @@ import TextInput from './text-input'
 import SliderInput from './slider-input'
 import Video from './video'
 import VidScreen from './vid-screen'
+import Showbox from './showbox'
 import Youtube from './youtube'
 import { FeatureType } from '../../common/messages/feature'
 import Group from './group'
@@ -28,6 +29,7 @@ import Asset from './asset'
 export const featuresInfo: FeatureMetadata[] = [
   Audio.metadata,
   Boombox.metadata,
+  Showbox.metadata,
   Button.metadata,
   Cube.metadata,
   GuestBook.metadata,
@@ -66,6 +68,7 @@ export const featureTemplates: Record<PlaceableFeatureTypes, FeatureTemplate> = 
   megavox: Megavox.template,
   lantern: Lantern.template,
   boombox: Boombox.template,
+  showbox: Showbox.template,
   'guest-book': GuestBook.template,
   'poap-dispenser': PoapDispenser.template,
   'spawn-point': SpawnPoint.template,

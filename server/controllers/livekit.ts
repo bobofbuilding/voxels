@@ -44,7 +44,8 @@ export default async function LivekitController(db: Db, passport: PassportStatic
 
   // passport.authenticate('jwt', { session: false }),
   app.get('/api/rooms/:name/token', cache(false), async (req, res) => {
-    const wallet = req.user ? (req.user as Express.User & { wallet: string }).wallet : `anon-${Math.random().toString(36).slice(2)}`
+    const wallet = req.user ? (req.user as Express.User & { wallet: string }).wallet : 'anon'
+    const identity = `${wallet}-${Math.random().toString(36).slice(2, 10)}`
 
     // if (!wallet) {
     //   res.status(401).send({ error: 'Not Authorized' })
@@ -69,8 +70,6 @@ export default async function LivekitController(db: Db, passport: PassportStatic
       room = await svc.createRoom(opts)
       refresh()
     }
-
-    const identity = wallet
 
     const at = new AccessToken(process.env.LIVEKIT_API_KEY, process.env.LIVEKIT_API_SECRET, {
       identity,

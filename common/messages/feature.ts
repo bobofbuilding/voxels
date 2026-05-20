@@ -305,6 +305,7 @@ export const YoutubeRecord = t.intersection(
         screenRatio: t.string,
         volume: t.number,
         loop: t.boolean,
+        broadcasting: t.boolean, // legacy: upgraded to showbox at load
       },
       TYPE_SPECIFIC,
     ),
@@ -312,6 +313,24 @@ export const YoutubeRecord = t.intersection(
   'YoutubeRecord',
 )
 export type YoutubeRecord = t.TypeOf<typeof YoutubeRecord>
+
+export const ShowboxRecord = t.intersection(
+  [
+    FeatureCommon,
+    t.type({
+      type: t.literal('showbox'),
+    }),
+    t.partial(
+      {
+        rolloffFactor: t.number,
+        volume: t.number,
+      },
+      TYPE_SPECIFIC,
+    ),
+  ],
+  'ShowboxRecord',
+)
+export type ShowboxRecord = t.TypeOf<typeof ShowboxRecord>
 
 export const NftImageRecord = t.intersection(
   [
@@ -734,6 +753,7 @@ export const FeatureRecord = t.union(
     VidScreenRecord,
     VideoRecord,
     YoutubeRecord,
+    ShowboxRecord,
     NftImageRecord,
     CollectibleModelRecord,
     AudioRecord,
