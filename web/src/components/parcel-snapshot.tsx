@@ -4,14 +4,25 @@ import { format } from 'timeago.js'
 import config from '../../../common/config'
 import ParcelHelper from '../../../common/helpers/parcel-helper'
 import { uploadJSONToIPFS } from '../../../common/helpers/upload-media'
-import { ApiStatusResponse } from '../../../common/messages/api-parcels'
-import { validateMessageResponse } from '../../../common/messages/validate'
+import type { ApiStatusResponse } from '../../../common/messages/api-parcels'
 import { saveSnapshot } from '../helpers/save-helper'
 import { app } from '../state'
 import { AssetType } from './Editable/editable'
 import EditableName from './Editable/editable-name'
 import { PanelType } from './panel'
-import { ParcelSnapshotRecord } from './parcel-snapshots'
+
+export type ParcelSnapshotRecord = {
+  id: number
+  is_snapshot?: boolean
+  parcel_id: number
+  content: Record<string, any>
+  snapshot_name?: string
+  ipfs_hash?: string
+  name?: string
+  updated_at?: string
+  created_at?: string
+  content_hash?: string
+}
 
 const headers = {
   Accept: 'application/json',
@@ -56,7 +67,7 @@ export default class ParcelSnapshot extends Component<Props, State> {
   }
 
   get isOwner() {
-    return this.parcel && this.parcel.owner.toLowerCase() === app.state.wallet?.toLowerCase()
+    return app.isOwner(this.parcel?.owner)
   }
 
   setHelper() {
@@ -135,7 +146,8 @@ export default class ParcelSnapshot extends Component<Props, State> {
       body: JSON.stringify({ parcel_version_id: this.props.version.id }),
     })
 
-    const r = await validateMessageResponse(ApiStatusResponse)(p)
+    if (!p.ok) throw p
+    const r = (await p.json()) as ApiStatusResponse
     if (r.success) {
       setTimeout(() => {
         this.setState({ saving: false })
@@ -148,14 +160,14 @@ export default class ParcelSnapshot extends Component<Props, State> {
     }
   }
 
-  save(content?: Record<string, any>) {
+  async save(content?: Record<string, any>) {
     if (!content) {
       alert('No content')
       return
     }
     this.setState({ saving: true })
 
-    return fetch(`/grid/parcels/${this.parcel.id}`, {
+    const res = await fetch(`/grid/parcels/${this.parcel.id}`, {
       method: 'put',
       credentials: 'include',
       headers: {
@@ -164,17 +176,16 @@ export default class ParcelSnapshot extends Component<Props, State> {
       },
       body: JSON.stringify({ content }),
     })
-      .then(validateMessageResponse(ApiStatusResponse))
-      .then((r: ApiStatusResponse) => {
-        if (!r.success) {
-          alert('Error reverting.\n\nPlease jump on discord and report the error.')
-        }
-        // time out for the sake of UX
-        setTimeout(() => {
-          this.setState({ saving: false })
-          this.props.refresh && this.props.refresh()
-        }, 1500)
-      })
+    if (!res.ok) throw res
+    const r = (await res.json()) as ApiStatusResponse
+    if (!r.success) {
+      alert('Error reverting.\n\nPlease jump on discord and report the error.')
+    }
+    // time out for the sake of UX
+    setTimeout(() => {
+      this.setState({ saving: false })
+      this.props.refresh && this.props.refresh()
+    }, 1500)
   }
 
   remove() {

@@ -1,7 +1,7 @@
 import { Express } from 'express'
 import { encodeCoords, fetchFromMPServer } from '../../common/helpers/utils'
 import cache from '../cache'
-import updateAvatar, { getAvatarSuspended, suspendAvatar, unsuspendAvatar } from '../handlers/update-avatar'
+import updateAvatar, { getAvatarSuspended, suspendAvatar, unsuspendAvatar, updateAvatarAppearance } from '../handlers/update-avatar'
 import { createRequestHandlerForQuery, queryAndCallback } from '../lib/query-helpers'
 
 import { ethers } from 'ethers'
@@ -67,6 +67,47 @@ export default function AvatarsController(db: Db, passport: PassportStatic, app:
     res.status(200).json({ success: true, assets: result.rows })
   })
 
+  app.get('/api/wearables/free.json', cache('60 seconds'), async (_req, res) => {
+    const result = await db.query(
+      'sql/wearables/free-wearables',
+      `
+      select
+        w.id::text as id,
+        w.name,
+        w.description,
+        w.author,
+        w.issues,
+        w.token_id,
+        w.created_at,
+        w.updated_at,
+        w.hash,
+        w.rejected_at,
+        w.offer_prices,
+        w.collection_id,
+        w.custom_attributes,
+        w.suppressed,
+        w.category,
+        w.default_settings,
+        w.is_free
+        c.address as collection_address,
+        c.chainid as chain_id,
+        c.name as collection_name
+      from
+        wearables w
+      join
+        collections c on c.id = w.collection_id
+      where
+        w.is_free = true
+        and w.suppressed is not true
+        and w.token_id is not null
+      order by
+        w.name
+      `,
+      [],
+    )
+    res.status(200).json({ success: true, wearables: result.rows })
+  })
+
   // Route to teleport to that avatar
   app.get('/join/:nameOrWallet', cache('5 seconds'), async (req, res) => {
     const result = await db.query(
@@ -113,17 +154,9 @@ export default function AvatarsController(db: Db, passport: PassportStatic, app:
 
   app.get('/api/avatar/:wallet/suspended', passport.authenticate('jwt', { session: false }), getAvatarSuspended)
   app.post('/api/avatar', passport.authenticate('jwt', { session: false }), updateAvatar())
+  app.post('/api/avatar/appearance', passport.authenticate('jwt', { session: false }), updateAvatarAppearance)
   app.post('/api/avatar/:wallet/suspend', passport.authenticate('jwt', { session: false }), suspendAvatar)
   app.post('/api/avatar/:wallet/unsuspend', passport.authenticate('jwt', { session: false }), unsuspendAvatar)
-
-  app.get('/api/avatar/:wallet/parcels-count.json', cache('15 minutes'), async (req, res) => {
-    try {
-      const { parcels } = await Avatar.getParcelsCount(req.params.wallet)
-      res.status(200).json({ success: true, parcels })
-    } catch (err: any) {
-      res.status(400).json({ success: false, message: err.toString() })
-    }
-  })
 
   app.post('/api/avatar/owns/:chain_identifier/:contract/:token_id', cache('1 minute'), passport.authenticate(['jwt', 'anonymous'], { session: false }), async (req, res) => {
     const wallet = (req.user as Express.User & { wallet?: string })?.wallet
@@ -208,11 +241,6 @@ export default function AvatarsController(db: Db, passport: PassportStatic, app:
     createRequestHandlerForQuery(db, 'avatars/get-avatar-costume', 'costume', (req) => [req.params.wallet]),
   )
 
-  app.get('/api/avatars-count.json', async (req, res) => {
-    const result = await db.query('embedded/get-avatar-count', 'select count(owner) from avatars')
-    res.status(200).send(result.rows[0].count)
-  })
-
   app.get(
     '/api/avatar/:wallet/name.json',
     cache('30 seconds'),
@@ -260,4 +288,15 @@ export default function AvatarsController(db: Db, passport: PassportStatic, app:
     cache('5 minutes'),
     createRequestHandlerForQuery(db, 'avatars/get-score-by-wallet', 'scores', (req) => [req.params.wallet || '']),
   )
+
+  app.get('/api/avatars/search', cache('10 seconds'), async (req, res) => {
+    const q = (req.query.q as string) || ''
+    if (!q.trim()) {
+      res.json([])
+      return
+    }
+    const like = `%${q}%`
+    const result = await db.query('avatars/search', `select name, owner as wallet from avatars where lower(name) ilike lower($1) or lower(owner) ilike lower($1) limit 10`, [like])
+    res.json(result.rows)
+  })
 }

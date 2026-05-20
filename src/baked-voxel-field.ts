@@ -6,11 +6,10 @@ import { getFieldShape } from '../common/voxels/helpers'
 import type Parcel from './parcel'
 import { createComlinkWorker } from '../common/helpers/comlink-worker'
 import type { BakedVoxelizedMesh, BakedVoxelizerJobType, BakedVoxelizerWorkerAPI, ParcelVoxels } from './baked-voxelizer-worker'
-import type { Scene } from './scene'
 import type { ParcelMesher } from './parcel-mesher'
 
 export class BakedVoxelField {
-  private readonly scene: Scene
+  private readonly scene: BABYLON.Scene
   private readonly whiteTexture: BABYLON.Texture
   private workerAPI: BakedVoxelizerWorkerAPI | null = null
   private workerCleanup: (() => void) | null = null
@@ -18,7 +17,7 @@ export class BakedVoxelField {
   private jobId = 0
   private mesher: ParcelMesher
 
-  constructor(scene: Scene, mesher: ParcelMesher) {
+  constructor(scene: BABYLON.Scene, mesher: ParcelMesher) {
     this.scene = scene
     this.mesher = mesher
 
@@ -68,24 +67,24 @@ export class BakedVoxelField {
     // need uniforms for brightness, ambient, lightDirection, fogDensity, fogColor
     const mtrl = createLightmapMaterial(this.scene, `parcel_${parcel.id}`)
     mtrl.blockDirtyMechanism = false
-    this.scene.environment?.setShaderParameters(mtrl)
+    window.environment?.setShaderParameters(mtrl)
     // set default white textures until things are fetched
     mtrl.setTexture('lightMap', this.whiteTexture)
     mtrl.setTexture('tileMap', this.whiteTexture)
 
     const customTileset = parcel.tileset
 
-    var src
-
     if (customTileset) {
-      src = process.env.IMG_HOST + '/' + customTileset.slice(1)
+      const src = process.env.IMG_HOST + '/' + customTileset.slice(1)
+      // invertY must match the unbaked path (voxel-field.ts setVoxelMaterial).
+      // Mismatching it flips the atlas vertically, which makes the shader sample
+      // the wrong tile row (e.g. grid -> blob) after baking.
+      const tilemap = new BABYLON.Texture(src, this.scene, false, false, BABYLON.Texture.BILINEAR_SAMPLINGMODE, () => {
+        mtrl.setTexture('tileMap', tilemap)
+      })
     } else {
-      src = '/textures/atlas-ao.png'
+      mtrl.setTexture('tileMap', this.mesher.defaultTileset)
     }
-
-    const tilemap = new BABYLON.Texture(src, this.scene, false, true, BABYLON.Texture.BILINEAR_SAMPLINGMODE, () => {
-      mtrl.setTexture('tileMap', tilemap)
-    })
 
     mtrl.setTexture('lightMap', texture)
 

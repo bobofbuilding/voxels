@@ -9,7 +9,6 @@ const space = {
   spaceId: 'scratchpad',
   name: 'Scratchpad',
   owner: 'dev',
-  owner_name: '',
   width: 14,
   height: 12,
   depth: 20,

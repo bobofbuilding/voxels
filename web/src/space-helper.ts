@@ -1,14 +1,14 @@
 import { FeatureRecord } from '../../common/messages/feature'
 import type { SimpleSpaceRecord, SpaceRecord } from '../../common/messages/space'
+import { AvatarRef, avatarName } from '../../common/messages/avatar-ref'
 
 export default class SpaceHelper {
   id: string
   slug: string | null = null
   name: string | null = null
   height: number
-  owner: string
+  owner: AvatarRef
   area: number | null = null
-  owner_name: string | undefined = undefined
 
   width: number | null = null
   depth: number | null = null
@@ -50,6 +50,6 @@ export default class SpaceHelper {
   }
 
   get ownerName() {
-    return this.owner.slice(0, 10).toLowerCase() + '...'
+    return avatarName(this.owner)
   }
 }

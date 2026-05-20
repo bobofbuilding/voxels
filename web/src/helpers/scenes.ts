@@ -2,15 +2,12 @@ import * as ct from 'color-temperature'
 import { isMobile } from '../../../common/helpers/detector'
 
 export const createWearableScene = (canvasOrContext: BABYLON.Nullable<HTMLCanvasElement | OffscreenCanvas | WebGLRenderingContext | WebGL2RenderingContext>) => {
-  const antiAlias = !isMobile()
-  const engine = new BABYLON.Engine(canvasOrContext, antiAlias)
+  const engine = new BABYLON.Engine(canvasOrContext)
   const scene = new BABYLON.Scene(engine)
-  scene.autoClear = false
+  scene.clearColor.set(1, 0, 0.6, 1)
 
   const background = new BABYLON.Scene(engine)
   background.createDefaultCamera()
-
-  const pp = new BABYLON.PostProcess('', 'Wobble', [], [], 0, background.activeCamera)
 
   const camera = new BABYLON.ArcRotateCamera('wearable-camera', Math.PI / 2, Math.PI / 3, 1, new BABYLON.Vector3(0, 0, 0), scene)
   camera.lowerRadiusLimit = camera.upperRadiusLimit = camera.radius

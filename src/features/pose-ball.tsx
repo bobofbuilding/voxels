@@ -1,3 +1,4 @@
+import { setCameraPosition, setCameraRotation } from '../utils/camera'
 import { Feature3D } from './feature'
 import { Advanced, FeatureEditor, FeatureEditorProps, FeatureID, SetParentDropdown, Toolbar, UuidReadOnly } from '../ui/features'
 import { Position, Scale, Rotation } from '../../web/src/components/editor'
@@ -9,7 +10,7 @@ import { EmoteAnimation, Idle } from '../states'
 export default class PoseBall extends Feature3D<PoseBallRecord> {
   public static metadata: FeatureMetadata = {
     title: 'PoseBall',
-    subtitle: 'A poseball',
+    subtitle: 'avatar poses',
     type: 'pose-ball',
     image: '/icons/spawn-point.png',
   }
@@ -79,13 +80,13 @@ export default class PoseBall extends Feature3D<PoseBallRecord> {
 
     PoseBall.activePoses++
 
-    this.scene.cameraRotation = this.rotation
+    setCameraRotation(this.scene, this.rotation)
 
     const position = this.positionInGrid.clone()
     position.y += AnimationYOffset(animation)
     position.y += this.avatar.height
     position.y += this.scale.y / 2
-    this.scene.cameraPosition = position
+    setCameraPosition(this.scene, position)
 
     this.currentAnimation = new EmoteAnimation(animation)
 

@@ -1,10 +1,9 @@
 import { Component } from 'preact'
 import EventCalendar from '../../../web/src/components/event-calendar'
-import { Scene } from '../../scene'
 
 interface Props {
   onTeleport?: () => void
-  scene: Scene
+  scene: BABYLON.Scene
 }
 
 export class Home extends Component<Props> {
