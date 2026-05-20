@@ -1,6 +1,5 @@
 import { ComponentChildren } from 'preact'
 import { isDesktop, isMobile } from '../../common/helpers/detector'
-import type { Scene } from '../scene'
 
 export function ViewOnCondition({ condition, children }: { condition: boolean; children?: ComponentChildren }) {
   if (condition) {
@@ -34,8 +33,8 @@ export function DesktopOrMobile({ children }: { children?: ComponentChildren }) 
   }
 }
 
-export function OnlyOnGridOrSpace({ scene, children }: { scene: Scene; children?: ComponentChildren }) {
-  if (scene.config.isGrid || scene.config.isSpace) {
+export function OnlyOnGridOrSpace({ scene, children }: { scene: BABYLON.Scene; children?: ComponentChildren }) {
+  if (window.config.isGrid || window.config.isSpace) {
     return children as any
   } else {
     return null

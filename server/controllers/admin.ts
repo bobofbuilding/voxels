@@ -95,7 +95,7 @@ export default function AdminController(db: Db, passport: PassportStatic, app: E
         INSERT INTO 
           properties (id, address, owner, y1, y2, geometry_json, x1, x2, z1, z2, bounds, visible, island, kind)
         VALUES 
-          ($1, $2, $3, $4, $5, $6::jsonb, $7, $8, $9, $10, cube(ARRAY[$7::float8,$4::float8,$9::float8], ARRAY[$8::float8,$5::float8,$10::float8]), true, $11, $12)
+          ($1, $2, $3, $4::float8, $5::float8, $6::jsonb, $7::float8, $8::float8, $9::float8, $10::float8, cube(ARRAY[$7::float8,$4::float8,$9::float8], ARRAY[$8::float8,$5::float8,$10::float8]), true, $11, $12)
       `,
         [id, address, owner, y1, y2, geometry_json, x1c, x2c, z1c, z2c, island, kind],
       )

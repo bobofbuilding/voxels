@@ -7,6 +7,8 @@ import cachedFetch from '../src/helpers/cached-fetch'
 import { Client } from './parcel'
 import { app } from './state'
 import { wompCache } from './store/index'
+import { AvatarLink } from './components/avatar-link'
+import { avatarName } from '../../common/messages/avatar-ref'
 
 const TTL = 60
 
@@ -58,10 +60,6 @@ export default class Womp extends Component<Props, State> {
     return this.isSpaceWomp() ? `/spaces/${this.state.womp.space_id}/play?coords=${coords}` : `/play?coords=${coords}`
   }
 
-  get author() {
-    return this.state.womp.author_name || this.state.womp.author.substring(0, 10) + '...'
-  }
-
   componentDidMount() {
     this.fetchWomp(this.state.id)
 
@@ -98,7 +96,8 @@ export default class Womp extends Component<Props, State> {
     }
 
     const img = this.state.womp.image_url
-    const metaTitle = this.state.womp.author_name ? `Captured by ${this.state.womp.author_name}` : `Captured at ${this.state.womp.parcel_name || this.state.womp.space_name}`
+    const name = this.state.womp.author ? avatarName(this.state.womp.author) : null
+    const metaTitle = name ? `Captured by ${name}` : `Captured at ${this.state.womp.parcel_name || this.state.womp.space_name}`
 
     if (this.visitUrl) {
       app.visitUrl.value = this.visitUrl
@@ -133,12 +132,12 @@ export default class Womp extends Component<Props, State> {
         <h1>{this.state.womp.parcel_address}</h1>
 
         <article>
+          <figcaption>
+            <a onClick={onFullscreen}>Full screen</a>
+          </figcaption>
+
           <figure>
             <Client src={iframeUrl} parcelId={this.state.womp.parcel_id} coords={this.state.womp.coords} />
-
-            <figcaption>
-              <a onClick={onFullscreen}>Full screen</a>
-            </figcaption>
           </figure>
 
           {this.state.womp.content && (
@@ -154,7 +153,7 @@ export default class Womp extends Component<Props, State> {
             <dd>{this.props.id}</dd>
             <dt>Photographer</dt>
             <dd>
-              <a href={`/u/${this.state.womp.author}`}>{this.author}</a>
+              <AvatarLink avatar={this.state.womp.author} />
             </dd>
             <dt>{!this.isSpaceWomp() ? `Parcel` : `Space`}</dt>
             <dd>

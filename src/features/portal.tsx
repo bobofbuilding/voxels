@@ -95,7 +95,7 @@ export default class Portal extends Feature3D<PortalRecord> {
    * @returns boolean
    */
   isPortalToAnotherRealm(): boolean {
-    return (!!this.description.womp?.space_id && !this.scene.config.isSpace) || (!this.description.womp?.space_id && this.scene.config.isSpace)
+    return (!!this.description.womp?.space_id && !window.config.isSpace) || (!this.description.womp?.space_id && window.config.isSpace)
   }
 
   onClick() {

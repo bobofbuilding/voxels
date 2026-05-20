@@ -7,16 +7,13 @@ import { unmountComponentAtNode } from 'preact/compat'
 import { createFirstPersonCamera } from '../utils/fps-camera'
 import { decodeCoordsFromURL } from '../../utils/helpers'
 import { hasPointerLock } from '../../../common/helpers/ui-helpers'
-import { isSafari } from '../../../common/helpers/detector'
-import { Scene } from '../../scene'
-
 const POINTER_WHEEL_MULTIPLIER = 0.001
 export default class DesktopControls extends Controls {
   keyboardInput?: LocaleKeyboardMoveInput
   origUpdatePointerPosition?: () => void
   nerfingClickEvents = false
 
-  constructor(scene: Scene, canvas: HTMLCanvasElement) {
+  constructor(scene: BABYLON.Scene, canvas: HTMLCanvasElement) {
     super(scene, canvas)
 
     // disable picking unless in pointer lock mode
@@ -175,16 +172,6 @@ export default class DesktopControls extends Controls {
   }
 
   addPointerLockHandler() {
-    if (isSafari()) {
-      ;(<any>this.scene._inputManager)._updatePointerPosition = () => {
-        // Safari-specific override - disables pointer position updates due to compatibility issues
-        // This prevents input manager from updating pointer coordinates on Safari
-      }
-
-      this.babylonNormalMouse()
-      return
-    }
-
     // Pointerlock listener to only enable babylon picking behaviour while in pointerlock
     this.onPointerLockChange = this.onPointerLockChange.bind(this)
     document.addEventListener('pointerlockchange', this.onPointerLockChange)
@@ -270,6 +257,11 @@ export default class DesktopControls extends Controls {
 
       this.shiftKey = e.shiftKey
       this.ctrlKey = e.ctrlKey || e.metaKey
+
+      const congaCancelKeys = ['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Escape']
+      if (this.congaTarget && congaCancelKeys.includes(e.code)) {
+        this.stopConga()
+      }
 
       if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') {
         this.run()
@@ -413,10 +405,6 @@ export default class DesktopControls extends Controls {
 
     // Chrome return as promise here
     this.canvas.focus()
-
-    if (isSafari()) {
-      return
-    }
 
     const maybePromise: unknown = this.canvas.requestPointerLock()
     if (maybePromise instanceof Promise) {

@@ -460,11 +460,7 @@ export default class Audio extends Feature2D<AudioRecord> implements AudioFeatur
   }
 
   onEnter = () => {
-    if (!this.autoplay || this.scene.config.isOrbit) {
-      return
-    }
-    if (isBatterySaver()) {
-      console.log('Battery saver mode, skipping audio autoplay')
+    if (!this.autoplay || window.config.isOrbit) {
       return
     }
     audioFadeInAndPlay(this)

@@ -7,12 +7,11 @@ import { app } from '../../../web/src/state'
 import Panel, { PanelType } from '../../../web/src/components/panel'
 import { SignedInOnly } from '../../../web/src/components/parcels/permissions'
 import { FeatureMetadata, featuresInfo, FeatureTemplate, featureTemplates, PlaceableFeatureTypes } from '../../features/_metadata'
-import type { Scene } from '../../scene'
 import { requestPointerLock } from '../../../common/helpers/ui-helpers'
 
 interface Props {
   parcel?: Parcel
-  scene: Scene
+  scene: BABYLON.Scene
 }
 
 export default class AddTab extends Component<Props, any> {

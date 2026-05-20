@@ -4,8 +4,6 @@ import OurCamera from '../utils/our-camera'
 import { decodeCoords } from '../../../common/helpers/utils'
 import { getCoordsFromURL } from '../../utils/helpers'
 import { createFirstPersonCamera } from '../utils/fps-camera'
-import type { Scene } from '../../scene'
-
 export default class MobileControls extends Controls {
   shiftKey = false
   direction: BABYLON.Vector3 = new BABYLON.Vector3()
@@ -13,7 +11,7 @@ export default class MobileControls extends Controls {
   btnCameraView: HTMLElement | null = null
   btnToggleFly: HTMLElement | null = null
 
-  constructor(scene: Scene, canvas: HTMLCanvasElement) {
+  constructor(scene: BABYLON.Scene, canvas: HTMLCanvasElement) {
     super(scene, canvas)
     this.defaultSpeed = 0.25
   }

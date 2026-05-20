@@ -1,5 +1,4 @@
 import { Environment } from '../enviroments/environment'
-import type { Scene } from '../scene'
 import Controls from './controls'
 import { SpacesEnvironment } from '../enviroments/space-environment'
 import { WorldEnvironment } from '../enviroments/world-environment'
@@ -8,11 +7,11 @@ export default class XROverlay {
   webXR: BABYLON.WebXRDefaultExperience | null = null
   xrTeleportation: BABYLON.WebXRMotionControllerTeleportation | null = null
   teleportableMeshes: Set<BABYLON.AbstractMesh> = new Set()
-  scene: Scene
+  scene: BABYLON.Scene
   canvas: HTMLCanvasElement
   controls: Controls
 
-  constructor(scene: Scene, canvas: HTMLCanvasElement, controls: Controls) {
+  constructor(scene: BABYLON.Scene, canvas: HTMLCanvasElement, controls: Controls) {
     this.scene = scene
     this.canvas = canvas
     this.controls = controls
@@ -81,11 +80,11 @@ export default class XROverlay {
 
   onGroundLoaded = () => {
     // add the world colliders to the teleportation
-    if (this.scene.environment instanceof SpacesEnvironment) {
-      if (this.scene.environment.ground) this.addTeleportMesh(this.scene.environment.ground)
-    } else if (this.scene.environment instanceof WorldEnvironment) {
-      if (this.scene.environment.terrain) {
-        this.scene.environment.terrain.groundMeshes.forEach((mesh) => this.addTeleportMesh(mesh))
+    if (window.environment instanceof SpacesEnvironment) {
+      if (window.environment.ground) this.addTeleportMesh(window.environment.ground)
+    } else if (window.environment instanceof WorldEnvironment) {
+      if (window.environment.terrain) {
+        window.environment.terrain.groundMeshes.forEach((mesh) => this.addTeleportMesh(mesh))
       }
     } else {
       throw new Error('Unknown environment type')

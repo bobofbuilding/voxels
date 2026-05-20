@@ -1,6 +1,6 @@
 import Config from '../../common/config'
 import { MegavoxRecord, VoxModelRecord } from '../../common/messages/feature'
-import { Options as VoxImportOptions } from '../../common/vox-import/vox-import'
+import { Options as VoxImportOptions, voxImporter } from '../../common/vox-import/vox-import'
 import { Position, Rotation, Scale, Script } from '../../web/src/components/editor'
 import Panel from '../../web/src/components/panel'
 import { Advanced, Animation, FeatureEditor, FeatureEditorProps, FeatureID, Hyperlink, SetParentDropdown, Toolbar, TriggerEditor, UrlSourceVoxModels, UuidReadOnly } from '../ui/features'
@@ -97,7 +97,7 @@ export default class VoxModel<Description extends VoxModelRecord | MegavoxRecord
     }
     let mesh: BABYLON.Mesh
     try {
-      mesh = await this.scene.importVox(url, this._voxImportParams())
+      mesh = await voxImporter().import(url, this._voxImportParams())
       this._importError = null
       this.refreshErrorMessage()
     } catch (e) {
@@ -168,7 +168,7 @@ export default class VoxModel<Description extends VoxModelRecord | MegavoxRecord
       return
     }
 
-    const mesh = await this.scene.importVox(`${process.env.ASSET_PATH}/models/vox-five-broken.vox`, { signal: this.abortController.signal })
+    const mesh = await voxImporter().import(`${process.env.ASSET_PATH}/models/vox-five-broken.vox`, { signal: this.abortController.signal })
 
     if (this.mesh) {
       this.mesh.dispose()

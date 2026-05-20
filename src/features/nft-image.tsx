@@ -19,6 +19,7 @@ import { FeatureMetadata, FeatureTemplate } from './_metadata'
 import { Feature2D, TransparencyMode } from './feature'
 import { setTextureProperties } from './image'
 import NFTFrame from './utils/nft-frame'
+import { Action } from '../../common/messages'
 
 export function arrayBufferToDataURL(buf: ArrayBuffer, mime = 'application/octet-stream'): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -320,6 +321,8 @@ export default class NftImage extends Feature2D<NftImageRecord> {
   }
 
   onClick() {
+    this.connector.sendMetric(Action.Inspect)
+
     // I guess we'll still use the `HasGUI` for the option of opening the HTMLUI.
     this.description.hasGui && showNftImageHTMLUi(this)
   }
@@ -516,9 +519,8 @@ class Editor extends FeatureEditor<NftImage> {
 
     const r = await opensea(nftInfo.contract, nftInfo.token, nftInfo.chain, app.state.wallet, cachebust)
 
-    if (r.ownership) {
-      this.setState({ isOwner: r.ownership.owner?.address?.toLowerCase() == app.state.wallet?.toLowerCase() })
-    }
+    const helper = new OpenseaAssetHelper(r)
+    this.setState({ isOwner: helper.isOwner(app.state.wallet) })
   }
 
   onBlendModeChange = (e: string) => {

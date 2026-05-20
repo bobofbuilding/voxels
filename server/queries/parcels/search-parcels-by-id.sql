@@ -1,27 +1,27 @@
-select properties.id                                   as id,
-       y2 - y1                                         as height,
+select properties.id as id,
+       y2 - y1 as height,
        address,
        properties.kind,
-       suburbs.name                                    as suburb,
+       suburbs.name as suburb,
        properties.island,
-       properties.name                                 as name,
-       geometry_json                                   as geometry,
+       properties.name as name,
+       geometry_json as geometry,
        CAST(distance_to_center as double precision),
        CAST(distance_to_ocean as double precision),
        CAST(distance_to_closest_common as double precision),
-       lower(properties.owner)                         as owner,
-       avatars.name                                    as owner_name,
+       COALESCE(
+         (SELECT row_to_json(sub) FROM (SELECT a.id, a.name, a.owner, a.created_at FROM avatars a WHERE lower(a.owner) = lower(properties.owner) LIMIT 1) sub),
+         to_json(lower(properties.owner))
+       ) as owner,
        properties.x1,
        properties.x2,
        y1,
        label,
-       y2 - y1                                         as y2,
+       y2 - y1 as y2,
        properties.z1,
        properties.z2,
-       memoized_hash                                   as hash
+       memoized_hash as hash
 from properties
-         left join
-     avatars on lower(avatars.owner) = lower(properties.owner)
          left join suburbs on suburbs.id = properties.suburb_id
 where (minted OR is_common)
   AND (properties.id = $1 or address ILIKE '%'|| $1::text ||'%')

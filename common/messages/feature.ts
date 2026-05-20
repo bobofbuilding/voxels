@@ -2,6 +2,7 @@
 // Types for parcel features used in various APIs
 
 import * as t from 'io-ts'
+import { avatarRefCodec } from './avatar-ref'
 
 // Atomic types
 
@@ -45,7 +46,7 @@ export const WompRecord = t.intersection(
     t.type(
       {
         id: t.number,
-        author: t.string,
+        author: avatarRefCodec,
         content: t.string,
         parcel_id: t.union([t.number, t.null]),
         coords: t.string,
@@ -79,14 +80,13 @@ export const CollectibleInfoRecord = t.intersection(
       name: t.string,
       description: t.string,
       hash: t.string,
-      author: t.string,
+      author: avatarRefCodec,
       category: t.union([t.string, t.undefined]),
       collection_name: t.string,
       collection_address: t.string,
     }),
     t.partial({
       quantity: t.number,
-      author_name: NullableStr,
     }),
   ],
   'CollectibleInfoRecord',

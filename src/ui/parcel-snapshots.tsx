@@ -1,6 +1,5 @@
 import { Component } from 'preact'
-import ParcelSnapshot from '../../web/src/components/parcel-snapshot'
-import type { ParcelSnapshotRecord } from '../../web/src/components/parcel-snapshots'
+import ParcelSnapshot, { type ParcelSnapshotRecord } from '../../web/src/components/parcel-snapshot'
 import { OwnersOnly } from '../../web/src/components/parcels/permissions'
 import type Parcel from '../parcel'
 
