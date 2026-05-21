@@ -14,7 +14,7 @@ export default class Richtext extends Feature2D<RichTextRecord> {
 
   static metadata: FeatureMetadata = {
     title: 'Richtext',
-    subtitle: 'Lines of text',
+    subtitle: 'a few lines of text',
     type: 'richtext',
     image: '/icons/richtext.png',
   }

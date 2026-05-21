@@ -11,7 +11,7 @@ const clamp = (v: number, min: number, max: number) => {
 export default class ParticleSystem extends Feature3D<ParticlesRecord> {
   static metadata: FeatureMetadata = {
     title: 'Particles',
-    subtitle: 'Particle emitter',
+    subtitle: 'particle emitter',
     type: 'particles',
     image: '/icons/particles.png',
   }

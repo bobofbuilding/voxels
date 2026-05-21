@@ -5,7 +5,6 @@ import Connector from '../connector'
 import { FOV, NORMAL_FOV, WIDE_FOV } from '../graphic/field-of-view'
 import { type GraphicEngine, GraphicLevels, GraphicSettings } from '../graphic/graphic-engine'
 import ParcelScript from '../parcel-script'
-import type { Scene } from '../scene'
 import type { MinimapSettings } from '../minimap'
 import { DEFAULT_SENSITIVITY, MAX_SENSITIVITY, MIN_SENSITIVITY } from '../controls/user-control-settings'
 
@@ -20,7 +19,7 @@ function fromReversedPercentage(percentage: number, min: number, max: number): n
 type AudioChannel = keyof AudioSettings
 
 type Props = {
-  scene: Scene
+  scene: BABYLON.Scene
   minimapSettings: MinimapSettings
 }
 
@@ -44,7 +43,7 @@ export class SettingsUI extends Component<Props, State> {
       graphic: this.graphicsEngine.getSettings(),
       fov: this.fov.value,
       minimap: this.minimap,
-      showMinimapSettings: !props.scene.config.isSpace,
+      showMinimapSettings: !window.config.isSpace,
       // we reverse the value as higher values are lower sensitivities
       mouseSensitivityPercentage: toReversedPercentage(this.cameraSettings.angularSensitivity, MIN_SENSITIVITY, MAX_SENSITIVITY),
       activeCategory: 'general',
@@ -77,15 +76,15 @@ export class SettingsUI extends Component<Props, State> {
   }
 
   get graphicsEngine(): GraphicEngine {
-    return this.props.scene.graphic
+    return window.graphic
   }
 
   get fov(): FOV {
-    return this.props.scene.fov
+    return window.fov
   }
 
   get cameraSettings() {
-    return this.props.scene.cameraSettings
+    return window.cameraSettings
   }
 
   get minimap(): MinimapSettings {

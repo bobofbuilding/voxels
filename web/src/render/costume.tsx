@@ -36,7 +36,7 @@ async function loadCostume(scene: BABYLON.Scene, costume: Costume) {
   for (let a of costume.attachments!) {
     console.log(a)
 
-    const mesh = await voxImport(`/api/wearables/${a.collection_address}/${a.wearable_id}/vox`, scene)
+    const mesh = await voxImport(`/api/collectibles/${a.wid}/vox`, scene)
     // mesh.scaling.set(s, s, s)
     // mesh.bakeCurrentTransformIntoVertices()
 

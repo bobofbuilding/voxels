@@ -1,13 +1,21 @@
 #!/bin/bash
 
-# Configuration
-DB_NAME="voxels"
+# Usage:
+#   ./dump.sh              # data only (safe for prod)
+#   ./dump.sh --yolo       # also dumps schema into import.sql + schema.sql
+#
+# Set DATABASE_URL to point at a different db, e.g.:
+#   DATABASE_URL=postgresql://user:pass@host/dbname ./dump.sh
+
+DB="${DATABASE_URL:-voxels}"
 OUTPUT_FILE="import.sql"
 ISLAND_NAME="Poneke"
 
-echo "-- Generating Poneke Dev Fixture with Extensions and Schema --"
+# Enforce read-only on every connection - safe to point at prod
+export PGOPTIONS='--default-transaction-read-only=on'
 
-# 1. Start the file with the required extensions
+echo "-- Generating Poneke Dev Fixture (db=$DB) --"
+
 cat <<EOF > $OUTPUT_FILE
 -- Enable required extensions
 CREATE EXTENSION IF NOT EXISTS cube;
@@ -15,75 +23,68 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 EOF
 
-# Dump schema for reference
-pg_dump $DB_NAME -s --no-owner --no-privileges \
+pg_dump "$DB" -s --no-owner --no-privileges \
   | grep -v -E '^(--|SET|SELECT pg_catalog\.set_config|/\*)' \
   | sed '/^$/d' \
   > schema.sql
 
+pg_dump "$DB" -s --no-owner --no-privileges >> $OUTPUT_FILE
 
-# 2. Dump the STRUCTURE only (no data)
-# We add --no-owner and --no-privileges to make it portable for your friends
-pg_dump $DB_NAME -s \
-  --no-owner \
-  --no-privileges \
-  >> $OUTPUT_FILE
-
-# 3. Data loading settings
 cat <<EOF >> $OUTPUT_FILE
 SET session_replication_role = 'replica';
 BEGIN;
 
 EOF
 
-# Function to wrap the COPY command
 dump_table() {
     local table_name=$1
     local query=$2
-    
+
     echo "Processing data for $table_name..."
     echo "COPY public.$table_name FROM STDIN WITH (FORMAT CSV, HEADER);" >> $OUTPUT_FILE
-    psql $DB_NAME -c "COPY ($query) TO STDOUT WITH (FORMAT CSV, HEADER)" >> $OUTPUT_FILE
+    psql "$DB" -c "COPY ($query) TO STDOUT WITH (FORMAT CSV, HEADER)" >> $OUTPUT_FILE
     echo "\." >> $OUTPUT_FILE
     echo "" >> $OUTPUT_FILE
 }
 
-# 4. Dump the actual filtered data
 dump_table "islands" "SELECT * FROM islands"
 dump_table "properties" "SELECT * FROM properties WHERE island = '$ISLAND_NAME'"
 dump_table "womps" "SELECT w.* FROM womps w JOIN properties p ON w.parcel_id = p.id WHERE p.island = '$ISLAND_NAME'"
 
-# Updated Users: Grabs Owners OR Wompers on this island
-dump_table "users" "
-  SELECT DISTINCT u.* FROM users u 
-  JOIN properties p ON (u.id::text = p.owner OR u.email = p.owner) 
+dump_table "avatars" "
+  SELECT a.* FROM avatars a
+  JOIN properties p ON lower(a.owner) = lower(p.owner)
   WHERE p.island = '$ISLAND_NAME'
   UNION
-  SELECT DISTINCT u.* FROM users u 
-  JOIN womps w ON (u.id::text = w.author OR u.email = w.author)
+  SELECT a.* FROM avatars a
+  JOIN womps w ON lower(a.owner) = lower(w.author)
   JOIN properties p ON w.parcel_id = p.id
   WHERE p.island = '$ISLAND_NAME'
 "
 
-# Updated Costumes: Ensure we get costumes for the wompers too
 dump_table "costumes" "
-  SELECT c.* FROM costumes c 
+  SELECT c.* FROM costumes c
   WHERE LOWER(c.wallet) IN (
     SELECT DISTINCT LOWER(owner) FROM properties WHERE island = '$ISLAND_NAME'
     UNION
-    SELECT DISTINCT LOWER(author) FROM womps w 
-    JOIN properties p ON w.parcel_id = p.id 
+    SELECT DISTINCT LOWER(author) FROM womps w
+    JOIN properties p ON w.parcel_id = p.id
     WHERE p.island = '$ISLAND_NAME'
   )
 "
 
-# 5. Wrap it up
+# bnolan wearables (costumes already captured above via Poneke dump)
+dump_table "wearables" "SELECT DISTINCT ON (w.id) w.* FROM wearables w JOIN (SELECT e->>'wid' AS wid FROM costumes c JOIN avatars a ON lower(a.owner) = lower(c.wallet) CROSS JOIN LATERAL jsonb_array_elements(c.attachments::jsonb) e WHERE a.name = 'bnolan') wids ON w.id::text = wids.wid"
+dump_table "collections" "SELECT DISTINCT ON (col.id) col.* FROM collections col JOIN wearables w ON w.collection_id = col.id JOIN (SELECT e->>'wid' AS wid FROM costumes c JOIN avatars a ON lower(a.owner) = lower(c.wallet) CROSS JOIN LATERAL jsonb_array_elements(c.attachments::jsonb) e WHERE a.name = 'bnolan') wids ON w.id::text = wids.wid"
+dump_table "asset_library" "SELECT * FROM asset_library WHERE name ILIKE '%fish%' OR name ILIKE '%toilet%'"
+
 cat <<EOF >> $OUTPUT_FILE
 COMMIT;
 SET session_replication_role = 'origin';
 EOF
 
-echo "-- Done! Created $OUTPUT_FILE --"
-echo "Usage: createdb boop && psql boop < $OUTPUT_FILE"
+# Gzip the output file
+gzip $OUTPUT_FILE
 
-
+echo "-- Done! Created $OUTPUT_FILE.gz --"
+echo "Usage: createdb voxels && psql voxels < $OUTPUT_FILE.gz"

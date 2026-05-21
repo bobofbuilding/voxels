@@ -6,15 +6,17 @@ select w.id,
        collection_id,
        category,
        issues,
-       w.author,
+       COALESCE(
+         (SELECT row_to_json(sub) FROM (SELECT a.id, a.name, a.owner, a.created_at FROM avatars a WHERE lower(a.owner) = lower(w.author) LIMIT 1) sub),
+         to_json(w.author)
+       ) as author,
        hash,
        custom_attributes,
        w.suppressed,
-       c.name                                                                  as collection_name,
-       c.address                                                               as collection_address,
-       c.custom_attributes_names                                               as collection_attributes_names,
-       c.chainid                                                               as chain_id,
-       (select name from avatars where lower(avatars.owner) = lower(w.author)) as author_name
+       c.name as collection_name,
+       c.address as collection_address,
+       c.custom_attributes_names as collection_attributes_names,
+       c.chainid as chain_id
 from wearables w
          left join collections c
                    on c.id = w.collection_id
