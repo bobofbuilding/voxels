@@ -1,15 +1,14 @@
 import { StateObservable } from '../utils/state-observable'
 import { Environment } from './environment'
-import type { Scene } from '../scene'
 import { createEvent } from '../utils/EventEmitter'
 
-export class ScratchpadEnvironment extends Environment<Scene> {
+export class ScratchpadEnvironment extends Environment {
   skybox?: BABYLON.Mesh
   ground?: BABYLON.Mesh
   groundMaterial: BABYLON.StandardMaterial | undefined
   groundTexture: BABYLON.Texture | undefined
 
-  constructor(parent: BABYLON.TransformNode, scene: Scene) {
+  constructor(parent: BABYLON.TransformNode, scene: BABYLON.Scene) {
     console.debug('Creating SpacesEnvironment')
     super(parent, scene)
   }
@@ -41,7 +40,7 @@ export class ScratchpadEnvironment extends Environment<Scene> {
 
     this.ambientLight?.dispose()
 
-    const l = new BABYLON.SpotLight('skybox/light', new BABYLON.Vector3(0, 64, 0), new BABYLON.Vector3(0,-1, 0), Math.PI / 2, 32, this.scene)
+    const l = new BABYLON.SpotLight('skybox/light', new BABYLON.Vector3(0, 64, 0), new BABYLON.Vector3(0, -1, 0), Math.PI / 2, 32, this.scene)
     // l.diffuse.set(1, 0, 1)
     // l.intensity = 1000
     // l.diffuse = new BABYLON.Color3(1, 0, 0)
@@ -67,7 +66,7 @@ export class ScratchpadEnvironment extends Environment<Scene> {
 
     this.groundMaterial = new BABYLON.StandardMaterial('space/ground', this.scene)
     this.groundMaterial.diffuseTexture = t
-    this.groundMaterial.specularColor.set(0,0,0)
+    this.groundMaterial.specularColor.set(0, 0, 0)
     this.groundMaterial.zOffset = 1
 
     if (this.ground) {

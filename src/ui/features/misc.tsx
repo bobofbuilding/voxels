@@ -15,7 +15,6 @@ import CollectibleModel from '../../features/collectible-model'
 import Feature from '../../features/feature'
 import Group from '../../features/group'
 import type Parcel from '../../parcel'
-import type { Scene } from '../../scene'
 import { bindGizmosToFeature, unbindGizmosFromFeature } from '../../tools/gizmos'
 import { round, XYZ } from '../../utils/helpers'
 import CreateFeatureAsLibraryAsset from '../create-asset-for-library'
@@ -160,7 +159,7 @@ export function Sound(props: { feature: Feature<ButtonRecord> }) {
 export type FeatureEditorProps<T extends Feature = Feature> = {
   feature: T
   parcel: Parcel
-  scene: Scene
+  scene: BABYLON.Scene
 }
 
 export class FeatureEditor<T extends Feature = Feature> extends Component<FeatureEditorProps<T>, any> {
@@ -850,7 +849,7 @@ function refreshFromFeature(feature: CollectibleModel, avatar: Avatar) {
   if (!avatarAttachmentManager) {
     return
   }
-  const wearable = avatarAttachmentManager.getAttachmentByCollectionIdAndTokenId_BeingTried(asset.collection_id, asset.token_id) as CostumeAttachment
+  const wearable = avatarAttachmentManager.getAttachmentByWid(feature.collectibleWid)
   if (!wearable) {
     return
   }
@@ -859,7 +858,7 @@ function refreshFromFeature(feature: CollectibleModel, avatar: Avatar) {
   wearable.rotation = feature.description.tryRotation || [0, 0, 0]
   wearable.scaling = feature.description.tryScale || [0.5, 0.5, 0.5]
   wearable.bone = feature.description.tryBone || 'Head'
-  avatarAttachmentManager.refreshSingleAttachment(wearable.uuid)
+  avatarAttachmentManager.refreshSingleAttachment(wearable.wid)
 }
 
 export function Advanced(props: any) {

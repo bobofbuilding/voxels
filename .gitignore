@@ -42,3 +42,4 @@ packages/**/dist
 # Render
 render/*.png
 scripting/meta.json
+/art

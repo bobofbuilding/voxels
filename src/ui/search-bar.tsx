@@ -3,17 +3,15 @@ import { Component, JSX } from 'preact'
 import { isMobile } from '../../common/helpers/detector'
 import ParcelHelper from '../../common/helpers/parcel-helper'
 import { autoFocusRef } from '../../common/helpers/ui-helpers'
-import { CachedParcelsMessage } from '../../common/messages/api-parcels'
+import type { CachedParcelsMessage } from '../../common/messages/api-parcels'
 import { SimpleParcelRecord } from '../../common/messages/parcel'
-import { validateMessageResponse } from '../../common/messages/validate'
-import type { Scene } from '../scene'
 import type { ParcelsSubTab, Tab } from './explorer'
 
 interface SearchBarProps {
   autoFocus?: boolean
   onSelect?: () => void
   onSearch?: (search?: string | null) => void
-  scene: Scene
+  scene: BABYLON.Scene
 }
 
 type State = {
@@ -57,7 +55,7 @@ export abstract class SearchBar<Props extends SearchBarProps = SearchBarProps> e
 
   select(parcel: SimpleParcelRecord) {
     const h = new ParcelHelper(parcel)
-    if (this.props.scene.config.isSpace) {
+    if (window.config.isSpace) {
       window.ui?.openLink('/play?coords=' + h.centerLocation)
     } else {
       h.spawnUrl().then((url) => window.persona.teleport(url))
@@ -101,7 +99,7 @@ type ExplorerSearchBarProps = SearchBarProps & {
 }
 
 export class ExplorerSearchBar extends SearchBar<ExplorerSearchBarProps> {
-  search = () => {
+  search = async () => {
     const query = String(this.state.query)
 
     if (query.length === 0) {
@@ -110,14 +108,17 @@ export class ExplorerSearchBar extends SearchBar<ExplorerSearchBarProps> {
     }
 
     this.setState({ loading: true })
-    fetch(`${process.env.API}/parcels/search.json?q=${encodeURIComponent(query || '')}&limit=10`)
-      .then(validateMessageResponse(CachedParcelsMessage))
-      .then((r) => {
-        if (!r.success) console.error(`search failed for query: ${query}`)
-        if (query !== this.state.query) return
-        const result = r.parcels || []
-        this.setState({ items: result, loading: false })
-      })
+    try {
+      const res = await fetch(`${process.env.API}/parcels/search.json?q=${encodeURIComponent(query || '')}&limit=10`)
+      if (!res.ok) throw res
+      const r = (await res.json()) as CachedParcelsMessage
+      if (!r.success) console.error(`search failed for query: ${query}`)
+      if (query !== this.state.query) return
+      const result = r.parcels || []
+      this.setState({ items: result, loading: false })
+    } catch {
+      if (query === this.state.query) this.setState({ loading: false })
+    }
   }
 }
 

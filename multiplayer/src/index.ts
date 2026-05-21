@@ -1,21 +1,10 @@
-import { concat } from 'ix/iterable'
-import { flatMap } from 'ix/iterable/operators'
 import createWWWServer from './api'
-import { InMemoryGlobalClientStateStore } from './common/clientStateStore'
-import { InMemoryChatStore } from './common/inMemChatStore'
 import { createConnection } from './common/pq'
 import { APP_NAME } from './constants/appName'
 import { createLogger } from './createLogger'
-import createMetrics from './createMetrics'
 import createServer from './createServer'
 import createWebsocketServer from './ws'
-import { Client } from './ws/client'
 import createShards from './ws/shards/shards'
-
-const HEALTHCHECK_INTERVAL_MS = 10_000
-const UNHEALTHY_TIMEOUT_MS = 30_000
-
-const instanceId = globalThis.crypto.randomUUID()
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const dotenv = require('dotenv')
@@ -50,39 +39,15 @@ async function start(signal: AbortSignal) {
   const jwtSecret = ensureEnv('JWT_SECRET')
 
   const connection = createConnection(APP_NAME)
-  const globalStateStore = new InMemoryGlobalClientStateStore(logger)
-  const chatStore = new InMemoryChatStore(30 * 60 * 1000)
-
-  let clientAccessor: (() => Iterable<Readonly<Client>>) | null = null
-  const worldClientCount: (() => number) | null = () => globalStateStore.getWorldCount()
-  const spaceClientCount: (() => number) | null = () => globalStateStore.getSpaceCount()
-
-  const metrics = createMetrics({
-    appName: APP_NAME,
-    appVersion: process.env.VERSION || 'unknown',
-    instanceId,
-    clientAccessor: () => (clientAccessor === null ? [] : clientAccessor()),
-    worldClientCount,
-    spaceClientCount,
-  })
-
-  // todo more healthchecks!
-
   const server = createServer(logger)
-
   const shards = await createShards(
     (topic, message, isBinary) => server.publish(topic, message, isBinary),
     logger,
-    globalStateStore,
     connection,
-    chatStore,
-    metrics.customMetrics,
     jwtSecret,
   )
 
-  clientAccessor = () => concat([shards.worldShard], shards.spaceShards.values()).pipe(flatMap((s) => s.getClients()))
-
-  createWWWServer(server.server, logger, globalStateStore, chatStore, shards, metrics)
+  createWWWServer(server.server, logger, shards)
   createWebsocketServer(server, server.server, logger, shards)
 
   signal.addEventListener('abort', () => {

@@ -1,12 +1,11 @@
 import { GraphicLevels } from '../graphic/graphic-engine'
-import type { Scene } from '../scene'
 
 export default class CustomSkybox {
   currentSkybox: string | null = null
   private readonly _mesh: BABYLON.Mesh
   private _material: BABYLON.StandardMaterial | null = null
 
-  constructor(private scene: Scene) {
+  constructor(private scene: BABYLON.Scene) {
     const mesh = BABYLON.MeshBuilder.CreateSphere('skybox/local', { segments: 16, diameter: 1 }, scene)
     mesh.isVisible = false
     mesh.infiniteDistance = true
@@ -17,8 +16,8 @@ export default class CustomSkybox {
     const setSkyboxScale = (drawDistance: number) => {
       mesh.scaling.setAll(drawDistance * 1.955) // just a little smaller than the main skybox to prevent z-fighting
     }
-    setSkyboxScale(scene.draw.distance)
-    scene.draw.addEventListener('distance-changed', (e) => setSkyboxScale(e.detail))
+    setSkyboxScale(window.draw.distance)
+    window.draw.addEventListener('distance-changed', (e) => setSkyboxScale(e.detail))
 
     this.scene.onBeforeRenderObservable.add(() => {
       if (this._material && this._material.alpha !== this._opacity) {
@@ -45,7 +44,7 @@ export default class CustomSkybox {
   loadSkybox(skyboxName: string) {
     const material = new BABYLON.StandardMaterial('skybox/local/' + skyboxName, this.scene)
     material.backFaceCulling = false
-    material.reflectionTexture = new BABYLON.CubeTexture(`./skybox/${skyboxName}${this.scene.graphic.getSettings().level < GraphicLevels.Medium ? '_min' : ''}`, this.scene)
+    material.reflectionTexture = new BABYLON.CubeTexture(`./skybox/${skyboxName}${window.graphic.getSettings().level < GraphicLevels.Medium ? '_min' : ''}`, this.scene)
     material.reflectionTexture.coordinatesMode = BABYLON.Texture.SKYBOX_MODE
     material.diffuseColor = new BABYLON.Color3(0, 0, 0)
     material.specularColor = new BABYLON.Color3(0, 0, 0)

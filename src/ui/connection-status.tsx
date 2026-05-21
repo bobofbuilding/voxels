@@ -3,12 +3,10 @@ import type Connector from '../connector'
 import type Grid from '../grid'
 import { isLocal } from '../../common/helpers/detector'
 import { ConnectionState } from '../utils/socket-client'
-import type { Scene } from '../scene'
-
 interface Props {
   grid: Grid
   connector: Connector
-  scene: Scene
+  scene: BABYLON.Scene
 }
 
 interface State {
@@ -52,7 +50,7 @@ export default class ConnectionStatusUI extends Component<Props, State> {
   }
 
   private onMultiplayerConnectionStateChange = (state: ConnectionState) => {
-    if (!this.props.scene.config.isSpace && !isLocal()) {
+    if (!window.config.isSpace && !isLocal()) {
       // We disabled the notification system for the multiplayer server after players confused it with the grid server going down
       // We only allow it for Spaces so we can indicate if a space is full!
       state = { status: 'connected' }
@@ -67,7 +65,7 @@ export default class ConnectionStatusUI extends Component<Props, State> {
   }
 
   private connectionStatus(gridConnectionState: ConnectionState, multiplayerConnectionState: ConnectionState): ConnectionStatus {
-    return inferConnectionStatus(gridConnectionState, multiplayerConnectionState, this.props.scene.config.isSpace)
+    return inferConnectionStatus(gridConnectionState, multiplayerConnectionState, window.config.isSpace)
   }
 }
 

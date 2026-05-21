@@ -1,7 +1,7 @@
 import { currentVersion } from '../../common/version'
 import { getClientPath } from './helpers/client-helpers'
 
-const { BABYLON_BUNDLE_URL, LEAFLET_CSS_URL } = require('../../vendor/library/urls.js')
+const { BABYLON_BUNDLE_URL } = require('../../vendor/library/urls.js')
 
 const CLIENT_PATH = getClientPath(currentVersion)
 
@@ -24,10 +24,8 @@ export default function ClientRoot(props: { title: string; ogTitle?: string; ogD
       <body style="background: #3af">
         <script src={BABYLON_BUNDLE_URL} />
         <script src={CLIENT_PATH} />
-        <script async data-domain="voxels.com" src="https://plausible.io/js/plausible.js"></script>
 
         <link href={`/${currentVersion}-client.css`} rel="stylesheet" />
-        <link rel="stylesheet" href={LEAFLET_CSS_URL} />
       </body>
     </html>
   )
