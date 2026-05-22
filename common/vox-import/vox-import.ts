@@ -1,6 +1,5 @@
 import VoxVertexShader from './vox.vsh'
 import VoxPixelShader from './vox.fsh'
-import type { Scene } from '../../src/scene'
 import type { VoxData } from './vox-reader'
 import { createComlinkWorker } from '../helpers/comlink-worker'
 import type { VoxWorkerAPI } from './vox-worker'
@@ -45,6 +44,15 @@ export interface Options {
   dryRun?: boolean // true to just test against maxTriangles and avoid actually constructing the mesh as far as possible
 }
 
+let _instance: VoxImporter | null = null
+export const voxImporter = (): VoxImporter => {
+  if (!_instance) {
+    _instance = new VoxImporter()
+    _instance.initialize(window.scene)
+  }
+  return _instance
+}
+
 export class VoxImporter {
   private static readonly WORKER_COUNT = 4
   private static readonly JOB_TIMEOUT_MS = 5000
@@ -56,31 +64,25 @@ export class VoxImporter {
   private material: BABYLON.Material | null = null
   private workers: VoxWorkerAPI[] = []
   private workerCleanups: (() => void)[] = []
-  private scene?: Scene | BABYLON.Scene
+  private _scene: BABYLON.Scene | undefined
 
-  initialize(scene: Scene | BABYLON.Scene) {
-    this.scene = scene
+  initialize(scene: BABYLON.Scene) {
+    this._scene = scene
+    this.material = new BABYLON.ShaderMaterial(
+      'vox-model/vox-shader',
+      scene,
+      { vertex: 'Vox', fragment: 'Vox' },
+      {
+        attributes: ['position', 'color'],
+        uniforms: ['world', 'worldViewProjection', 'view', 'projection', 'cameraPosition', 'brightness', 'ambient', 'lightDirection', 'fogColor', 'fogDensity'],
+        defines: ['#define IMAGEPROCESSINGPOSTPROCESS'],
+      },
+    )
 
-    if ((this.scene as Scene).disableShaders) {
-      const m = new BABYLON.StandardMaterial('materials/vox-model', this.scene)
-      m.specularColor.set(0.2, 0.2, 0.2)
-      this.material = m
-    } else {
-      this.material = new BABYLON.ShaderMaterial(
-        'vox-model/vox-shader',
-        this.scene,
-        { vertex: 'Vox', fragment: 'Vox' },
-        {
-          attributes: ['position', 'color'],
-          uniforms: ['world', 'worldViewProjection', 'view', 'projection', 'cameraPosition', 'brightness', 'ambient', 'lightDirection', 'fogColor', 'fogDensity'],
-          defines: ['#define IMAGEPROCESSINGPOSTPROCESS'],
-        },
-      )
-    }
-
-    if ('environment' in this.scene && this.material instanceof BABYLON.ShaderMaterial) {
-      this.material.setVector3('vLight', this.scene.environment?.sunPosition || new BABYLON.Vector3(0.577, 0.577, -0.577).normalize())
-      this.scene.environment?.setShaderParameters(this.material, 1.8)
+    const env = window.environment
+    if (env && this.material instanceof BABYLON.ShaderMaterial) {
+      this.material.setVector3('vLight', env.sunPosition || new BABYLON.Vector3(0.577, 0.577, -0.577).normalize())
+      env.setShaderParameters(this.material, 1.8)
     }
     this.material.blockDirtyMechanism = true
 
@@ -95,16 +97,13 @@ export class VoxImporter {
 
   import(urlOrBuffer: string | ArrayBuffer, options: Options): Promise<BABYLON.Mesh> {
     return new Promise((resolve, reject) => {
-      if (!this.scene) {
-        console.error('VoxImport.scene missing')
-      }
       if (!this.material) {
         console.error('VoxImport.material missing')
       }
       if (options.signal?.aborted) {
         return reject('Aborted')
       }
-      const mesh = new BABYLON.Mesh('utils/vox-box', this.scene)
+      const mesh = new BABYLON.Mesh('utils/vox-box', this._scene ?? window.scene)
       mesh.material = this.material
       mesh.isPickable = true
       mesh.checkCollisions = false

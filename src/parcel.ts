@@ -1,4 +1,5 @@
 import { ethers } from 'ethers'
+import { cameraPosition } from './utils/camera'
 import { throttle } from 'lodash'
 import type { NdArray } from 'ndarray'
 import ndarray from 'ndarray'
@@ -7,10 +8,9 @@ import { defaultColors } from '../common/content/blocks'
 import { recordParcelEvent } from '../common/helpers/apis'
 import { isBatterySaver, isMobile } from '../common/helpers/detector'
 import { ParcelUser } from '../common/helpers/parcel-helper'
-import { ApiParcelMessage } from '../common/messages/api-parcels'
+import type { ApiParcelMessage } from '../common/messages/api-parcels'
 import { FeatureRecord } from '../common/messages/feature'
 import type { ParcelGeometry, ParcelKind, ParcelPatch, ParcelRecord, ParcelRef, ParcelSettings } from '../common/messages/parcel'
-import { validateMessageResponse } from '../common/messages/validate'
 import { getBufferFromVoxels, getFieldShape, getVoxelsFromBuffer } from '../common/voxels/helpers'
 import { VoxelSize } from '../common/voxels/mesher'
 import { app } from '../web/src/state'
@@ -24,11 +24,11 @@ import ParcelBudget from './parcel-budget'
 import { ParcelMesher } from './parcel-mesher'
 import ParcelScript from './parcel-script'
 import { FeaturePump } from './pump/feature-pump'
-import type { Scene } from './scene'
 import { createEvent, TypedEventTarget } from './utils/EventEmitter'
 import { tidyVec3 } from './utils/helpers'
 import { ParcelEventMap } from './utils/parcel-event-map'
 import { GLASS_MAX_VIEW_DISTANCE } from './voxel-field'
+import { Action } from '../common/messages'
 
 const PARCEL_CONTRACT_ABI = require('../common/contracts/parcel.json')
 
@@ -79,7 +79,7 @@ export default class Parcel extends TypedEventTarget<ParcelEventMap> {
   socketAuth: string | undefined
   label: string | undefined
   featuresActive?: boolean // Are features active for this parcel? IE are we displaying features? May be in generation.
-  readonly scene: Scene
+  readonly scene: BABYLON.Scene
   readonly transform: BABYLON.TransformNode & { parcel?: Parcel }
   readonly x1: number
   readonly y1: number
@@ -118,7 +118,7 @@ export default class Parcel extends TypedEventTarget<ParcelEventMap> {
   lightmap_url: string | null = null
 
   constructor(
-    scene: Scene,
+    scene: BABYLON.Scene,
     parent: BABYLON.TransformNode,
     record: ParcelRecord & {
       spaceId?: string
@@ -649,7 +649,7 @@ export default class Parcel extends TypedEventTarget<ParcelEventMap> {
     this.suburb = meta.suburb || 'Unknown suburb'
     this.hash = meta.hash || undefined
     this.island = meta.island || 'Unknown island'
-    this.owner = meta.owner
+    this.owner = meta.owner && typeof meta.owner === 'object' ? (meta.owner as any).owner : (meta.owner ?? '')
     this.parcel_users = meta.parcel_users || []
     this.settings = meta.settings || {}
     this.lightmap_url = meta.lightmap_url || null
@@ -724,7 +724,10 @@ export default class Parcel extends TypedEventTarget<ParcelEventMap> {
 
     if ('lightmap_url' in patch) {
       this.updateLightmapUrl(patch.lightmap_url || null)
-      if (this.isBaked) {
+      // If voxels were also in the patch, refreshVoxels() -> generateVoxelField()
+      // will already rebuild the baked mesh. Avoid double-triggering a second
+      // baked generation in parallel -- they race on setVoxelMesh().
+      if (this.isBaked && !patch.voxels) {
         this.activateBakedMaterial()
       }
     }
@@ -775,7 +778,7 @@ export default class Parcel extends TypedEventTarget<ParcelEventMap> {
       return this.transform.position.subtract(this.scene.activeCamera['target'] as BABYLON.Vector3)
     }
     if (this.scene.activeCamera) {
-      return this.transform.position.subtract(this.scene.cameraPosition)
+      return this.transform.position.subtract(cameraPosition(this.scene))
     }
     return new BABYLON.Vector3(0, 0, 0)
   }
@@ -785,7 +788,7 @@ export default class Parcel extends TypedEventTarget<ParcelEventMap> {
       return
     }
 
-    this.scene.environment?.updateShaderProperties(this.voxelMesh.material)
+    window.environment?.updateShaderProperties(this.voxelMesh.material)
   }
 
   onTileSetUpdate: BABYLON.Observable<void> = new BABYLON.Observable<void>()
@@ -907,6 +910,9 @@ export default class Parcel extends TypedEventTarget<ParcelEventMap> {
   onEnter() {
     this.entered = true
 
+    // Enter
+    window.connector.sendMetric(Action.Enter, this.id)
+
     // On user enter the parcel the bouncer will kick the user if they are not allowed;
     this.parcelBouncer.handleUser().then()
 
@@ -930,6 +936,9 @@ export default class Parcel extends TypedEventTarget<ParcelEventMap> {
 
   onExit() {
     this.entered = false
+
+    // Exit
+    window.connector.sendMetric(Action.Exit, this.id)
 
     // Record event to surveyor.crvox.com
     recordParcelEvent({
@@ -1038,8 +1047,11 @@ export default class Parcel extends TypedEventTarget<ParcelEventMap> {
       await this.awaitVoxelMesh()
     }
 
-    if (this.voxelMesh) {
-      // Load tileset
+    if (this.voxelMesh && !this.isBaked) {
+      // Load tileset for unbaked parcels. Baked parcels already have the lightmap
+      // shader material applied by setLightBakedMaterial; stomping it here applies
+      // the unbaked shader to a mesh missing the `ambientOcclusion` attribute, which
+      // makes vColorValue 0 and the whole parcel render black.
       this.mesher.setVoxelMaterial(this, this.voxelMesh)
     }
 
@@ -1122,7 +1134,7 @@ export default class Parcel extends TypedEventTarget<ParcelEventMap> {
     }, 5)
   }
 
-  reload(hash?: string, cb: any = null) {
+  async reload(hash?: string, cb: any = null) {
     // use the hash provided otherwise the last known hash
     if (!hash) {
       hash = this.hash
@@ -1138,38 +1150,37 @@ export default class Parcel extends TypedEventTarget<ParcelEventMap> {
 
     this.loading = true
 
-    fetch(url, {
+    const res = await fetch(url, {
       method: 'get',
     })
-      .then(validateMessageResponse(ApiParcelMessage))
-      .then((r) => {
-        if (!r.success) {
-          return
-        }
+    if (!res.ok) throw res
+    const r = (await res.json()) as ApiParcelMessage
+    if (!r.success) {
+      return
+    }
 
-        Object.assign(this, r.parcel)
+    Object.assign(this, r.parcel)
 
-        // the fetch does not include the hash, so we update it here
-        this.hash = hash
+    // the fetch does not include the hash, so we update it here
+    this.hash = hash
 
-        this.loaded = true
-        this.loading = false
+    this.loaded = true
+    this.loading = false
 
-        // console.log(`[parcel-${this.id}] Reloaded parcel`)
-        this.loadField()
-        this.regenerate()
-        this.refreshBrightness()
-        this.refreshPalette()
+    // console.log(`[parcel-${this.id}] Reloaded parcel`)
+    this.loadField()
+    this.regenerate()
+    this.refreshBrightness()
+    this.refreshPalette()
 
-        // allow bringing up of build menu
-        if (this.canEdit && !window.user.parcels.includes(this)) {
-          window.user.parcels.push(this)
-        }
+    // allow bringing up of build menu
+    if (this.canEdit && !window.user.parcels.includes(this)) {
+      window.user.parcels.push(this)
+    }
 
-        if (typeof cb === 'function') {
-          cb()
-        }
-      })
+    if (typeof cb === 'function') {
+      cb()
+    }
   }
 
   afterUserChange() {
@@ -1216,7 +1227,7 @@ export default class Parcel extends TypedEventTarget<ParcelEventMap> {
         sound.setPosition(position)
         // or should position be relative to the parcel????
       } else {
-        if (this.scene.activeCamera) sound.setPosition(this.scene.cameraPosition)
+        if (this.scene.activeCamera) sound.setPosition(cameraPosition(this.scene))
       }
 
       // console.log('playing sound', id * SPRITE_SLICE_DURATION, SPRITE_SLICE_DURATION)
@@ -1357,7 +1368,7 @@ export default class Parcel extends TypedEventTarget<ParcelEventMap> {
     // regenerate if we are still using greedy blocks so that we don't change the brightness of surrounding parcels
     if (isShared(material)) return this.refreshVoxels()
 
-    material.setFloat('brightness', this.brightness || this.scene.environment?.brightness || 1.5)
+    material.setFloat('brightness', this.brightness || window.environment?.brightness || 1.5)
   }
 
   /**
@@ -1472,18 +1483,29 @@ export default class Parcel extends TypedEventTarget<ParcelEventMap> {
       return
     }
 
-    this.mesher.generate(this, null, this.configureUnbakedVoxelFieldMeshes.bind(this))
-
+    // Baked parcels use a different worker + mesh topology than unbaked.
+    // Running both in parallel races on setVoxelMesh() and can leave the parcel
+    // displaying the loser's mesh (black / untextured / wrong tint).
     if (this.lightmap_url && this.isBaked) {
       const url = this.lightmap_url
-      console.log(url)
-
-      let texture = new BABYLON.Texture(url, this.scene, false, false, BABYLON.Texture.BILINEAR_SAMPLINGMODE, () => {
-        console.log('texture loaded')
-
-        this.mesher.generateBaked(this, this.configureBakedVoxelFieldMeshes.bind(this), texture)
-      })
+      const texture = new BABYLON.Texture(
+        url,
+        this.scene,
+        false,
+        false,
+        BABYLON.Texture.BILINEAR_SAMPLINGMODE,
+        () => {
+          this.mesher.generateBaked(this, this.configureBakedVoxelFieldMeshes.bind(this), texture)
+        },
+        () => {
+          // Lightmap fetch failed -- fall back to unbaked so the parcel is still visible
+          this.mesher.generate(this, null, this.configureUnbakedVoxelFieldMeshes.bind(this))
+        },
+      )
+      return
     }
+
+    this.mesher.generate(this, null, this.configureUnbakedVoxelFieldMeshes.bind(this))
   }
 
   private flushOnGenerateCallbacks = () => {

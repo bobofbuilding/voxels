@@ -27,47 +27,6 @@ export const fetchOptions = (abortController?: AbortController, body?: string, b
   return obj
 }
 
-export const fetchAPI = async (input: RequestInfo | URL, options?: FetchOptions) => {
-  let opt = options
-  if (!opt) {
-    opt = {
-      headers: {
-        Accept: 'application/json',
-        'Content-Type': 'application/json',
-      },
-      credentials: 'include',
-    }
-  }
-
-  return fetch(input, opt)
-    .then((response) => {
-      if (response.status === 204) {
-        return { success: true }
-      }
-
-      return response.json().then((body) => {
-        if (!body.success) {
-          throw new Error(body.message || `Could not fetch ${input.toString()}`)
-        }
-
-        if (!response.ok) {
-          throw new Error(body.message || `Could not fetch ${input.toString()}`)
-        }
-
-        return body
-      })
-    })
-    .catch((e) => {
-      // ignore abort errors
-      if (typeof e == 'string' && e.startsWith('ABORT')) {
-        return null
-      }
-      console.error('Error', e)
-
-      return Promise.reject(null)
-    })
-}
-
 interface ImageInfo {
   aspectRatio: number
   height: number

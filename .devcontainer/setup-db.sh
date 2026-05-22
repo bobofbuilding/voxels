@@ -15,5 +15,5 @@ if psql "$DATABASE_URL" -tAc "SELECT 1 FROM information_schema.tables WHERE tabl
 fi
 
 echo "Loading db/import.sql (first-time seed)..."
-psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f db/import.sql
+cat db/import.sql.gz | gunzip | psql "$DATABASE_URL" -v ON_ERROR_STOP=1
 echo "Database import done."
