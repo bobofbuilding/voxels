@@ -1,8 +1,11 @@
 import { unzlibSync } from 'fflate'
-import * as ndarray from 'ndarray'
+import ndarray from 'ndarray'
 import { MapParcelRecord } from '../messages/api-parcels'
 import { FullParcelRecord, ParcelContentRecord, ParcelGeometry, ParcelKind, SingleParcelRecord } from '../messages/parcel'
 import { shorterWallet, ssrFriendlyWindow } from './utils'
+import { avatarName } from '../messages/avatar-ref'
+
+const extractWallet = (owner: any): string => (owner && typeof owner === 'object' ? (owner.owner ?? '') : (owner ?? ''))
 
 const KEYS = [
   'id',
@@ -12,7 +15,6 @@ const KEYS = [
   'height',
   'geometry',
   'owner',
-  'owner_name',
   'x1',
   'y1',
   'z1',
@@ -29,7 +31,7 @@ const KEYS = [
   'settings',
 ] as const
 
-export type UserRightRole = 'owner' | 'contributor' | 'excluded' | 'renter'
+export type UserRightRole = 'owner' | 'contributor' | 'excluded'
 export type ParcelUser = { wallet: string; role: UserRightRole }
 
 export default class ParcelHelper {
@@ -42,8 +44,7 @@ export default class ParcelHelper {
   suburb?: string
   _height: number | undefined
   geometry: ParcelGeometry | undefined = undefined
-  owner: string = undefined!
-  owner_name: string = undefined!
+  owner: any = undefined! // string | AvatarRef
   x1: number = undefined!
   y1: number = undefined!
   z1: number = undefined!
@@ -190,7 +191,9 @@ export default class ParcelHelper {
   }
 
   get ownerName() {
-    return this.owner_name || shorterWallet(this.owner || '0x0000000000000000000000000000000000000000')
+    if (!this.owner) return shorterWallet('0x0000000000000000000000000000000000000000')
+    if (typeof this.owner === 'string') return shorterWallet(this.owner)
+    return avatarName(this.owner)
   }
 
   get spawnCoords() {
@@ -255,9 +258,7 @@ export default class ParcelHelper {
   get metadataDescription() {
     return this.island == 'Origin City'
       ? `${this.kind == 'inner' ? 'Pre-built ' : ''}parcel near ${this.suburb} in ${this.island}`
-      : `${this.kind == 'inner' ? 'Pre-built ' : ''}parcel on ${this.island}, ${Math.floor(this.distance_to_center)}m from the origin, with a ${Math.floor(this.height)}m build height, floor is at ${
-          this.y1
-        }m elevation`
+      : `${this.kind == 'inner' ? 'Pre-built ' : ''}parcel on ${this.island}, ${Math.floor(this.distance_to_center)}m from the origin, with a ${Math.floor(this.height)}m build height, floor is at ${this.y1}m elevation`
   }
 
   queryRefresh(callback?: () => void) {
@@ -269,8 +270,7 @@ export default class ParcelHelper {
   }
 
   get owners() {
-    // We add renters as owners so renter have the same permissions. however they can't edit Contributors
-    return this.parcelUsers?.filter((user) => user.role == 'owner' || user.role == 'renter') || []
+    return this.parcelUsers?.filter((user) => user.role == 'owner') || []
   }
 
   isTrueOwner(wallet = '') {
@@ -279,17 +279,13 @@ export default class ParcelHelper {
 
   isOwner(wallet: string | null | undefined): boolean {
     if (!wallet) return false
-    if (wallet.toLowerCase() === this.owner?.toLowerCase()) return true
+    const w = extractWallet(this.owner)
+    if (w && wallet.toLowerCase() === w.toLowerCase()) return true
     return !!this.owners.find((owner) => wallet.toLowerCase() === owner.wallet.toLowerCase())
   }
 
   get contributors() {
     return this.parcelUsers?.filter((user) => user.role == 'contributor') || []
-  }
-
-  isRenter = (wallet: string | null | undefined): boolean => {
-    const renter = (this.parcelUsers?.filter((user) => user.role == 'renter') || [])[0]
-    return renter?.wallet.toLowerCase() === wallet?.toLowerCase()
   }
 
   isContributor = (wallet: string | null | undefined) => {

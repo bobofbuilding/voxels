@@ -1,5 +1,8 @@
 select womps.id,
-       womps.author,
+       COALESCE(
+         (SELECT row_to_json(sub) FROM (SELECT a.id, a.name, a.owner, a.created_at FROM avatars a WHERE lower(a.owner) = lower(womps.author) LIMIT 1) sub),
+         to_json(womps.author)
+       ) as author,
        womps.content,
        womps.parcel_id,
        womps.space_id,
@@ -7,19 +10,15 @@ select womps.id,
        womps.image_url,
        womps.created_at,
        womps.updated_at,
-       properties.name    as parcel_name,
-       spaces.name        as space_name,
+       properties.name as parcel_name,
+       spaces.name as space_name,
        properties.address as parcel_address,
-       properties.island  as parcel_island,
-       avatars.name       as author_name
+       properties.island as parcel_island
 from womps
          left join
      properties on coalesce(womps.parcel_id::integer, 0) = properties.id
          left join
      spaces on womps.space_id::uuid = spaces.id
-left join
-  avatars
-on lower (womps.author) = lower (avatars.owner)
 where
     womps.author = $1
   and womps.kind != 'report'

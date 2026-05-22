@@ -10,7 +10,7 @@ import { Feature3D, FeatureTrigger } from './feature'
 export default class Portal extends Feature3D<PortalRecord> {
   static metadata: FeatureMetadata = {
     title: 'Portal',
-    subtitle: 'Make a teleporter using womps',
+    subtitle: 'teleporter to another parcel',
     type: 'portal',
     image: '/icons/portal.png',
   }
@@ -95,7 +95,7 @@ export default class Portal extends Feature3D<PortalRecord> {
    * @returns boolean
    */
   isPortalToAnotherRealm(): boolean {
-    return (!!this.description.womp?.space_id && !this.scene.config.isSpace) || (!this.description.womp?.space_id && this.scene.config.isSpace)
+    return (!!this.description.womp?.space_id && !window.config.isSpace) || (!this.description.womp?.space_id && window.config.isSpace)
   }
 
   onClick() {
