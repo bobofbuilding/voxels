@@ -1,7 +1,6 @@
 import { isBatterySaver, isMobile, isTablet, wantsAudio } from '../../common/helpers/detector'
 import type Grid from '../grid'
 import type Persona from '../persona'
-import type { Scene } from '../scene'
 import { ExploreDetector } from './explore-detector'
 import { FootstepSounds } from './footstep-sounds'
 import { soundFx, SoundName } from './soundfx'
@@ -93,7 +92,7 @@ export class AudioEngine {
   engine: BABYLON.Engine = undefined!
   grid: Grid
   babylonAudioEngine: BABYLON.IAudioEngine | null
-  scene: Scene
+  scene: BABYLON.Scene
   audioContext: AudioContext
   hasExplored = false
   lastMoveAt?: number
@@ -124,7 +123,7 @@ export class AudioEngine {
 
   soundLastPlayedAt = 0 // unix timestamp
 
-  constructor(scene: Scene, grid: Grid) {
+  constructor(scene: BABYLON.Scene, grid: Grid) {
     if (!wantsAudio()) {
       throw new Error('Trying to create audio when not wanted')
     }
@@ -174,17 +173,13 @@ export class AudioEngine {
     // load settings
     this.loadSettingsFromLocalStorage()
 
-    this.soundFx = {} as Record<SoundName, BABYLON.Sound>
-
-    if (isBatterySaver()) {
-      this.soundFx = Object.entries(soundFx).reduce(
-        (acc, [sound, options]) => {
-          acc[sound as SoundName] = this.createSound({ name: sound, ...options })
-          return acc
-        },
-        {} as Record<SoundName, BABYLON.Sound>,
-      )
-    }
+    this.soundFx = Object.entries(soundFx).reduce(
+      (acc, [sound, options]) => {
+        acc[sound as SoundName] = this.createSound({ name: sound, ...options })
+        return acc
+      },
+      {} as Record<SoundName, BABYLON.Sound>,
+    )
   }
 
   get persona(): Persona {
@@ -192,7 +187,7 @@ export class AudioEngine {
   }
 
   get isUnderwater(): boolean {
-    return this.scene.environment?.isUnderwater || false
+    return window.environment?.isUnderwater || false
   }
 
   get camera() {
@@ -408,7 +403,7 @@ export class AudioEngine {
   refreshPlayState() {
     let newState: PlayState
 
-    if (this.scene.config.isSpace) {
+    if (window.config.isSpace) {
       // suppress music when in spaces unless they are out of bounds
       const isLost = !this.grid.currentOrNearestParcel()?.isNearby
       newState = isLost ? PlayState.Lost : PlayState.Paused

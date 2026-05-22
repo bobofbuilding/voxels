@@ -9,7 +9,7 @@ import { Feature3D } from './feature'
 export default class Lantern extends Feature3D<LanternRecord> {
   static metadata: FeatureMetadata = {
     title: 'Lantern',
-    subtitle: 'RGB light source',
+    subtitle: 'rgb light source',
     type: 'lantern',
     image: '/icons/lantern.png',
   }

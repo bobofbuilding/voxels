@@ -1,7 +1,6 @@
 import OceanFloor from './ocean-floor'
 import Islands from './islands'
 import { isLoaded } from '../utils/loading-done'
-import type { Scene } from '../scene'
 import { StateObservable } from '../utils/state-observable'
 import { Ocean } from './ocean'
 import { ChunkSystem } from './chunk-system'
@@ -11,7 +10,7 @@ const CHUNK_SIZE = 48
 export class Terrain {
   public islandsStateObservable: StateObservable<'loaded' | 'unloaded'>
   public invalidateIslandsLoaded: () => void
-  private readonly _scene: Scene
+  private readonly _scene: BABYLON.Scene
   private readonly _parent: BABYLON.TransformNode
 
   private readonly _islands: Islands
@@ -22,10 +21,10 @@ export class Terrain {
   private _islandsHasLoaded = false
   private _loadRange: number
 
-  constructor(scene: Scene, parent: BABYLON.TransformNode, skyboxes: any[]) {
+  constructor(scene: BABYLON.Scene, parent: BABYLON.TransformNode, skyboxes: any[]) {
     this._scene = scene
     this._parent = parent
-    this._loadRange = Math.ceil((scene.draw.distance * 1.414 + CHUNK_SIZE / 2) / CHUNK_SIZE)
+    this._loadRange = Math.ceil((window.draw.distance * 1.414 + CHUNK_SIZE / 2) / CHUNK_SIZE)
 
     this._islands = new Islands(scene, parent)
     this.islandsStateObservable = this._islands.islandsStateObservable
@@ -54,7 +53,7 @@ export class Terrain {
     this._chunkSystem.addObserver(this._oceanFloor)
     this._chunkSystem.addObserver(this._ocean)
 
-    scene.draw.addEventListener('distance-changed', (e) => {
+    window.draw.addEventListener('distance-changed', (e) => {
       const newViewDistance = e.detail
       this._loadRange = Math.ceil((newViewDistance * 1.414 + CHUNK_SIZE / 2) / CHUNK_SIZE)
     })

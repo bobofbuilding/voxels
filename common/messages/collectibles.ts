@@ -1,5 +1,6 @@
 import * as t from 'io-ts'
 import { NullableNum, NullableStr } from './feature'
+import { avatarRefCodec } from './avatar-ref'
 
 export const Optional = <T extends t.Mixed>(type: T) => t.union([type, t.null, t.undefined])
 
@@ -42,7 +43,7 @@ export const CollectibleRecord = t.intersection(
       issues: t.union([NullableNum, t.undefined]),
       hash: t.string,
       category: NullableStr,
-      author: NullableStr,
+      author: avatarRefCodec,
     }),
     t.partial({
       quantity: t.number,
@@ -50,7 +51,6 @@ export const CollectibleRecord = t.intersection(
       collection_address: NullableStr,
       collection_name: NullableStr,
       image: NullableStr,
-      author_name: NullableStr,
       collection_attributes_names: t.union([t.array(TraitRecord), t.null]), // attributes definition by collection
       custom_attributes: t.union([t.array(TraitRecord), t.null]), // attributes for htat specific collectible
     }),

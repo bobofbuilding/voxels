@@ -1,5 +1,4 @@
 import type { RegionEvent } from '../regional-effects-manager'
-import type { Scene } from '../scene'
 import { easeInSineDistance } from '../utils/easing'
 import LutFactor from './lut-factor'
 
@@ -13,7 +12,7 @@ export class ColorGrader {
   private readonly lutLoopCallback: () => void
 
   constructor(
-    private scene: Scene,
+    private scene: BABYLON.Scene,
     private lutFactor: LutFactor,
   ) {
     // warning setting reusable to true causes youtube and twitch videos to wobble... not sure why
