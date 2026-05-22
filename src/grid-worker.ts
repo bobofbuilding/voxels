@@ -1,7 +1,6 @@
 import * as Comlink from 'comlink'
-import { validateMessageResponse } from '../common/messages/validate'
 import { ParcelRecord } from '../common/messages/parcel'
-import { CachedParcelsMessage } from '../common/messages/api-parcels'
+import type { CachedParcelsMessage } from '../common/messages/api-parcels'
 import { type BBox, RBush3D } from 'rbush-3d'
 import type { FetchOptions } from '../web/src/utils'
 import pDefer from 'p-defer'
@@ -131,22 +130,23 @@ class GridWorker implements GridWorkerAPI {
     this.camera = new BABYLON.Camera('grid-worker', BABYLON.Vector3.Zero(), this.scene)
   }
 
-  load() {
+  async load() {
     if (this.loadFinished) throw new Error('GridWorker already loaded')
     // this is very high priority since the world depends on this loading
     const opts: FetchOptions = { priority: 'high' }
-    return retryPolicy
-      .execute(() => fetch(process.env.ASSET_PATH + `/api/parcels/cached.json`, opts).then(validateMessageResponse(CachedParcelsMessage)))
-      .then((response: CachedParcelsMessage) => {
-        // transform the parcels into a format suitable for the RTree
-        const parcelBoxes = response.parcels.map((p): ParcelBox => {
-          const parcel = new GridWorkerParcel(this, p)
-          return { parcel, maxX: parcel.max.x, maxY: parcel.max.y, maxZ: parcel.max.z, minX: parcel.min.x, minY: parcel.min.y, minZ: parcel.min.z }
-        })
-        this.parcels.load(parcelBoxes)
-        this.loadFinished = true
-        this._loadedDeferred.resolve()
+    await retryPolicy.execute(async () => {
+      const res = await fetch(process.env.ASSET_PATH + `/api/parcels/cached.json`, opts)
+      if (!res.ok) throw res
+      const response = (await res.json()) as CachedParcelsMessage
+      // transform the parcels into a format suitable for the RTree
+      const parcelBoxes = response.parcels.map((p): ParcelBox => {
+        const parcel = new GridWorkerParcel(this, p)
+        return { parcel, maxX: parcel.max.x, maxY: parcel.max.y, maxZ: parcel.max.z, minX: parcel.min.x, minY: parcel.min.y, minZ: parcel.min.z }
       })
+      this.parcels.load(parcelBoxes)
+      this.loadFinished = true
+      this._loadedDeferred.resolve()
+    })
   }
 
   setMessageCallback(callback: (message: GridWorkerOutput) => void) {

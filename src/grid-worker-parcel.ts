@@ -1,9 +1,8 @@
 import { ExponentialBackoff, handleAll, retry } from 'cockatiel'
 import type { NdArray } from 'ndarray'
-import { ApiParcelMessage } from '../common/messages/api-parcels'
+import type { ApiParcelMessage } from '../common/messages/api-parcels'
 import { GridWorkerParcelRecord } from '../common/messages/grid'
 import { isCompleteParcelRecord } from '../common/messages/parcel'
-import { validateMessageResponse } from '../common/messages/validate'
 import { getBufferFromVoxels, getFieldShape } from '../common/voxels/helpers'
 import type { FetchOptions } from '../web/src/utils'
 import type { GridWorkerOutput } from './grid-worker'
@@ -129,10 +128,14 @@ export class GridWorkerParcel {
     this.loadAbortController = abortController
 
     // Try primary URL first
-    const primaryResult = await this.fetchJson(versionUrl, abortController.signal)
-      .then(validateMessageResponse(ApiParcelMessage))
-      .then((response) => this.handleFetchSuccess(response))
-      .catch(() => null)
+    let primaryResult: boolean | null = null
+    try {
+      const res = await this.fetchJson(versionUrl, abortController.signal)
+      const response = (await res.json()) as ApiParcelMessage
+      primaryResult = this.handleFetchSuccess(response)
+    } catch {
+      primaryResult = null
+    }
     if (primaryResult !== null) return primaryResult
 
     // Try fallback URL if primary failed
@@ -140,9 +143,11 @@ export class GridWorkerParcel {
     console.info(`[grid-worker] cached parcel ${this.id} out of date, getting latest`)
 
     const fallbackResult = await retryPolicy
-      .execute(() => this.fetchJson(fallbackUrl, abortController.signal), abortController.signal)
-      .then(validateMessageResponse(ApiParcelMessage))
-      .then((response) => this.handleFetchSuccess(response))
+      .execute(async () => {
+        const res = await this.fetchJson(fallbackUrl, abortController.signal)
+        const response = (await res.json()) as ApiParcelMessage
+        return this.handleFetchSuccess(response)
+      }, abortController.signal)
       .catch(() => null)
     return fallbackResult !== null ? fallbackResult : false
   }

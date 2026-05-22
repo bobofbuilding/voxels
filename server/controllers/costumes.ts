@@ -1,6 +1,5 @@
 import { Express } from 'express'
 import { PassportStatic } from 'passport'
-import { v7 as uuidv7 } from 'uuid'
 import { BoneNames, Costume } from '../../common/messages/costumes'
 import cache from '../cache'
 import { createRequestHandlerForQuery } from '../lib/query-helpers'
@@ -32,12 +31,8 @@ export default function CostumesController(db: Db, passport: PassportStatic, app
       if (!a.bone || !BoneNames.includes(a.bone)) {
         a.bone = 'Hips'
       }
-      if (!a.wearable_id) {
-        errors.push(`Attachment missing wearable_id, OBJECT: ${JSON.stringify(a)}`)
-        continue
-      }
-      if (isNaN(Number(a.wearable_id))) {
-        errors.push(`Attachment has invalid wearable_id, OBJECT: ${JSON.stringify(a)}`)
+      if (!a.wid || typeof a.wid !== 'string') {
+        errors.push(`Attachment missing wid, OBJECT: ${JSON.stringify(a)}`)
         continue
       }
     }
@@ -121,14 +116,9 @@ export default function CostumesController(db: Db, passport: PassportStatic, app
       // We're uploading a costume
       const { attachments, skin, default_color } = req.body as Partial<Costume>
 
-      //Guarantee unique attachments
-      let attchs =
-        attachments?.map((a) => {
-          a.uuid = uuidv7()
-          return a
-        }) || []
+      let attchs = attachments || []
 
-      const validWearables = attchs.filter((a) => a.wearable_id && !isNaN(Number(a.wearable_id)))
+      const validWearables = attchs.filter((a) => a.wid && typeof a.wid === 'string')
 
       // Guarantee wearables are not fricking massive and not all over the place; ENFORCE A LIMIT
       const scaleLimit = 8

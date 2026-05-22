@@ -1,14 +1,14 @@
 import { Animations, AvatarAnimations } from './avatar-animations'
+import { cameraPosition } from './utils/camera'
 import { Transform, TransformQueue } from './utils/transform'
 import { AVATAR_VIEW_DISTANCE, INTERPOLATION_MAX_VELOCITY } from './constants'
 import { encodeCoords } from '../common/helpers/utils'
-import type { Scene } from './scene'
 
 type timestamp = number
 
 export abstract class Entity {
   public readonly joinedAt: timestamp = 0
-  protected readonly scene: Scene
+  protected readonly scene: BABYLON.Scene
   protected readonly node: BABYLON.TransformNode
   protected tickRate: number = 1000 / 5
   protected lastTeleportAt: timestamp = 0
@@ -22,7 +22,7 @@ export abstract class Entity {
 
   animationOverride: Animations | null = null
 
-  protected constructor(scene: Scene, parent: BABYLON.TransformNode, joined: timestamp) {
+  protected constructor(scene: BABYLON.Scene, parent: BABYLON.TransformNode, joined: timestamp) {
     this.scene = scene
     this.node = new BABYLON.TransformNode('entity', this.scene)
     this.node.setParent(parent)
@@ -104,7 +104,7 @@ export abstract class Entity {
       return false
     }
 
-    const sqrCamDist = this.scene.cameraPosition.clone().subtract(p).lengthSquared()
+    const sqrCamDist = cameraPosition(this.scene).clone().subtract(p).lengthSquared()
     return sqrCamDist < radiusThreshold * radiusThreshold
   }
 
@@ -143,7 +143,7 @@ export abstract class Entity {
   protected setTransform(i: Transform) {
     this._position.copyFrom(i.position)
     this.node.position.copyFrom(this._position)
-    this._distanceFromCamera = this.scene.activeCamera ? BABYLON.Vector3.Distance(this._position, this.scene.cameraPosition) : Infinity
+    this._distanceFromCamera = this.scene.activeCamera ? BABYLON.Vector3.Distance(this._position, cameraPosition(this.scene)) : Infinity
 
     this._orientationQuaternion.copyFrom(i.orientation)
     this._orientation.copyFrom(this._orientationQuaternion.toEulerAngles())

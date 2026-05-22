@@ -1,14 +1,13 @@
 import OurCamera from './our-camera'
 import { coords } from '../../../common/helpers/utils'
-import { Scene } from '../../scene'
 
-export function createFirstPersonCamera(scene: Scene, coords: coords): OurCamera {
+export function createFirstPersonCamera(scene: BABYLON.Scene, coords: coords): OurCamera {
   const camera = new OurCamera('player-camera', coords?.position || BABYLON.Vector3.Zero(), scene)
 
   camera.minZ = 0.1
-  camera.maxZ = scene.draw.distance * 2.0
+  camera.maxZ = window.draw.distance * 2.0
 
-  scene.draw.addEventListener('distance-changed', (e) => {
+  window.draw.addEventListener('distance-changed', (e) => {
     camera.maxZ = e.detail * 2.0
   })
 
@@ -19,8 +18,8 @@ export function createFirstPersonCamera(scene: Scene, coords: coords): OurCamera
   camera.applyGravity = false
 
   // field of view
-  camera.fov = scene.fov.value
-  scene.fov.addEventListener(
+  camera.fov = window.fov.value
+  window.fov.addEventListener(
     'changed',
     (e) => {
       camera.fov = e.detail.value
@@ -32,8 +31,8 @@ export function createFirstPersonCamera(scene: Scene, coords: coords): OurCamera
   camera.inertia = 0
 
   // sensitivity
-  camera.angularSensibility = scene.cameraSettings.angularSensitivity
-  scene.cameraSettings.addEventListener(
+  camera.angularSensibility = window.cameraSettings.angularSensitivity
+  window.cameraSettings.addEventListener(
     'sensitivity-changed',
     (e) => {
       camera.angularSensibility = e.detail.value

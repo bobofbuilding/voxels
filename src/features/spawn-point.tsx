@@ -1,4 +1,5 @@
 import { SpawnPointRecord } from '../../common/messages/feature'
+import { voxImporter } from '../../common/vox-import/vox-import'
 import { Position, Rotation, Script } from '../../web/src/components/editor'
 import { Advanced, FeatureEditor, FeatureEditorProps, FeatureID, SetParentDropdown, Toolbar, UuidReadOnly } from '../ui/features'
 import { FeatureMetadata, FeatureTemplate } from './_metadata'
@@ -7,7 +8,7 @@ import { Feature3D } from './feature'
 export default class SpawnPoint extends Feature3D<SpawnPointRecord> {
   static metadata: FeatureMetadata = {
     title: 'Spawn point',
-    subtitle: 'Choose where avatars spawn',
+    subtitle: 'where avatars arrive',
     type: 'spawn-point',
     image: '/icons/spawn-point.png',
   }
@@ -30,9 +31,9 @@ export default class SpawnPoint extends Feature3D<SpawnPointRecord> {
 
   async generate() {
     try {
-      const mesh = await this.scene.importVox(process.env.ASSET_PATH + '/models/spawn-point-frame.vox', { signal: this.abortController.signal })
+      const mesh = await voxImporter().import(process.env.ASSET_PATH + '/models/spawn-point-frame.vox', { signal: this.abortController.signal })
 
-      const meshInside = await this.scene.importVox(process.env.ASSET_PATH + '/models/blue_podium_pad.vox', { signal: this.abortController.signal })
+      const meshInside = await voxImporter().import(process.env.ASSET_PATH + '/models/blue_podium_pad.vox', { signal: this.abortController.signal })
 
       if (this.meshInside) {
         this.meshInside.dispose()
@@ -152,7 +153,7 @@ export default class SpawnPoint extends Feature3D<SpawnPointRecord> {
   }
 
   refreshVisible() {
-    const shouldShow = this.parcel.canEdit && !this.scene.config.isOrbit
+    const shouldShow = this.parcel.canEdit && !window.config.isOrbit
 
     if (this.mesh) {
       this.mesh.visibility = shouldShow ? 1 : 0

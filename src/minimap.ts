@@ -4,7 +4,6 @@ import { isMobile } from '../common/helpers/detector'
 import { ExponentialBackoff, handleAll, retry } from 'cockatiel'
 import { SingleParcelRecord } from '../common/messages/parcel'
 import { app, AppEvent } from '../web/src/state'
-import { fetchAPI } from '../web/src/utils'
 // Create a retry policy that'll try whatever function with a randomized exponential backoff.
 // to be used by fetch!
 const retryPolicy = retry(handleAll, { backoff: new ExponentialBackoff(), maxAttempts: 5 })
@@ -575,7 +574,7 @@ const fetchCachedParcels = (url: string, cachebust = false): Promise<SingleParce
     if (!cachebust && Array.isArray(parcelCache[url])) return resolve(parcelCache[url])
     if (cachebust) url += `cb=${Date.now()}`
     retryPolicy
-      .execute(() => fetchAPI(url))
+      .execute(() => fetch(url, { credentials: 'include' }).then((r) => r.json()))
       .then((data) => {
         parcelCache[url] = data.parcels
         resolve(parcelCache[url])

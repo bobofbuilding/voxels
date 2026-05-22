@@ -8,14 +8,14 @@ guidelines.
 [![Open in GitHub Codespaces](https://img.shields.io/badge/Open_in-GitHub_Codespaces-238636?style=for-the-badge&logo=github&logoColor=white)](https://codespaces.new/cryptovoxels/retro)
 
 * `pnpm install`
-* `psql voxels < db/import.sql`
+* `cat db/import.sql.gz | gunzip | psql voxels`
 * `pnpm run dev`
 * Open port 9000
 
 # Installing locally
 
 * Clone repo
-* Install postgres@14 and node@24 and pnpm
+* Install postgres@18 and node@24 and pnpm
 * `createdb voxels && psql voxels < db/import.sql`
 * `pnpm install`
 * `pnpm run dev`
@@ -38,4 +38,3 @@ license carefully. This is not an OSI compatible license.
 ### Contributor Agreement
 
 By contributing to this repository, you agree that your contributions (commits) are licensed under this Business Source License 1.1, including the rolling transition to the MIT License three years after the date of your commit.
-
