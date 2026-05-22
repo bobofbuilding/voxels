@@ -8,7 +8,6 @@ class config {
   readonly proxy_cdn_base_url = process.env.PROXY_CDN_BASE_URL || 'https://cdn2.cryptovoxels.com'
   readonly media_upload_endpoint = process.env.MEDIA_UPLOAD_ENDPOINT || 'https://upload.media.crvox.com/upload'
   readonly texture_cachebuster = process.env.TEXTURE_CACHEBUSTER || 'v6'
-  readonly isUAT = process.env.UAT === 'true'
   readonly isDevelopment = process.env.NODE_ENV !== 'production'
   readonly lightmap_base_url = process.env.SPACES_BUCKET || 'https://files.crvox.com'
 

@@ -1,4 +1,5 @@
 import * as assert from 'assert'
+import { cameraPosition } from './utils/camera'
 import { isEqual } from 'lodash'
 import type { QuickJSContext, QuickJSRuntime, QuickJSWASMModule } from 'quickjs-emscripten'
 import { getQuickJS } from 'quickjs-emscripten'
@@ -10,7 +11,6 @@ import Avatar from './avatar'
 import Feature from './features/feature'
 import VidScreen from './features/vid-screen'
 import type Parcel from './parcel'
-import type { Scene } from './scene'
 import FeatureBasicGUI from './ui/gui/gui'
 import {
   ScriptingActions,
@@ -53,13 +53,13 @@ export default class ParcelScript {
   runtime: QuickJSRuntime | null = null
   context: QuickJSContext | null = null
   connected: boolean = false
-  disabled = false
+  disabled = true
 
-  constructor(scene: Scene, parcel: Parcel) {
+  constructor(scene: BABYLON.Scene, parcel: Parcel) {
     this.parcel = parcel
     this.lastTestBoundResult = 'away'
 
-    if (scene.config.isBot) {
+    if (window.config.isBot) {
       this.disabled = true
     }
 
@@ -134,11 +134,7 @@ export default class ParcelScript {
     return this.avatarAttachmentManager.attachments.map((attachment) => {
       // only expose these avatar properties to the script
       return {
-        uuid: attachment.uuid,
-        wearable_id: attachment.wearable_id,
-        collection_id: attachment.collection_id || 1,
-        chain_id: attachment.chain_id || 1,
-        collection_address: attachment.collection_address || '',
+        wid: attachment.wid,
         bone: attachment.bone,
       }
     })
@@ -163,7 +159,7 @@ export default class ParcelScript {
     if (!this.scene.activeCamera) {
       return false
     }
-    return this.parcel.contains(this.scene.cameraPosition)
+    return this.parcel.contains(cameraPosition(this.scene))
   }
 
   isNearby(): boolean {
@@ -171,7 +167,7 @@ export default class ParcelScript {
   }
 
   isDistant(): boolean {
-    return !this.isWithin() && this.parcel.transform.position.subtract(this.scene.cameraPosition).length() > DISTANT
+    return !this.isWithin() && this.parcel.transform.position.subtract(cameraPosition(this.scene)).length() > DISTANT
   }
 
   parcelOrSpaceId() {
@@ -639,7 +635,7 @@ export default class ParcelScript {
     if (!(f as any)['play']) return
 
     const setRollOffFactor = (f: any): number => {
-      if (!['audio', 'youtube', 'video'].includes(f.type)) return (f.description as any).rollOffFactor
+      if (!['audio', 'youtube', 'video', 'showbox'].includes(f.type)) return (f.description as any).rollOffFactor
       if (this.isWithin()) return (f.description as any).rollOffFactor
       if (((f.description as any).rolloffFactor || 1) >= 0.8) f.rollOffFactor
       return 1.2
@@ -776,7 +772,7 @@ export default class ParcelScript {
     } else {
       app.showSnackbar(`Parcel ${this.parcelOrSpaceId()} teleported you out.`)
     }
-    if (!this.scene.config.isSpace) {
+    if (!window.config.isSpace) {
       this.persona?.teleportNoHistory({ position: new BABYLON.Vector3(0, 1.5, 0), rotation: new BABYLON.Vector3(0, 0, 0) })
     } else {
       window.location.replace('/')

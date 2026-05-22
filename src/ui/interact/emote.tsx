@@ -4,6 +4,7 @@ import { Animations } from '../../avatar-animations'
 import Connector from '../../connector'
 import Persona from '../../persona'
 import { EmoteAnimation } from '../../states'
+import type UserInterface from '../../user-interface'
 
 interface Props {
   onClose?: () => void
@@ -64,6 +65,7 @@ export class EmoteOverlay extends Component<Props, any> {
 
   emote(emoji: string) {
     this.connector.emote(emoji)
+    this.refocus()
   }
 
   playAnimation(animation: Animations) {
@@ -73,10 +75,15 @@ export class EmoteOverlay extends Component<Props, any> {
     if (animation) {
       this.persona.setState({ state: new EmoteAnimation(animation) }, this.connector.controls)
     }
+    this.refocus()
   }
 
-  close() {
-    this.props.onClose!()
+  refocus() {
+    this.ui.refocus()
+  }
+
+  get ui(): UserInterface {
+    return window.ui!
   }
 
   render() {
