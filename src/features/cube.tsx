@@ -8,7 +8,7 @@ import { Feature3D, MeshExtended } from './feature'
 export default class Cube extends Feature3D<CubeRecord> {
   static metadata: FeatureMetadata = {
     title: 'Cube',
-    subtitle: 'A texturable cube',
+    subtitle: 'texturable cube',
     type: 'cube',
     image: '/icons/cube.png',
   }

@@ -1,6 +1,6 @@
 import { Component } from 'preact'
 import { app, AppEvent } from '../state'
-import { fetchAPI, fetchOptions } from '../utils'
+import { fetchOptions } from '../utils'
 import { PanelType } from './panel'
 import { invalidateUrl } from '../helpers/cached-fetch'
 import { ssrFriendlyDocument } from '../../../common/helpers/utils'
@@ -56,9 +56,11 @@ export default class FavoriteButton extends Component<Props, State> {
       return
     }
     this.setState({ fetching: true })
-    fetchAPI(`/api/favorites/${app.state.wallet}/${this.props.parcelId}.json?cb=${Date.now()}`).then((result) => {
-      this.setState({ isFavorite: !!result.isFavorite, fetching: false, fetched: true })
-    })
+    fetch(`/api/favorites/${app.state.wallet}/${this.props.parcelId}.json?cb=${Date.now()}`, { credentials: 'include' })
+      .then((r) => r.json())
+      .then((result) => {
+        this.setState({ isFavorite: !!result.isFavorite, fetching: false, fetched: true })
+      })
   }
 
   async addFavorite() {
@@ -66,7 +68,7 @@ export default class FavoriteButton extends Component<Props, State> {
       return
     }
     this.setState({ isFavorite: true })
-    fetchAPI(`/api/favorites/add`, fetchOptions(undefined, this.postBody))
+    fetch(`/api/favorites/add`, fetchOptions(undefined, this.postBody))
       .catch((err) => {
         app.showSnackbar(`Could not add parcel ${this.props.parcelId} as favorite.`, PanelType.Danger)
         this.setState({ isFavorite: false })
@@ -82,7 +84,7 @@ export default class FavoriteButton extends Component<Props, State> {
       return
     }
     this.setState({ isFavorite: false })
-    fetchAPI(`/api/favorites/remove`, fetchOptions(undefined, this.postBody))
+    fetch(`/api/favorites/remove`, fetchOptions(undefined, this.postBody))
       .catch((err) => {
         console.error(err)
         app.showSnackbar(`Could not remove parcel ${this.props.parcelId} from your favorite`, PanelType.Danger)

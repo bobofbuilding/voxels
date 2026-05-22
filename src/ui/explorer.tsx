@@ -6,7 +6,6 @@ import { CommunityEvents } from '../components/explorer/events'
 import { Home } from '../components/explorer/home'
 import { AccountParcels, FavoritesParcels, ParcelsList } from '../components/explorer/parcels'
 import { UsersOnline } from '../components/explorer/users-online'
-import type { Scene } from '../scene'
 import { BigMap } from './map-overlay'
 import { ExplorerSearchBar } from './search-bar'
 
@@ -18,7 +17,7 @@ export type ParcelsSubTab = 'my-parcels' | 'favorites' | 'all'
 
 interface Props {
   onClose?: () => void
-  scene: Scene
+  scene: BABYLON.Scene
   initialTab?: Tab
 }
 

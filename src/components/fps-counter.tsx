@@ -1,5 +1,4 @@
 import { Component } from 'preact'
-import type { Scene } from '../scene'
 
 const { setInterval } = window
 
@@ -8,7 +7,7 @@ THIS IS NOT THE FPS COUNTER IN THE TOP LEFT CORNER IN DEBUG MODE.
 */
 
 type Props = {
-  scene: Scene
+  scene: BABYLON.Scene
 }
 
 export default class FPSCounter extends Component<Props, any> {

@@ -6,11 +6,10 @@ import { OwnerAndCollaboratorOnly, SignedInOnly } from '../../../web/src/compone
 import { toggleParcelAdminOverlay } from '../parcel-admin'
 import { debounce } from 'lodash'
 import { LightmapStatus } from '../../../common/messages/parcel'
-import type { Scene } from '../../scene'
 
 interface Props {
   parcel: Parcel | null
-  scene: Scene
+  scene: BABYLON.Scene
 }
 
 type State = {

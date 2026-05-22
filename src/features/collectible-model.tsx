@@ -1,3 +1,4 @@
+import { voxImporter } from '../../common/vox-import/vox-import'
 import type { FeatureTrigger } from './feature'
 import { Feature3D } from './feature'
 import {
@@ -18,7 +19,7 @@ import {
 import showCollectibleHTMLUi from '../ui/html-ui/collectible-ui'
 import { app } from '../../web/src/state'
 import { CollectibleInfoRecord, CollectibleModelRecord } from '../../common/messages/feature'
-import { defaultBone } from '../../web/src/upload-wearable'
+import { defaultBone } from '../../web/types'
 import ActionGui from '../ui/gui/action-button-gui'
 import { CostumeAttachment } from '../../common/messages/costumes'
 import Config from '../../common/config'
@@ -62,8 +63,8 @@ export default class CollectibleModel extends Feature3D<CollectibleModelRecord> 
     return !!this.description.showTryOnPopUp
   }
 
-  get collectibleUuid() {
-    return 'try-' + this.uuid
+  get collectibleWid() {
+    return this.collectible?.id ?? ''
   }
 
   get currentAvatar() {
@@ -92,7 +93,7 @@ export default class CollectibleModel extends Feature3D<CollectibleModelRecord> 
   async onError() {
     if (this.disposed) return
 
-    const mesh = await this.scene.importVox(`https://www.voxels.com/models/vox-five-broken.vox`, { signal: this.abortController.signal })
+    const mesh = await voxImporter().import(`https://www.voxels.com/models/vox-five-broken.vox`, { signal: this.abortController.signal })
 
     if (this.mesh) {
       this.mesh.dispose()
@@ -118,7 +119,7 @@ export default class CollectibleModel extends Feature3D<CollectibleModelRecord> 
     }
     let mesh
     try {
-      mesh = await this.scene.importVox(url, { signal: this.abortController.signal })
+      mesh = await voxImporter().import(url, { signal: this.abortController.signal })
     } catch (e) {
       await this.onError()
       return Promise.resolve()
@@ -215,11 +216,7 @@ export default class CollectibleModel extends Feature3D<CollectibleModelRecord> 
     }
 
     return {
-      uuid: this.collectibleUuid,
-      wearable_id: token_id,
-      collection_id: collection_id,
-      chain_id: this.collectible?.chain_id || 1,
-      collection_address: this.collectible?.collection_address || '',
+      wid: this.collectibleWid,
       bone: this.description.tryBone || defaultBone(this.collectible),
       position: this.description.tryPosition || [0, 0, 0],
       rotation,
@@ -253,7 +250,7 @@ export default class CollectibleModel extends Feature3D<CollectibleModelRecord> 
     if (avatar === lastAvatar) return
 
     if (lastAvatar && lastAvatar.attachmentManager) {
-      lastAvatar.attachmentManager.remove(this.collectibleUuid)
+      lastAvatar.attachmentManager.remove(this.collectibleWid)
       this.lastAvatarId = null
     }
 
@@ -360,7 +357,7 @@ class Editor extends FeatureEditor<CollectibleModel> {
           <Advanced>
             <FeatureID feature={this.props.feature} />
             <SetParentDropdown feature={this.props.feature} />
-            {!this.props.scene.config.isSpace && (
+            {!window.config.isSpace && (
               <div className="f">
                 <label>Interactivity Options</label>
                 <label>
@@ -369,7 +366,7 @@ class Editor extends FeatureEditor<CollectibleModel> {
                 </label>
               </div>
             )}
-            {this.state.tryable && !this.props.scene.config.isSpace && (
+            {this.state.tryable && !window.config.isSpace && (
               <div className="sub-f">
                 <div className="f">
                   <label>Pop up</label>
