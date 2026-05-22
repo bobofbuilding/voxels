@@ -5,13 +5,12 @@ import { showAreaContentAnalyzeUI } from '../../controls/desktop/area-content-an
 import { Environment } from '../../enviroments/environment'
 import type Grid from '../../grid'
 import type Parcel from '../../parcel'
-import type { Scene } from '../../scene'
 import { toggleFPSStats } from '../../utils/fps-stats'
 import { TimeOfDay } from '../../utils/time-of-day'
 
 interface Props {
   parcel: Parcel | null
-  scene: Scene
+  scene: BABYLON.Scene
   environment: Environment
 }
 

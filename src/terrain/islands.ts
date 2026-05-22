@@ -1,5 +1,4 @@
 import { IslandRecord, MultiPolygonGeometry } from '../../common/messages/api-islands'
-import type { Scene } from '../scene'
 import { StateObservable } from '../utils/state-observable'
 import { createIslandMaterial } from '../materials'
 
@@ -17,7 +16,7 @@ export class Island {
     this.desc = desc
     this.outline = this.desc.geometry.coordinates[0].map((c: [x: number, y: number]) => new BABYLON.Vector2(c[0] * 100, c[1] * 100)).reverse()
 
-    if (list.scene.config.isSpace) {
+    if (window.config.isSpace) {
       this.texturePath = '/textures/subgrid.png'
     } else if (desc.texture) {
       // texture comes from the DB
@@ -117,14 +116,14 @@ export class Island {
 }
 
 export default class Islands {
-  scene: Scene
+  scene: BABYLON.Scene
   parent: BABYLON.TransformNode
   islands: Island[] = []
 
   public islandsStateObservable = new StateObservable<'loaded' | 'unloaded'>('unloaded')
   private _fetchCompleted = false
 
-  constructor(scene: Scene, parent: BABYLON.TransformNode) {
+  constructor(scene: BABYLON.Scene, parent: BABYLON.TransformNode) {
     this.scene = scene
     this.parent = parent
   }

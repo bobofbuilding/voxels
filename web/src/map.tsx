@@ -1,4 +1,5 @@
 import { ExponentialBackoff, handleAll, retry } from 'cockatiel'
+
 import { maxBy } from 'lodash'
 import { Component } from 'preact'
 import { render } from 'preact/compat'
@@ -9,7 +10,7 @@ import type MapOverlayUI from '../../src/ui/map-overlay'
 import { Womp, WompCard } from './components/womp-card'
 import { mapParcelPopup, mapTeleportPopup } from './map-parcel-popup'
 import { app, AppEvent } from './state'
-import { fetchAPI, fetchOptions } from './utils'
+import { fetchOptions } from './utils'
 
 const retryPolicy = retry(handleAll, { maxAttempts: 3, backoff: new ExponentialBackoff() })
 
@@ -458,8 +459,6 @@ export default class WorldMap extends Component<Props, State> {
           }
         } else if (help.isContributor(userWallet)) {
           contributorParcels.push(parcel)
-        } else if (help.isRenter(userWallet)) {
-          rentedParcels.push(parcel)
         } else {
           otherParcels.push(parcel)
         }
@@ -578,7 +577,6 @@ export default class WorldMap extends Component<Props, State> {
 
     return (
       <section class="worldmap">
-        <h1>Map</h1>
         <div class="map map-web" />
       </section>
     )
@@ -593,7 +591,7 @@ export default class WorldMap extends Component<Props, State> {
 
 const getWomps = async (signal?: AbortSignal) => {
   const url = `${process.env.API}/womps.json?limit=50&kind=broadcast`
-  const p = await fetchAPI(`${url}`, { method: 'get', signal })
+  const p = await fetch(`${url}`, { method: 'get', signal, credentials: 'include' }).then((r) => r.json())
 
   return (p?.womps || []) as Womp[]
 }
