@@ -3,7 +3,6 @@ import { isBatterySaver, isMobile } from '../../common/helpers/detector'
 import { YoutubeRecord } from '../../common/messages/feature'
 import { CSS3DObject, CSS3DRenderer } from '../../vendor/CSS3DRenderer'
 import { Position, Rotation, Scale, Script } from '../../web/src/components/editor'
-import type { Scene } from '../scene'
 import { fetchNoImageTexture, fetchTexture } from '../textures/textures'
 import { Advanced, FeatureEditor, FeatureEditorProps, FeatureID, SetParentDropdown, Toolbar, UuidReadOnly } from '../ui/features'
 import { isURL } from '../utils/helpers'
@@ -34,7 +33,7 @@ export function buildYoutubeThumbnailUrl(videoId: string | undefined): string | 
   return `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`
 }
 
-export async function loadYoutubeThumbnail(scene: Scene, videoId: string | undefined, signal: AbortSignal): Promise<BABYLON.Texture> {
+export async function loadYoutubeThumbnail(scene: BABYLON.Scene, videoId: string | undefined, signal: AbortSignal): Promise<BABYLON.Texture> {
   const thumbnailUrl = buildYoutubeThumbnailUrl(videoId)
   if (!thumbnailUrl) {
     return fetchNoImageTexture(scene)
@@ -185,7 +184,7 @@ export default class Youtube extends Feature2D<YoutubeRecord> {
 
   onEnter = () => {
     // tablets and mobile devices don't autoplay,
-    if (!this.autoplay || this.scene.config.isOrbit || isMobile()) {
+    if (!this.autoplay || window.config.isOrbit || isMobile()) {
       return
     }
     // disable autoplay in battery saver mode
@@ -200,7 +199,7 @@ export default class Youtube extends Feature2D<YoutubeRecord> {
 
       // fade it back in!
       this.fadeIn(AUTOPLAY_FADE_TIME)
-    } else if (this.autoplay && !this.scene.config.isOrbit) {
+    } else if (this.autoplay && !window.config.isOrbit) {
       this.play()
     }
   }
@@ -246,6 +245,11 @@ export default class Youtube extends Feature2D<YoutubeRecord> {
   async setPreview() {
     if (this.disposed) return
 
+    if (this.isTwitch) {
+      this.setTwitchPreview()
+      return
+    }
+
     let texture: BABYLON.Texture
     if (this.description.previewUrl) {
       texture = await fetchTexture(this.scene, this.previewUrl, this.abortController.signal, { transparent: false, stretch: true })
@@ -267,7 +271,60 @@ export default class Youtube extends Feature2D<YoutubeRecord> {
     }
   }
 
+  setTwitchPreview() {
+    if (this.disposed) return
+    const channel = this.videoId ?? 'unknown'
+    const w = 640
+    const h = 360
+    const tex = new BABYLON.DynamicTexture(this.uniqueEntityName('tpreview' as any), { width: w, height: h }, this.scene, false)
+    const ctx = tex.getContext() as CanvasRenderingContext2D
+    const font = 'bold 18px "Source Code Pro", monospace'
+
+    ctx.fillStyle = '#1a1a1e'
+    ctx.fillRect(0, 0, w, h)
+
+    ctx.font = font
+    ctx.textBaseline = 'middle'
+    ctx.textAlign = 'center'
+    ctx.fillStyle = '#9146ff'
+    ctx.fillText('twitch / ' + channel, w / 2, h / 2 - 40)
+
+    ctx.fillStyle = '#f5f5f0'
+    ctx.fillText('twitch embedding is disabled', w / 2, h / 2)
+
+    const cta = '\u25B6 open on twitch.tv'
+    const tw = ctx.measureText(cta).width
+    const padX = 14
+    const padY = 10
+    const bw = tw + padX * 2
+    const bh = 20 + padY * 2
+    const bx = w / 2 - bw / 2
+    const by = h / 2 + 30
+    ctx.fillStyle = 'rgba(145,70,255,0.85)'
+    ctx.fillRect(bx, by, bw, bh)
+    ctx.fillStyle = '#f5f5f0'
+    ctx.fillText(cta, w / 2, by + bh / 2)
+
+    tex.update()
+    tex.hasAlpha = false
+
+    const material = new BABYLON.StandardMaterial(this.uniqueEntityName('material'), this.scene)
+    material.diffuseTexture = tex
+    material.backFaceCulling = false
+    material.zOffset = -4
+    material.specularColor.set(0, 0, 0)
+    material.emissiveColor.set(1, 1, 1)
+    material.blockDirtyMechanism = true
+
+    if (this.mesh) this.mesh.material = material
+  }
+
   onClick() {
+    if (this.isTwitch) {
+      window.open('https://twitch.tv/' + this.videoId, '_blank')
+      this.parcelScript?.dispatch('click', this, {})
+      return
+    }
     if (this.playing) {
       if (this.paused) {
         this.unpause()
@@ -514,7 +571,7 @@ class YoutubePlayer {
   static renderer: CSS3DRenderer
   div: HTMLDivElement | undefined = undefined
   iframe: HTMLIFrameElement | undefined = undefined
-  scene: Scene
+  scene: BABYLON.Scene
   CSSobject: CSS3DObject | undefined = undefined
   width = 480
   height = 360 // Twitch minimum height is 300
@@ -527,7 +584,7 @@ class YoutubePlayer {
   fadeState: FadeState | undefined = undefined
   disposed = false
 
-  constructor(feature: Youtube, scene: Scene, ratio: number) {
+  constructor(feature: Youtube, scene: BABYLON.Scene, ratio: number) {
     this.feature = feature
     this.scene = scene
     this.playing = false
@@ -560,7 +617,7 @@ class YoutubePlayer {
   }
 
   // COMMANDER WORF - INITIATE!
-  static initiate(scene: Scene) {
+  static initiate(scene: BABYLON.Scene) {
     if (YoutubePlayer.initiated) {
       return
     }
@@ -647,7 +704,8 @@ class YoutubePlayer {
   }
 
   getVolumeMultiplier() {
-    const distance = this.scene.activeCamera ? this.feature.positionInGrid.subtract(this.scene.cameraPosition).length() : 5.0
+    const cam = this.scene.activeCamera?.globalPosition
+    const distance = cam ? this.feature.positionInGrid.subtract(cam).length() : 5.0
     return Math.pow(Math.max(distance, this.refDistance) / this.refDistance, -this.rolloffFactor)
   }
 

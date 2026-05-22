@@ -1,4 +1,5 @@
 import { Component, Fragment } from 'preact'
+
 import { ssrFriendlyWindow } from '../../common/helpers/utils'
 import Head from './components/head'
 import PaginationLinks from './components/pagination-links'
@@ -6,11 +7,12 @@ import cachedFetch from './helpers/cached-fetch'
 import parse from './helpers/parse'
 
 import { app } from './state'
+import { AvatarLink } from './components/avatar-link'
 
 type SpaceRecord = {
   id: string
   name: string | null
-  owner_name: string | null
+  owner: any // AvatarRef
   visits: number | null
   feature_count: number | null
   pagination_count: number
@@ -109,7 +111,9 @@ export default class Spaces extends Component<Props, State> {
               <a href={`/spaces/${s.id}`}>{name}</a>
             </b>
             <br />
-            <small>{s.owner_name}</small>
+            <small>
+              <AvatarLink avatar={s.owner} />
+            </small>
           </td>
           <td>{s.visits}</td>
           <td>{s.feature_count}</td>
@@ -124,10 +128,7 @@ export default class Spaces extends Component<Props, State> {
         <Head title={'Spaces'} />
 
         <div style={{ display: 'flex', flex: 1, width: '100%' }}>
-          <hgroup style={{ flexGrow: 1 }}>
-            <h1>Spaces</h1>
-            <p>Browse the public spaces.</p>
-          </hgroup>
+          <div style={{ flexGrow: 1 }} />
           <div>
             {app.state.wallet && (
               <button class="outline" onClick={() => (window.location.href = '/spaces/new')}>

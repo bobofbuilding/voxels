@@ -17,9 +17,10 @@ export default class Mailbox extends Component<Props, State> {
   render() {
     return (
       <section class="columns">
-        <h1>Mailbox</h1>
-
-        <MailboxUI addressTo={this.props.to ?? null} />
+        <article>
+          <h1>Mailbox</h1>
+          <MailboxUI addressTo={this.props.to ?? null} />
+        </article>
       </section>
     )
   }

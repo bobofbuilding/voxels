@@ -70,7 +70,7 @@ export class Spaces extends Component<Props, State> {
     return (
       <div>
         {spaces.length > 0 || !this.props.isOwner ? (
-          <table>
+          <table class="spaces">
             <tbody>{spaces}</tbody>
           </table>
         ) : (

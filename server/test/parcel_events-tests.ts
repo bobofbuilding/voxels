@@ -7,7 +7,6 @@ test('ParcelEvent#object', (t) => {
     parcel_id: 670,
     name: 'My event',
     author: '0x0fA074262d6AF761FB57751d610dc92Bac82AEf9',
-    author_name: 'Fayelure',
     description: 'My event',
     starts_at: new Date(Date.now() + 5 * 60000),
   })
@@ -27,7 +26,6 @@ test('ParcelEvent Create', async (t) => {
     parcel_id: 670,
     name: 'My event',
     author: '0x0fA074262d6AF761FB57751d610dc92Bac82AEf9',
-    author_name: 'Fayelure',
     description: 'My event',
     starts_at: new Date(Date.now() + 5 * 60000),
   })

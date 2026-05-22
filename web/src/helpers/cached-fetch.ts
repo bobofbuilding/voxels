@@ -21,7 +21,7 @@ class Response {
 
 const DEFAULT_TTL = 60
 
-export function invalidateUrl(url: string) {
+export async function invalidateUrl(url: string, refetch = false) {
   // invalidate all keys matching this url
 
   if (url.endsWith('*')) {
@@ -43,6 +43,11 @@ export function invalidateUrl(url: string) {
   } else {
     console.warn(`Tried to invalidate url ${url} that is not in the cache`)
   }
+
+  // If refetch is true - refetch it with a nonce
+  if (refetch) {
+    await cachedFetch(url, { cache: 'reload' })
+  }
 }
 
 type Seconds = number
@@ -60,7 +65,12 @@ async function cachedFetch(url: string, opts?: RequestInit, ttlSeconds?: Seconds
     // console.log('[missed cache]' + url)
     // console.log(ttl)
 
-    const r = await fetch(url, opts)
+    if (opts.cache === 'reload') {
+      var r = await fetch(url + '?nonce=' + Math.random(), opts)
+    } else {
+      var r = await fetch(url, opts)
+    }
+
     if (!r.ok) {
       throw new Error(`HTTP error! Status: ${r.status}`)
     }

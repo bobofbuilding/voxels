@@ -3,21 +3,18 @@ import { getWearableGif } from '../../../web/src/helpers/wearable-helpers'
 
 import CollectibleModel from '../../features/collectible-model'
 import { exitPointerLock } from '../../../common/helpers/ui-helpers'
-import showAvatarHTMLUi from './avatar-ui'
 import { HTMLUi } from './html-ui'
 import { unmountComponentAtNode } from 'preact/compat'
 import { SUPPORTED_CHAINS_BY_ID } from '../../../common/helpers/chain-helpers'
-import type { Scene } from '../../scene'
-
+import { avatarName } from '../../../common/messages/avatar-ref'
 type Props = {
   collectible: CollectibleModel
   onClose: () => void
   status?: string
-  scene: Scene
+  scene: BABYLON.Scene
 }
 type State = {
   collectible: CollectibleModel
-  author_name: string | null
   status?: string
 }
 
@@ -29,7 +26,6 @@ export class CollectibleHTMLUi extends HTMLUi<Props, State> {
 
     this.state = {
       collectible: props.collectible,
-      author_name: null,
     }
   }
 
@@ -79,19 +75,7 @@ export class CollectibleHTMLUi extends HTMLUi<Props, State> {
     return this.state.collectible
   }
 
-  componentDidMount() {
-    this.fetchAuthorName()
-  }
-
-  async fetchAuthorName() {
-    if (this.asset) {
-      const p = await fetch(`${process.env.API}/avatar/${this.asset.author}/name.json`)
-      const r = await p.json()
-      if (r.success) {
-        this.setState({ author_name: r.name.name })
-      }
-    }
-  }
+  componentDidMount() {}
 
   redirectToPage() {
     window.open(`${this.urlPage}`, '_blank')
@@ -108,21 +92,6 @@ export class CollectibleHTMLUi extends HTMLUi<Props, State> {
       return null
     }
     return this.connector.findAvatarByWallet(wallet)
-  }
-
-  onWalletClick() {
-    if (!this.asset) {
-      return
-    }
-
-    const avatar = this.getAvatar(this.asset.author)
-    // if the avatar is in world, open in world avatar box otherwise fall back to link open in new window
-    if (avatar) {
-      showAvatarHTMLUi(avatar, this.props.scene)
-      return
-    }
-
-    window.open(`${process.env.ASSET_PATH}/avatar/${this.asset.author}`, '_blank')
   }
 
   onTryCollectible() {
@@ -177,9 +146,7 @@ export class CollectibleHTMLUi extends HTMLUi<Props, State> {
             </div>
             <div className="OverlayHighlightContent -link">
               <h4>Creator</h4>
-              <p>
-                <a onClick={() => this.onWalletClick()}>{this.state.author_name || this.asset?.author}</a>
-              </p>
+              <p>{this.asset?.author ? avatarName(this.asset.author as any) : ''}</p>
             </div>
             <div className="OverlayHighlightContent">
               <h4>Chain</h4>
@@ -212,7 +179,7 @@ export class CollectibleHTMLUi extends HTMLUi<Props, State> {
   }
 }
 
-export default function showCollectibleHTMLUi(collectible: CollectibleModel, scene: Scene) {
+export default function showCollectibleHTMLUi(collectible: CollectibleModel, scene: BABYLON.Scene) {
   if (!!CollectibleHTMLUi.currentElement) {
     unmountComponentAtNode(CollectibleHTMLUi.currentElement)
     CollectibleHTMLUi.currentElement = null!

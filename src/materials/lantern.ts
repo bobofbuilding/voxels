@@ -1,7 +1,6 @@
 // ABOUTME: Dedicated material for lantern features
 // ABOUTME: Creates self-lit glowing appearance using emissive color
 
-import type { Scene } from '../scene'
 import { cacheMaterial, generateCacheKey, getCachedMaterial } from './cache'
 import type { ColorInput } from './color-utils'
 import { toColor3 } from './color-utils'
@@ -14,7 +13,7 @@ export interface LanternMaterialConfig {
 /**
  * Create a lantern material that looks like a glowing light source
  */
-export function createLanternMaterial(scene: Scene, config: LanternMaterialConfig): BABYLON.Material {
+export function createLanternMaterial(scene: BABYLON.Scene, config: LanternMaterialConfig): BABYLON.Material {
   const lanternColor = toColor3(config.color)
   const strength = config.strength ?? 50
 

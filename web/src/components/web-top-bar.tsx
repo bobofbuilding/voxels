@@ -55,7 +55,7 @@ export default class WebTopBar extends Component<unknown, State> {
     if (!this.state.signedIn) {
       return (
         <li>
-          <a href="/account">Log in</a>
+          <a href="/account">Login</a>
         </li>
       )
     }
@@ -76,11 +76,6 @@ export default class WebTopBar extends Component<unknown, State> {
             <li>
               <Link activeClassName="active" href="/account/collaborations">
                 Collabs
-              </Link>
-            </li>
-            <li>
-              <Link activeClassName="active" href="/account/collectibles">
-                Collectibles
               </Link>
             </li>
             <li>
