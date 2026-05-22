@@ -1,6 +1,6 @@
 import * as createAOMesh from 'ao-mesher'
 import fill from '../voxels/ndarray-fill'
-import * as ndarray from 'ndarray'
+import ndarray from 'ndarray'
 import { VertexData } from 'babylonjs'
 const VoxReader = require('@sh-dave/format-vox').VoxReader
 
@@ -79,7 +79,7 @@ export default async function voxImport(url: string, scene: BABYLON.Scene): Prom
   vd.normals = normals
   vd.indices = indices
 
-  const mesh = new BABYLON.Mesh('fresh/import')
+  const mesh = new BABYLON.Mesh('fresh/import', scene)
   vd.applyToMesh(mesh)
 
   // Center mesh

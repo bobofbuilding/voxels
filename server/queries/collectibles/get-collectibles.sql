@@ -3,13 +3,15 @@ select w.id,
        token_id,
        w.description,
        collection_id,
-       c.name                                                                  as collection_name,
-       c.chainid                                                               as chain_id,
-       c.address                                                               as collection_address,
+       c.name as collection_name,
+       c.chainid as chain_id,
+       c.address as collection_address,
        issues,
        updated_at,
-       w.author,
-       (select name from avatars where lower(avatars.owner) = lower(w.author)) as author_name,
+       COALESCE(
+         (SELECT row_to_json(sub) FROM (SELECT a.id, a.name, a.owner, a.created_at FROM avatars a WHERE lower(a.owner) = lower(w.author) LIMIT 1) sub),
+         to_json(w.author)
+       ) as author,
        hash
 from wearables w
          left join

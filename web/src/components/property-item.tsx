@@ -50,7 +50,7 @@ export default class PropertyItem extends Component<Props, State> {
           <br />
           <small>{this.props.helper.island}</small>
         </td>
-        <td>{this.props.record.emoji_list ? this.props.record.emoji_list.map((e: { emoji: string; total: number }) => e.emoji + e.total + ' ') : ''}</td>
+        <td></td>
       </tr>
     )
   }
@@ -130,9 +130,6 @@ export class SpacePropertyItem extends Component<SpaceProps, State> {
           </small>
         </td>
         <td>
-          <div />
-        </td>
-        <td>
           <b>
             <a href={`/spaces/${this.helper.id}`}>{this.helper.name}</a>
           </b>
@@ -142,8 +139,6 @@ export class SpacePropertyItem extends Component<SpaceProps, State> {
               {this.props.record.width}&times;{this.props.record.height}&times;{this.props.record.depth}
             </small>
           )}
-          <br />
-          <a onClick={() => this.removeSpace()}>Remove</a>
         </td>
       </tr>
     )
