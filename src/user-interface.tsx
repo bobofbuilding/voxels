@@ -3,13 +3,15 @@ import { Component, createRef, Fragment, h } from 'preact'
 import { isMobileMedia } from '../common/helpers/detector'
 import { exitPointerLock, hasPointerLock, requestPointerLock } from '../common/helpers/ui-helpers'
 import { onBeginUpload, onCompleteUpload, onFailUpload } from '../common/helpers/upload-media'
-import { shorterWallet } from '../common/helpers/utils'
-import { SignIn } from '../web/src/auth/login'
+import { fetchFromMPServer, shorterWallet } from '../common/helpers/utils'
+import { Login } from '../web/src/auth/login'
 import { PanelType } from '../web/src/components/panel'
 import Snackbar from '../web/src/components/snackbar'
 import { app, AppEvent } from '../web/src/state'
 import { KeyboardHandler } from './components/keyboard-handler'
 import { OnlyMobile, ViewOnCondition } from './components/utils'
+import { Animations } from './avatar-animations'
+import { EmoteAnimation } from './states'
 import Connector from './connector'
 import DesktopControls from './controls/desktop/controls'
 import { Environment } from './enviroments/environment'
@@ -18,12 +20,13 @@ import Feature from './features/feature'
 import type Grid from './grid'
 import type { MinimapSettings } from './minimap'
 import Parcel from './parcel'
-import type { Scene } from './scene'
+import { isScratchpad } from './scene-config'
+import { onLoadPromise } from './utils/loading-done'
 import { selectCurrentOrNearestParcel, selectNearestEditableParcel, selectSelectedFeature, setCheckedFeatures } from './store'
 import FeatureTool, { templateFromFeature } from './tools/feature'
 import VoxelTool, { SelectionMode, SelectionModeOptions } from './tools/voxel'
 import ConnectionStatusUI from './ui/connection-status'
-import CostumeOverlay from './ui/costumers/costume'
+import { CongaJoinHintOverlay, CongaStatusOverlay } from './ui/conga-status'
 import { CurrentModeOverlay } from './ui/current-mode'
 import { DebugUI } from './ui/debug/base-debug'
 import { MaterialDebugTab } from './ui/debug/material-debug-tab'
@@ -33,9 +36,10 @@ import { ExplorerUI, Tab } from './ui/explorer'
 import { FeatureContext } from './ui/features/context'
 import { FeatureEditor } from './ui/features/misc'
 import HomeButton from './ui/home-button'
-import { ChatOverlay } from './ui/interact/chat'
+import { ChatOverlay, chatSettings } from './ui/interact/chat'
 import { EmoteOverlay } from './ui/interact/emote'
 import { HelpOverlay } from './ui/interact/help'
+import { ScratchpadGuide, ScratchpadGuideMini } from './ui/scratchpad-guide'
 import { WompOverlay } from './ui/interact/womps'
 import MobileButtons from './ui/mobile/buttons'
 import OpenLink from './ui/open-link'
@@ -53,7 +57,7 @@ import UploadStatusUI from './ui/upload-status'
 
 const NUMBER_KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'] as const
 
-const Location = (props: { scene: Scene; signedIn: any }) => {
+const Location = (props: { scene: BABYLON.Scene; signedIn: any }) => {
   const currentOrNearestParcel = selectCurrentOrNearestParcel()
   if (!currentOrNearestParcel) {
     return null
@@ -64,7 +68,7 @@ const Location = (props: { scene: Scene; signedIn: any }) => {
   const link = `/parcels/${currentOrNearestParcel.id}`
 
   return (
-    <a key={currentOrNearestParcel.id} class="address" href={link}>
+    <a key={currentOrNearestParcel.id} class="address" href={link} target="_top">
       {currentOrNearestParcel.name || currentOrNearestParcel.address}
     </a>
   )
@@ -78,7 +82,7 @@ export enum Mode {
   Avatar,
 }
 
-export type UIPanes = 'add' | 'edit' | 'inspector' | 'feature-editor' | 'info' | 'debugTool' | 'nfts' | 'chat' | 'emote' | 'settings' | 'womp' | 'help' | 'costumer' | 'explorer' | 'login' | 'parcelSnapshots' | 'bake'
+export type UIPanes = 'add' | 'edit' | 'inspector' | 'feature-editor' | 'info' | 'debugTool' | 'nfts' | 'chat' | 'emote' | 'settings' | 'womp' | 'help' | 'explorer' | 'login' | 'parcelSnapshots' | 'bake'
 
 export interface Tool {
   activate: () => void
@@ -87,7 +91,7 @@ export interface Tool {
 }
 
 export interface UserInterfaceProps {
-  scene: Scene
+  scene: BABYLON.Scene
   parent: BABYLON.TransformNode
   canvas: HTMLCanvasElement
   grid: Grid
@@ -118,6 +122,13 @@ type UserInterfaceState = {
   editor?: FeatureEditor
   feature?: Feature
   active: boolean
+  /** Shown next to minimap expand; same source as Explore Online tab */
+  onlineCount: number
+  scratchpadGuideOpen?: boolean
+  scratchpadGuideMini?: boolean
+  scratchpadGuideRestart?: boolean
+  scratchpadGuideKey?: number
+  chatEnabled: boolean
 }
 
 export default class UserInterface extends Component<UserInterfaceProps, UserInterfaceState> {
@@ -144,6 +155,7 @@ export default class UserInterface extends Component<UserInterfaceProps, UserInt
    * We use a ref here to avoid re-renders
    */
   explorerPaneInitialTab = createRef<Tab | undefined>()
+  onlineCountPoll: number | undefined
 
   constructor(props: UserInterfaceProps) {
     super(props)
@@ -178,9 +190,11 @@ export default class UserInterface extends Component<UserInterfaceProps, UserInt
       fullscreen: false,
       currentOrNearestParcel: null,
       active: true,
+      onlineCount: 0,
+      chatEnabled: chatSettings.enabled,
     }
 
-    if (props.scene.config.isOrbit) {
+    if (window.config.isOrbit) {
       return
     }
   }
@@ -224,14 +238,76 @@ export default class UserInterface extends Component<UserInterfaceProps, UserInt
     }
 
     // setInterval(this.updateCanEdit.bind(this), 1000)
+
+    if (this.props.minimapSettings.enabled && !window.config.isOrbit && !window.config.isSpace) {
+      this.pollOnlineCount()
+      this.onlineCountPoll = window.setInterval(() => this.pollOnlineCount(), 10000)
+    }
+
+    onLoadPromise.then(() => {
+      if (!isScratchpad() || isMobileMedia()) return
+      this.setState({ scratchpadGuideOpen: true, scratchpadGuideMini: false, scratchpadGuideRestart: false })
+    })
+
+    chatSettings.addEventListener('changed', this.onChatSettingsChange)
+  }
+
+  onChatSettingsChange = () => {
+    this.setState({ chatEnabled: chatSettings.enabled })
+  }
+
+  pollOnlineCount = async () => {
+    const r = await fetchFromMPServer<{ users?: unknown[] }>('/api/users.json')
+    const n = r?.users?.length
+    if (typeof n === 'number' && n !== this.state.onlineCount) {
+      this.setState({ onlineCount: n })
+    }
+  }
+
+  enterScratchpadGuideMini = () => {
+    exitPointerLock()
+    this.setState({ pane: 'add', active: true, scratchpadGuideMini: true })
+  }
+
+  celebrateScratchpadGuideComplete = () => {
+    exitPointerLock()
+    this.connector.emote('🔥')
+    this.connector.persona.popState(this.connector.controls)
+    this.connector.persona.setState({ state: new EmoteAnimation(Animations.Dance) }, this.connector.controls)
+    this.setState({ scratchpadGuideOpen: false, scratchpadGuideMini: false, scratchpadGuideRestart: true })
+  }
+
+  restartScratchpadGuide = () => {
+    this.setState({
+      scratchpadGuideMini: false,
+      scratchpadGuideKey: (this.state.scratchpadGuideKey || 0) + 1,
+      pane: undefined,
+      active: false,
+    })
+  }
+
+  openScratchpadGuide = () => {
+    this.setState({
+      scratchpadGuideOpen: true,
+      scratchpadGuideMini: false,
+      scratchpadGuideRestart: false,
+      scratchpadGuideKey: (this.state.scratchpadGuideKey || 0) + 1,
+      pane: undefined,
+      active: false,
+    })
   }
 
   updateCanEdit = () => {}
 
   componentWillUnmount() {
+    if (this.onlineCountPoll) {
+      clearInterval(this.onlineCountPoll)
+      this.onlineCountPoll = undefined
+    }
     app.removeListener(AppEvent.Change, this.onAppChange)
     document.removeEventListener('fullscreenchange', this.refreshFullscreen)
     document.removeEventListener('pointerlockchange', this.onPointerLockChange)
+    chatSettings.removeEventListener('changed', this.onChatSettingsChange)
   }
 
   onPointerLockChange = () => {
@@ -252,6 +328,12 @@ export default class UserInterface extends Component<UserInterfaceProps, UserInt
 
   toggleFeaturePumpDebug = () => {
     this.debugUI.toggle()
+  }
+
+  refocus() {
+    requestPointerLock()
+
+    this.setState({ active: false, pane: undefined })
   }
 
   disable() {
@@ -277,21 +359,22 @@ export default class UserInterface extends Component<UserInterfaceProps, UserInt
         { code: 'KeyF', handleEvent: () => this.connector.controls.toggleFlying() },
         { code: 'KeyC', handleEvent: () => this.connector.controls.togglePerspective() },
         { code: 'KeyB', handleEvent: () => this.toggleVoxelTool() },
-        { code: 'KeyH', handleEvent: () => this.setState({ pane: 'help' }) },
-        { code: 'KeyL', handleEvent: () => this.setState({ pane: 'add' }) },
-        { code: 'KeyG', handleEvent: () => this.setState({ pane: 'emote' }) },
+        { code: 'KeyG', handleEvent: () => this.setPane('emote') },
         { code: 'KeyZ', handleEvent: () => this.connector.controls.toggleZoom() },
-        { code: 'Enter', handleEvent: () => this.toggleChatFocus() },
+        { code: 'Enter', handleEvent: this.focusChat },
         { code: 'Escape', handleEvent: () => this.closeInteractOverlay() },
         { code: 'Backquote', ctrlKey: true, handleEvent: () => this.toggleFeaturePumpDebug() },
         {
           code: 'Tab',
           handleEvent: (e) => {
+            if (isScratchpad() && this.state.scratchpadGuideOpen) {
+              e.preventDefault()
+              this.setPane('add')
+              return
+            }
+
             if (!this.state.active) {
-              this.setState({ active: true })
-
-              exitPointerLock()
-
+              this.setPane('add')
               return
             }
 
@@ -300,8 +383,6 @@ export default class UserInterface extends Component<UserInterfaceProps, UserInt
             } else if (document.activeElement?.closest('.UserInterface')) {
               // ignore tab if inside the nav
               return
-            } else {
-              this.setState({ active: false })
             }
           },
         },
@@ -315,6 +396,21 @@ export default class UserInterface extends Component<UserInterfaceProps, UserInt
         handleEvent: () => this.activateVoxelTool(SelectionMode.Add, { texture: index }),
       })
     })
+  }
+
+  setPane(pane: UIPanes) {
+    if (isScratchpad() && this.state.scratchpadGuideOpen && pane === 'add') {
+      this.enterScratchpadGuideMini()
+      return
+    }
+
+    if (this.state.active) {
+      return
+    }
+
+    this.setState({ pane: pane, active: true })
+
+    exitPointerLock()
   }
 
   activateVoxelTool(mode?: SelectionMode, options?: SelectionModeOptions) {
@@ -338,21 +434,34 @@ export default class UserInterface extends Component<UserInterfaceProps, UserInt
     }
   }
 
-  takeWomp(scene: Scene) {
+  takeWomp(scene: BABYLON.Scene) {
     if (!app.signedIn) return
     const engine = scene.getEngine()
     TakeWomp.Capture(engine, scene, this.props.minimapSettings)
   }
 
   closeInteractOverlay() {
-    // this.interactBar && this.interactBar.hideOverlays()
     this.setState({ pane: undefined, active: false })
   }
 
-  toggleChatFocus() {
+  focusChat = (e: KeyboardEvent) => {
+    if (!chatSettings.enabled) return
+
     exitPointerLock()
 
-    ChatOverlay.instance?.focusInput()
+    const input = document.querySelector('main.chat input') as HTMLInputElement
+
+    if (!input) {
+      return
+    }
+
+    if (document.activeElement === input) {
+      // input.blur()
+    } else {
+      setTimeout(() => {
+        input.focus()
+      })
+    }
   }
 
   setTool(tool: Tool | null) {
@@ -411,19 +520,16 @@ export default class UserInterface extends Component<UserInterfaceProps, UserInt
   }
 
   deleteFeature() {
-    if (!app.signedIn && !this.grid.nearestEditableParcel()?.sandbox) return
-
     const feature = this.featureTool?.selection?.feature as Feature | undefined
+    if (!feature?.parcel?.canEdit) return
 
-    if (feature) {
-      feature.delete()
-      this.featureTool.unHighlight()
-      this.hide()
-    }
+    feature.delete()
+    this.featureTool.unHighlight()
+    this.hide()
   }
 
   editFeatureIfHasLock(): void {
-    if (!app.signedIn && !this.grid.nearestEditableParcel()?.sandbox) return
+    if (!this.grid.nearestEditableParcel()) return
     if (hasPointerLock()) {
       this.editFeature()
     }
@@ -431,7 +537,6 @@ export default class UserInterface extends Component<UserInterfaceProps, UserInt
 
   editFeature(feature?: Feature): void {
     if (!this.grid.nearestEditableParcel()) return
-    if (!app.signedIn && !this.grid.nearestEditableParcel()?.sandbox) return
 
     this.setFirstPersonPerspective()
     this.featureTool.setMode('edit')
@@ -448,7 +553,6 @@ export default class UserInterface extends Component<UserInterfaceProps, UserInt
 
   editFeatureThenMove() {
     if (!this.grid.nearestEditableParcel()) return
-    if (!app.signedIn && !this.grid.nearestEditableParcel()?.sandbox) return
 
     this.setFirstPersonPerspective()
     this.featureTool.setMode('edit')
@@ -459,7 +563,6 @@ export default class UserInterface extends Component<UserInterfaceProps, UserInt
 
   editFeatureThenCopy() {
     if (!this.grid.nearestEditableParcel()) return
-    if (!app.signedIn && !this.grid.nearestEditableParcel()?.sandbox) return
 
     this.setFirstPersonPerspective()
     this.featureTool.setMode('edit')
@@ -507,6 +610,14 @@ export default class UserInterface extends Component<UserInterfaceProps, UserInt
     })
   }
 
+  showExplorerOnline() {
+    this.explorerPaneInitialTab.current = 'users'
+    this.setState({ pane: 'explorer' })
+    setTimeout(() => {
+      this.explorerPaneInitialTab.current = undefined
+    })
+  }
+
   openLink(url: string) {
     if (this.visible) {
       // suppress
@@ -538,10 +649,6 @@ export default class UserInterface extends Component<UserInterfaceProps, UserInt
   showNotificationBanner(message: string, duration = 5000, onClick?: () => void) {
     // ideally we would use a dedicated noitification banner component, but for now we'll use the snackbar
     return Snackbar.show(message, PanelType.Info, duration, onClick)
-  }
-
-  setPane = (pane: UIPanes) => {
-    this.setState({ pane, active: !!pane })
   }
 
   enable() {
@@ -583,7 +690,7 @@ export default class UserInterface extends Component<UserInterfaceProps, UserInt
         pane = <Inspector />
         break
       case 'login':
-        pane = <SignIn />
+        pane = <Login />
         break
       case 'feature-editor':
         // pane = <FeatureEditor feature={this.state.feature!} parcel={currentOrNearestParcel!} scene={this.props.scene} />
@@ -621,10 +728,7 @@ export default class UserInterface extends Component<UserInterfaceProps, UserInt
         pane = <WompOverlay scene={this.props.scene} minimapSettings={this.props.minimapSettings} />
         break
       case 'help':
-        pane = <HelpOverlay scene={this.props.scene} />
-        break
-      case 'costumer':
-        pane = <CostumeOverlay scene={this.props.scene} />
+        pane = <HelpOverlay scene={this.props.scene} onShowScratchpadGuide={isScratchpad() ? this.openScratchpadGuide : undefined} />
         break
       case 'explorer':
         pane = <ExplorerUI scene={this.props.scene} initialTab={this.explorerPaneInitialTab.current!} />
@@ -650,7 +754,7 @@ export default class UserInterface extends Component<UserInterfaceProps, UserInt
     const active = (pane: string, disabled?: boolean) => (this.state.pane === pane ? 'active' : disabled ? 'disabled' : '')
 
     return (
-      <ViewOnCondition condition={this.props.scene.config.wantsUI}>
+      <ViewOnCondition condition={window.config.wantsUI}>
         <div class={classes}>
           <Snackbar />
 
@@ -716,16 +820,19 @@ export default class UserInterface extends Component<UserInterfaceProps, UserInt
                   Womps
                 </a>
               </li>
-              <li class={active('costumer', !this.state.signedIn)}>
-                <a href="#" onMouseOver={onHover('costumer')} onClick={onClick('costumer')}>
-                  Costumes
-                </a>
+              <li class={!this.state.signedIn ? 'disabled' : ''}>
+                <a href="/costumer" target="_blank" rel="noopener">Costumes</a>
               </li>
               {/* <li class={active('summon')}>
                 <a title="I for one welcome our robot overlords" onClick={onSummon}>
                   Summon
                 </a>
               </li> */}
+              <li class={active('info')}>
+                <a href="#info" onMouseOver={onHover('info')} onClick={onClick('info')}>
+                  Info
+                </a>
+              </li>
               <li class={active('add', !canEdit)}>
                 <a title="Add things to your thing" href="#add" onMouseOver={onHover('add')} onClick={onClick('add')} accessKey="a">
                   Add
@@ -797,19 +904,45 @@ export default class UserInterface extends Component<UserInterfaceProps, UserInt
               </li>
             </ul>
 
-            <ChatOverlay scene={this.props.scene} />
+            {this.state.chatEnabled && <ChatOverlay scene={this.props.scene} />}
 
-            {pane && <dialog class="editor">{pane}</dialog>}
+            {pane && (
+              <dialog class="editor" open>
+                {pane}
+              </dialog>
+            )}
           </aside>
+
+          {this.state.scratchpadGuideOpen && !this.state.scratchpadGuideMini && <ScratchpadGuide key={this.state.scratchpadGuideKey || 0} voxelTool={this.voxelTool} onComplete={this.celebrateScratchpadGuideComplete} />}
+
+          {this.state.scratchpadGuideOpen && this.state.scratchpadGuideMini && <ScratchpadGuideMini onGotIt={this.celebrateScratchpadGuideComplete} onStartOver={this.restartScratchpadGuide} />}
+
+          {!this.state.scratchpadGuideOpen && this.state.scratchpadGuideRestart && isScratchpad() && (
+            <button type="button" class="scratchpad-guide-restart linkish" onClick={this.openScratchpadGuide}>
+              start over
+            </button>
+          )}
 
           {nearestEditableParcel && <ToolBelt parcel={nearestEditableParcel} scene={this.props.scene} />}
 
           <UploadStatusUI onCompleteUpload={onCompleteUpload} onFailUpload={onFailUpload} onBeginUpload={onBeginUpload} ref={this.uploadStatusRef} />
           <ConnectionStatusUI connector={this.connector} grid={this.grid} scene={this.props.scene} />
+          {this.props.minimapSettings.enabled && !window.config.isOrbit && !window.config.isSpace && (
+            <div class="minimap-corner-controls">
+              <button type="button" class="iconish minimap-expand" onClick={() => this.showExplorerMap()} title="Open map">
+                M
+              </button>
+              <button type="button" class="minimap-online-count" onClick={() => this.showExplorerOnline()} title="Who is online">
+                {this.state.onlineCount} Online
+              </button>
+            </div>
+          )}
           <OnlyMobile>
             <MobileButtons connector={this.connector} scene={this.props.scene} minimapSettings={this.props.minimapSettings} />
           </OnlyMobile>
 
+          <CongaJoinHintOverlay />
+          <CongaStatusOverlay />
           <CurrentModeOverlay nextMode={this.featureTool.nextMode} mode={this.featureTool.selection.mode} enabled={this.featureTool.enabled} />
         </div>
       </ViewOnCondition>

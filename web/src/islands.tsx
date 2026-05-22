@@ -1,7 +1,6 @@
 import { Component } from 'preact'
 import Head from './components/head'
 import { fetchOptions } from './utils'
-
 type island = {
   id: number
   name: string
@@ -89,10 +88,9 @@ export default class Islands extends Component<Props, State> {
       <section>
         <Head title={`Islands`} />
 
-        <hgroup>
-          <h1>Islands</h1>
-          <p>List of islands.</p>
-        </hgroup>
+        <p>
+          Minted Islands | <a href="/propose/islands">Propose new islands</a>
+        </p>
 
         <article role={'group'}>
           <label htmlFor="select">View order </label>

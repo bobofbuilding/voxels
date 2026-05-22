@@ -3,14 +3,13 @@ import { fetchOptions } from '../../../web/src/utils'
 import CategorizedItemsComponent from '../../components/item-by-categories'
 import PublicVoxelLibrary from '../../components/voxmodels-by-category'
 import VoxModel, { Megavox } from '../../features/vox-model'
-import { Scene } from '../../scene'
 import { uploadVoxModelMedia } from '../../utils/upload-vox-media'
 import { NO_PARCEL_FOUND } from './misc'
 import { UrlSourceComponent, UrlSourceComponentProps, UrlSourceComponentState } from './urlSourceComponent'
 
 export type UrlSourceVoxModelsProps = UrlSourceComponentProps & {
   feature: Megavox | VoxModel<VoxModelRecord>
-  scene: Scene
+  scene: BABYLON.Scene
 }
 type UrlSourceVoxModelsState = UrlSourceComponentState & {
   type: VoxModelRecord['type'] | MegavoxRecord['type']
