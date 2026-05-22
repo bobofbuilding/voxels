@@ -48,6 +48,11 @@ export default class Home extends Component<Props, State> {
     const avatar = this.state.avatar
     const title = avatar?.name || avatar?.owner
 
-    return <Profile walletOrUUId={this.wallet} isOwner={true} tab={this.props.tab} />
+    return (
+      <>
+        <a href="/events/new">New event</a>
+        <Profile walletOrUUId={this.wallet} isOwner={true} tab={this.props.tab} />
+      </>
+    )
   }
 }

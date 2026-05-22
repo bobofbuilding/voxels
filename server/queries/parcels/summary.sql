@@ -1,4 +1,4 @@
-select properties.id   as id,
+select properties.id as id,
        address,
        properties.island,
        properties.name as name

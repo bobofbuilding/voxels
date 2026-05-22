@@ -14,13 +14,13 @@ import Group from '../features/group'
 import { boundingBoxOfMesh } from '../features/utils/bounding-box'
 import type Grid from '../grid'
 import type Parcel from '../parcel'
-import type { Scene } from '../scene'
 import { setCheckedFeatures } from '../store'
 import { User } from '../user'
 import type { Tool } from '../user-interface'
 import { distanceToAABB } from '../utils/boundaries'
 import { getTransformVectorsRelativeToNode } from '../utils/feature'
 import { bboxCompletelyWithin } from '../utils/helpers'
+import { cameraPosition } from '../utils/camera'
 import { generateName } from './name-generator'
 
 type AABB = {
@@ -79,7 +79,7 @@ const centreOfPositions = (positions: Array<Array<number>>): BABYLON.Vector3 => 
 }
 
 export default class FeatureTool implements Tool {
-  scene: Scene
+  scene: BABYLON.Scene
   parent: BABYLON.TransformNode
   grid: Grid
   selection: Selection
@@ -105,7 +105,7 @@ export default class FeatureTool implements Tool {
   featureLoadingMaterial: BABYLON.StandardMaterial = null!
 
   constructor(
-    scene: Scene,
+    scene: BABYLON.Scene,
     parent: BABYLON.TransformNode,
     grid: Grid,
     controls: Controls,
@@ -851,7 +851,7 @@ export default class FeatureTool implements Tool {
     // inspector mode for figuring out who owns a particular feature and mod nerfing
     if (this.selection.mode === 'inspect' && pickedFeature && mesh && mesh.feature) {
       if (pickedNormal) {
-        const rotation = getRotation(pickedPoint, pickedNormal, this.scene.cameraPosition)
+        const rotation = getRotation(pickedPoint, pickedNormal, cameraPosition(this.scene))
         this.selector.rotation = rotation
       }
       this.highlightFeature(mesh.feature, mesh!)
@@ -861,7 +861,7 @@ export default class FeatureTool implements Tool {
     // if there are multiple parcels, we return the one that is closest to camera
     // this means that items will change ownership from parcels that are next to each other on
     // exterior walls depending on what parcel you are standing in when you move the feature
-    const cameraPos = this.scene.cameraPosition
+    const cameraPos = cameraPosition(this.scene)
     const boundingParcel = this.user.getParcels(pickedPointRounded).sort((a, b) => {
       return distanceToAABB(cameraPos, a.exteriorBounds) - distanceToAABB(cameraPos, b.exteriorBounds)
     })[0]
@@ -1006,7 +1006,7 @@ export default class FeatureTool implements Tool {
       const isFeatureTemplate3D = getAxes(this.selection.featureTemplate.type).length == 1
 
       // fixme: particles and lantern have featureTemplate.rotation
-      const rotation = getRotation(pickedPoint, pickedNormal, this.scene.cameraPosition)
+      const rotation = getRotation(pickedPoint, pickedNormal, cameraPosition(this.scene))
       this.selector.rotation = rotation
 
       // the selector's pivot is in the middle- so we need to move it up so that its bottom is where our point is
