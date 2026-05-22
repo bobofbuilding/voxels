@@ -1,15 +1,11 @@
 import type http from 'http'
 import type winston from 'winston'
-import { ChatStore } from '../common/chatStore'
-import { ClientState } from '../common/clientState'
-import { GlobalClientStateStore } from '../common/clientStateStore'
 import { ClientUUID } from '../common/clientUUID'
 import { SpaceId } from '../common/spaceId'
 import { APP_NAME } from '../constants/appName'
-import { Metrics } from '../createMetrics'
+import { Client } from '../ws/client'
 import { Shards } from '../ws/shards/shards'
 import checkCors from './checkCors'
-import { createMetricsHandler } from './metrics'
 
 type AvatarResource = {
   id: ClientUUID
@@ -22,17 +18,21 @@ type AvatarResource = {
   } | null
 }
 
-export const tryMapAvatarResourceFromClientState = (c: ClientState): AvatarResource | null =>
-  c.avatar === null
+const refName = (c: Client) => (typeof c.avatar === 'object' && c.avatar ? (c.avatar as any).name : undefined)
+const refWallet = (c: Client) =>
+  typeof c.avatar === 'string' ? c.avatar : c.avatar ? (c.avatar as any).owner : undefined
+
+const toAvatarResource = (c: Client): AvatarResource | null =>
+  !c.position
     ? null
     : {
         id: c.clientUUID,
-        name: c.identity?.name,
-        wallet: c.identity?.wallet,
+        name: refName(c),
+        wallet: refWallet(c),
         description: {
-          animation: c.avatar.animation,
-          position: c.avatar.position,
-          orientation: c.avatar.orientation,
+          animation: c.animation,
+          position: c.position,
+          orientation: c.orientation!,
         },
       }
 
@@ -45,12 +45,12 @@ type UserResource = {
   space?: SpaceId
 }
 
-export const mapUserResourceFromClientState = (c: ClientState, space?: SpaceId): UserResource => ({
-  lastSeen: c.lastSeen,
-  name: c.identity?.name,
-  wallet: c.identity?.wallet,
-  animation: c.avatar !== null ? c.avatar.animation : null,
-  position: c.avatar !== null ? c.avatar.position : null,
+const toUserResource = (c: Client, space?: SpaceId): UserResource => ({
+  lastSeen: c.lastSeenParcel,
+  name: refName(c) ?? null,
+  wallet: refWallet(c),
+  animation: c.position ? c.animation : null,
+  position: c.position ?? null,
   space,
 })
 
@@ -110,23 +110,12 @@ function constructSocketUrl(): string {
   return fallbackUrl
 }
 
-export default function createWWWServer(
-  server: http.Server,
-  logger: winston.Logger,
-  globalStateStore: GlobalClientStateStore,
-  chatStore: ChatStore,
-  shards: Shards,
-  metrics: Metrics,
-) {
-  const clientCount = () => {
-    return globalStateStore.getWorldCount() + globalStateStore.getSpaceCount()
-  }
+export default function createWWWServer(server: http.Server, logger: winston.Logger, shards: Shards) {
+  const clientCount = () =>
+    shards.worldShard.getShardClientCount() +
+    [...shards.spaceShards.values()].reduce((n, s) => n + s.getShardClientCount(), 0)
 
-  const getWorldClients = () => {
-    return shards.worldShard.getClientsStateIterator()
-  }
-
-  const metricsHandler = createMetricsHandler(metrics)
+  const getWorldClients = () => shards.worldShard.getClientList()
 
   server.on('request', async (req, res) => {
     const url = new URL(req.url || '/', 'http://localhost')
@@ -145,11 +134,6 @@ export default function createWWWServer(
     if (pathname === '/ping' && method === 'GET') {
       res.statusCode = 200
       res.end('pong')
-      return
-    }
-
-    if (pathname === '/metrics' && method === 'GET') {
-      await metricsHandler(req, res)
       return
     }
 
@@ -186,7 +170,7 @@ export default function createWWWServer(
       let i = 0
       for (const c of getWorldClients()) {
         if (i !== 0) res.write(',')
-        res.write(JSON.stringify(mapUserResourceFromClientState(c)))
+        res.write(JSON.stringify(toUserResource(c)))
         i++
       }
       res.write(']}')
@@ -197,7 +181,11 @@ export default function createWWWServer(
     const userWalletMatch = pathname.match(/^\/api\/user\/([^/]+)\.json$/)
     if (userWalletMatch && method === 'GET') {
       const wallet = decodeURIComponent(userWalletMatch[1]!)
-      const client = globalStateStore.getStore('world').getByWallet(wallet)
+      const client =
+        Array.from(shards.worldShard.getClientList()).find((s) => {
+          const w = typeof s.avatar === 'string' ? s.avatar : (s.avatar as any)?.owner
+          return w?.toLowerCase() === wallet.toLowerCase()
+        }) ?? null
       if (!client) {
         logger.debug('User not found', wallet)
         res.statusCode = 404
@@ -209,7 +197,7 @@ export default function createWWWServer(
       res.statusCode = 200
       res.setHeader('Content-Type', 'application/json')
       res.setHeader('Cache-Control', 'public, max-age=10, stale-while-revalidate=5')
-      res.end(JSON.stringify(mapUserResourceFromClientState(client)))
+      res.end(JSON.stringify(toUserResource(client)))
       return
     }
 
@@ -222,7 +210,7 @@ export default function createWWWServer(
       res.write('{"avatars":[')
       let i = 0
       for (const c of getWorldClients()) {
-        const avatar = tryMapAvatarResourceFromClientState(c)
+        const avatar = toAvatarResource(c)
         if (avatar === null) continue
         if (i !== 0) res.write(',')
         res.write(JSON.stringify(avatar))
@@ -241,7 +229,7 @@ export default function createWWWServer(
         res.end(UNSUCCESFUL_RESPONSE)
         return
       }
-      const client = globalStateStore.getStore('world').get(uuid)
+      const client = Array.from(shards.worldShard.getClientList()).find((s) => s.clientUUID === uuid) ?? null
       if (!client) {
         res.statusCode = 404
         res.end(UNSUCCESFUL_RESPONSE)
@@ -251,14 +239,14 @@ export default function createWWWServer(
       if (!ok) return
       res.statusCode = 200
       res.setHeader('Content-Type', 'application/json')
-      res.end(JSON.stringify({ success: true, user: mapUserResourceFromClientState(client) }))
+      res.end(JSON.stringify({ success: true, user: toUserResource(client) }))
       return
     }
 
     if (pathname === '/api/active-parcels.json' && method === 'GET') {
       const activeParcels: Record<number, number> = {}
       for (const c of getWorldClients()) {
-        const parcel = c.lastSeen
+        const parcel = c.lastSeenParcel
         if (parcel) activeParcels[parcel] = (activeParcels[parcel] ?? 0) + 1
       }
       const ok = checkCors(req, res)
@@ -286,9 +274,9 @@ export default function createWWWServer(
       res.write('{"users":[')
       let i = 0
       for (const client of getWorldClients()) {
-        if (client.lastSeen === parcel) {
+        if (client.lastSeenParcel === parcel) {
           if (i !== 0) res.write(',')
-          res.write(JSON.stringify(mapUserResourceFromClientState(client)))
+          res.write(JSON.stringify(toUserResource(client)))
           i++
         }
       }
@@ -297,14 +285,17 @@ export default function createWWWServer(
       return
     }
 
-    if (pathname === '/api/chat.json' && method === 'GET') {
-      const ok = checkCors(req, res)
-      if (!ok) return
-      const messages = await chatStore.get(100)
-      res.statusCode = 200
-      res.setHeader('Content-Type', 'application/json')
-      res.setHeader('Cache-Control', 'public, max-age=10, stale-while-revalidate=10')
-      res.end(JSON.stringify({ messages }))
+    if (pathname === '/api/avatar-changed' && method === 'POST') {
+      let body = ''
+      req.on('data', (chunk) => (body += chunk))
+      req.on('end', () => {
+        try {
+          const { wallet } = JSON.parse(body)
+          if (wallet) shards.onAvatarChanged(wallet)
+        } catch {}
+        res.statusCode = 200
+        res.end('{"success":true}')
+      })
       return
     }
 

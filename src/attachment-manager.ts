@@ -1,11 +1,7 @@
 import { Costume, CostumeAttachment } from '../common/messages/costumes'
 import { app } from '../web/src/state'
+import { voxImporter } from '../common/vox-import/vox-import'
 import type Avatar from './avatar'
-import type { Scene } from './scene'
-
-function isUuid(uuid: string) {
-  return uuid.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/)
-}
 
 export interface AttachmentWithMesh extends CostumeAttachment {
   mesh?: BABYLON.Mesh
@@ -21,7 +17,7 @@ export class AvatarAttachmentManager {
   attachments: Array<AttachmentWithMesh> = []
 
   constructor(
-    private scene: Scene,
+    private scene: BABYLON.Scene,
     private avatar: Avatar,
     private readonly avatarViewDistance: number,
   ) {
@@ -47,16 +43,16 @@ export class AvatarAttachmentManager {
    * If isUser, the costume is already stored in app state, and won't fetch it.
    * @see /web/src/state.ts
    */
-  async loadCostume(costume?: Costume) {
+  async loadCostume(costume?: Costume, costumeId?: number) {
     if (costume) {
       this.costume_id = costume.id
       this.generateCostume(costume)
     } else if (this.avatar.isUser) {
-      // use the local state for avatar costume if this avatar is us (no need to fetch twice)
       const state = await app.getState()
       this.generateCostume(state.costume)
     } else {
-      this.fetchCostume()
+      if (costumeId) this.costume_id = costumeId
+      this.fetchCostume(this.costume_id ?? undefined)
     }
   }
 
@@ -84,30 +80,21 @@ export class AvatarAttachmentManager {
     this.loadAttachments()
   }
 
-  /**
-   * Dispose the current costume and fetch new costume.
-   * @param {string} cacheKey an additional key to pass to request to bust cache
-   * @returns {void} void
-   */
-  refreshCostume(cacheKey?: number) {
+  changeCostume(costumeId?: number) {
     if (this.attached) {
       this.attached.forEach((a) => a.dispose())
     }
-    this.fetchCostume(cacheKey)
+    if (costumeId) this.costume_id = costumeId
+    this.fetchCostume(this.costume_id ?? undefined)
   }
 
-  async fetchCostume(cacheKey?: number) {
-    let url = `${process.env.API}/avatars/${this.wallet}/costume.json`
-    // allow synchronized cache busting when loading new costumes
-    if (cacheKey) {
-      url += `?${cacheKey}`
-    }
+  async fetchCostume(costumeId?: number) {
+    const url = costumeId ? `${process.env.API}/costumes/${costumeId}` : `${process.env.API}/avatars/${this.wallet}/costume.json`
 
     const r = await fetch(url)
     const { success, costume } = await r.json()
 
     if (success && costume) {
-      // set the state for costume
       this.costume = costume
       this.generateCostume(costume)
     }
@@ -127,18 +114,18 @@ export class AvatarAttachmentManager {
       try {
         await this.loadAttachment(attachment)
       } catch (e) {
-        console.error(`Error loading attachment ${attachment.uuid}`, e)
+        console.error(`Error loading attachment ${attachment.wid}`, e)
       }
     }
   }
 
-  loadAttachment = async (attachment: AttachmentWithMesh | Omit<AttachmentWithMesh, 'chain_id'>) => {
+  loadAttachment = async (attachment: AttachmentWithMesh) => {
     const name = attachment.bone
-    const isBeingTried = attachment.uuid.startsWith('try-')
     if (!this.skeleton) {
       return
     }
-    const index = this.skeleton.getBoneIndexByName(`mixamorig:${name}`)
+    const boneName = this.skeleton.bones.find((b) => b.name.toLowerCase() === `mixamorig:${name}`.toLowerCase())?.name ?? name
+    const index = this.skeleton.getBoneIndexByName(boneName)
 
     if (index == -1) {
       console.log(`Bad bone name ${name}`)
@@ -147,20 +134,14 @@ export class AvatarAttachmentManager {
 
     const bone = this.skeleton.bones[index]
 
-    if (!attachment.wearable_id) {
+    if (!attachment.wid) {
       return
     }
 
-    let url
-
-    if (isUuid(attachment.wearable_id.toString())) {
-      url = `/api/wearables/${attachment.wearable_id}/vox`
-    } else {
-      url = `/api/wearables/${attachment.collection_address}/${attachment.wearable_id}/vox`
-    }
+    const url = `/api/collectibles/${attachment.wid}/vox`
 
     const opts = { invertX: false, signal: this.abortController.signal }
-    const mesh = await this.scene.importVox(url, opts)
+    const mesh = await voxImporter().import(url, opts)
     mesh.name = 'wearable'
 
     this.attached.push(mesh)
@@ -171,7 +152,7 @@ export class AvatarAttachmentManager {
     }
     mesh.isPickable = false
     mesh.metadata = {
-      parcel: isBeingTried ? window.connector.enteredParcel?.id : null,
+      parcel: null,
       isAvatarPart: true,
     }
 
@@ -193,10 +174,10 @@ export class AvatarAttachmentManager {
     }
   }
 
-  refreshSingleAttachment(collectible_uuid: string) {
-    const attachment = this.attachments.find((col) => col.uuid == collectible_uuid)
+  refreshSingleAttachment(wid: string) {
+    const attachment = this.attachments.find((col) => col.wid == wid)
     if (!attachment) {
-      console.warn(`Attachment with uuid ${collectible_uuid} not found`)
+      console.warn(`Attachment with wid ${wid} not found`)
       return
     }
     // No attachment found, just generate new one
@@ -213,33 +194,23 @@ export class AvatarAttachmentManager {
     this.loadAttachment(attachment)
   }
 
-  getAttachmentByUuid(collectible_uuid: string): AttachmentWithMesh | null {
-    const a = this.attachments.find((a) => a.uuid == collectible_uuid)
-    return a ?? null
-  }
-
-  getAttachmentByCollectionIdAndTokenId_BeingTried(collection_id: number, token_id: number): AttachmentWithMesh | null {
-    const a = this.attachments.find((w) => w.collection_id == collection_id && w.wearable_id == token_id && w.uuid.startsWith('try-'))
-    return a ?? null
+  getAttachmentByWid(wid: string): AttachmentWithMesh | null {
+    return this.attachments.find((a) => a.wid == wid) ?? null
   }
 
   wear = (attachment: CostumeAttachment) => {
-    if (typeof attachment.uuid !== 'string' || typeof attachment.chain_id !== 'number' || typeof attachment.wearable_id !== 'number') {
+    if (typeof attachment.wid !== 'string') {
       return
     }
-    // Create new collectible and generate it on avatar.
     this.attachments.push(attachment)
-    this.refreshSingleAttachment(attachment.uuid)
+    this.refreshSingleAttachment(attachment.wid)
   }
 
-  remove = (collectible_uuid: string) => {
-    // Remove a collectible from the avatar
-    const wearable = this.getAttachmentByUuid(collectible_uuid)
-    if (!wearable) {
-      return
-    }
+  remove = (wid: string) => {
+    const wearable = this.getAttachmentByWid(wid)
+    if (!wearable) return
 
-    this.attachments.splice(this.attachments?.indexOf(wearable), 1)
+    this.attachments.splice(this.attachments.indexOf(wearable), 1)
     const mesh = wearable.mesh
     if (mesh) {
       this.attached.splice(this.attached.indexOf(mesh), 1)

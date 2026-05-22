@@ -8,6 +8,7 @@ import { app } from './state'
 import { assetCache } from './store'
 import { fetchOptions } from './utils'
 import { WearableViewer } from './wearable-viewer'
+import { AvatarLink } from './components/avatar-link'
 
 interface Props {
   path?: string
@@ -92,8 +93,8 @@ export default class Asset extends Component<Props, State> {
       this.viewer = new WearableViewer(this.canvas)
     }
 
-    if (this.state.asset.hash) {
-      this.viewer?.loadHash(this.state.asset.hash)
+    if (this.state.asset.id) {
+      this.viewer?.loadURL(`/api/collectibles/${this.state.asset.id}/vox`)
     }
   }
 
@@ -148,23 +149,9 @@ export default class Asset extends Component<Props, State> {
     const iframe = `/assets/${this.state.asset.id}/play?mode=orbit`
     return (
       <section class="columns">
-        <h1>{this.state.asset.name}</h1>
-
         <article>
-          {this.canEdit && (
-            <ul class="actions">
-              <li>
-                <button onClick={this.onDelete}>Delete</button>
-              </li>
-              <li>
-                <a class="button" href={`/assets/${this.state.asset.id}/edit`}>
-                  Edit
-                </a>
-              </li>
-            </ul>
-          )}
-
-          <figure>
+          <h1>{this.state.asset.name}</h1>
+          <figure class="shortie">
             {this.asset ? (
               <iframe src={iframe} />
             ) : (
@@ -191,12 +178,17 @@ export default class Asset extends Component<Props, State> {
         </article>
 
         <aside>
+          {this.canEdit && (
+            <>
+              <a href={`/assets/${this.state.asset.id}/edit`}>Edit</a>
+            </>
+          )}
           <h3>Details</h3>
 
           <dl>
             <dt>Author</dt>
             <dd>
-              <a href={`/u/${this.state.asset.author}`}>{ethTrunc(this.state.asset.author)}</a>
+              <AvatarLink avatar={this.state.asset.author} />
             </dd>
             <dt>Created</dt>
             <dd>{this.state.asset.created_at}</dd>
