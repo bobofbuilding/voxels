@@ -21,7 +21,6 @@ export type LibraryAsset_Type = {
   image_url: string
   created_at?: any
   updated_at?: any
-  author_name?: string
 
   // Properties that are checks for user safety
   has_script?: boolean
@@ -100,7 +99,6 @@ export class LibraryAsset {
   image_url: string = undefined!
   created_at?: any
   updated_at?: any
-  author_name?: string
 
   // Properties from the queries, checks for user safety
   has_script?: boolean = false

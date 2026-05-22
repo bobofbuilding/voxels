@@ -52,7 +52,7 @@ namespace EnvironmentFlagSpec {
   })
 
   export const valueOf = <Value>(spec: EnvironmentFlagSpec<Value>): Value => {
-    const environment: keyof EnvironmentFlagSpec<unknown>['defaultValues'] = isLocal() ? 'local' : isUAT() ? 'uat' : 'prod'
+    const environment: keyof EnvironmentFlagSpec<unknown>['defaultValues'] = isLocal() ? 'local' : 'prod'
     const defaultValue = spec.defaultValues[environment]
     const rawValue = searchParams.get(spec.searchParamKey)
     const parsedValue = rawValue === null ? null : spec.tryParseValue(rawValue)
@@ -132,10 +132,6 @@ export const isInspect = () => {
 
 export const isLocal = () => {
   return ssrFriendlyDocument?.location?.hostname.match(/\.local/) || ssrFriendlyDocument?.location?.hostname == 'localhost'
-}
-
-export const isUAT = () => {
-  return ssrFriendlyDocument?.location?.hostname.match(/uat.cryptovoxels.com/) || ssrFriendlyDocument?.location?.hostname.match(/uat.voxels.com/)
 }
 
 export const isSafari = () => {

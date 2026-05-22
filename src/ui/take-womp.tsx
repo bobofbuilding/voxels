@@ -6,15 +6,13 @@ import { PanelType } from '../../web/src/components/panel'
 import { app } from '../../web/src/state'
 import { MinimapSettings } from '../minimap'
 import type Parcel from '../parcel'
-import type { Scene } from '../scene'
-
 interface Props {
   onClose?: () => void
   onKeyDown?: (event: JSX.TargetedKeyboardEvent<HTMLElement>) => void
   coords: string
   parcel: Parcel
   image: string
-  scene: Scene
+  scene: BABYLON.Scene
 }
 
 const headers = {
@@ -47,7 +45,7 @@ export default class TakeWomp extends Component<Props, State> {
     this.state = {
       content: '',
       uploading: false,
-      kind: !props.scene.config.isSpace ? WompType.Broadcast : WompType.ProfileOnly,
+      kind: !window.config.isSpace ? WompType.Broadcast : WompType.ProfileOnly,
     }
 
     if (!this.wompSound && this.audio) {
@@ -68,7 +66,7 @@ export default class TakeWomp extends Component<Props, State> {
     return window.connector
   }
 
-  static async Capture(engine: BABYLON.Engine, scene: Scene, minimapSettings: MinimapSettings) {
+  static async Capture(engine: BABYLON.Engine, scene: BABYLON.Scene, minimapSettings: MinimapSettings) {
     if (scene.activeCamera === null) {
       app.showSnackbar('Failed to capture womp. Could not get camera', PanelType.Danger)
       return
@@ -141,7 +139,7 @@ export default class TakeWomp extends Component<Props, State> {
       kind: this.state.kind,
       content: this.state.content,
       coords: this.props.coords,
-      parcel_id: this.props.scene.config.isSpace ? null : this.props.parcel.id,
+      parcel_id: window.config.isSpace ? null : this.props.parcel.id,
       space_id: this.props.parcel.spaceId,
       image_url: uploadResult.location,
     })
@@ -203,7 +201,7 @@ export default class TakeWomp extends Component<Props, State> {
   }
 
   setKind(kind: WompType) {
-    if (this.props.scene.config.isSpace && (kind == WompType.Broadcast || kind == WompType.Public)) {
+    if (window.config.isSpace && (kind == WompType.Broadcast || kind == WompType.Public)) {
       app.showSnackbar(`Spaces don't allow Broadcast or Public womps`)
       return
     }
@@ -240,11 +238,11 @@ export default class TakeWomp extends Component<Props, State> {
               <form class="PermissionsRadioSelector">
                 <div>
                   <label>
-                    <input checked={this.state.kind === WompType.Broadcast} onClick={() => this.setKind(WompType.Broadcast)} name="type" type="radio" disabled={this.props.scene.config.isSpace} />
+                    <input checked={this.state.kind === WompType.Broadcast} onClick={() => this.setKind(WompType.Broadcast)} name="type" type="radio" disabled={window.config.isSpace} />
                     <div>
                       <strong>Public Broadcast</strong>
                       <div class="info">Display on homepage, parcel pages and your profile and notify everyone in world</div>
-                      {this.props.scene.config.isSpace && <small>Not available in Spaces</small>}
+                      {window.config.isSpace && <small>Not available in Spaces</small>}
                     </div>
                   </label>
                 </div>
@@ -253,7 +251,7 @@ export default class TakeWomp extends Component<Props, State> {
                     <input checked={this.state.kind === WompType.ProfileOnly} onClick={() => this.setKind(WompType.ProfileOnly)} name="type" type="radio" />
                     <div>
                       <strong>Profile Only</strong>
-                      <div class="info">Displays on your profile and {!this.props.scene.config.isSpace ? `parcel` : `space`} page or share a link directly</div>
+                      <div class="info">Displays on your profile and {!window.config.isSpace ? `parcel` : `space`} page or share a link directly</div>
                     </div>
                   </label>
                 </div>
@@ -284,7 +282,7 @@ export default class TakeWomp extends Component<Props, State> {
   }
 }
 
-function openPostWompUI(coords: string, parcel: Parcel, image: string, scene: Scene) {
+function openPostWompUI(coords: string, parcel: Parcel, image: string, scene: BABYLON.Scene) {
   if (!!TakeWomp.currentElement) {
     unmountComponentAtNode(TakeWomp.currentElement)
     TakeWomp.currentElement = null

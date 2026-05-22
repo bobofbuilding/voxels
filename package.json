@@ -2,8 +2,20 @@
   "name": "cryptovoxels",
   "license": "BSL-1.1",
   "version": "8.16.1",
+  "packageManager": "pnpm@9.15.4",
   "engines": {
-    "node": "25"
+    "node": "25",
+    "pnpm": "9.15.4"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "babylonjs",
+      "core-js",
+      "esbuild",
+      "msgpackr-extract",
+      "protobufjs",
+      "sharp"
+    ]
   },
   "cacheDirectories": [
     "node_modules",
@@ -71,6 +83,8 @@
     "@preact/signals": "^2.3.2",
     "@sh-dave/format-vox": "^0.1.6",
     "@simonwep/pickr": "^1.9.1",
+    "@simplewebauthn/browser": "^13.3.0",
+    "@simplewebauthn/server": "^13.3.0",
     "@turf/turf": "6.5.0",
     "@types/prismjs": "^1.26.5",
     "acorn": "8.14.0",
@@ -148,6 +162,7 @@
     "ndarray": "1.0.19",
     "node-fetch": "2.6.7",
     "object-hash": "^3.0.0",
+    "obscenity": "^0.4.6",
     "os-browserify": "^0.3.0",
     "p-defer": "^4.0.0",
     "p-queue": "^7.3.4",
@@ -159,7 +174,6 @@
     "pg-boss": "^10.3.2",
     "pg-promise": "^12.2.0",
     "pluralize": "^8.0.0",
-    "postmark": "^4.0.7",
     "preact": "^10.16.0",
     "preact-markdown": "^2.1.0",
     "preact-render-to-string": "^6.1.0",
@@ -171,8 +185,8 @@
     "quickjs-emscripten": "^0.31.0",
     "rate-limiter-flexible": "^2.4.2",
     "rbush-3d": "^0.0.4",
-    "react-autocomplete-input": "^1.0.20",
     "redis": "^4.6.7",
+    "resend": "^6.12.3",
     "response-time": "^2.3.2",
     "semver": "^7.5.4",
     "sharp": "^0.34.5",

@@ -1,6 +1,6 @@
 import { render, unmountComponentAtNode, useEffect, useState } from 'preact/compat'
+import { cameraPosition } from './utils/camera'
 import { fetchMetadataViaAlchemy } from '../common/helpers/apis'
-import ParcelHelper from '../common/helpers/parcel-helper'
 import { exitPointerLock, requestPointerLockIfNoOverlays } from '../common/helpers/ui-helpers'
 import { AlchemyNFTWithMetadata } from '../common/messages/api-alchemy'
 import { tokensToEnter } from '../common/messages/parcel'
@@ -74,7 +74,7 @@ export default class ParcelBouncer {
 
   get userIsInside() {
     if (this.scene.activeCamera?.position) {
-      return this.parcel.contains(this.scene.cameraPosition)
+      return this.parcel.contains(cameraPosition(this.scene))
     }
     return false
   }
@@ -121,7 +121,7 @@ export default class ParcelBouncer {
 
   async handleUser() {
     // Dont handle a non existant user in orbit mode
-    if (this.scene.config.isOrbit) return
+    if (window.config.isOrbit) return
     this.init()
     if (!this.onlyTokenHoldersCanEnter) {
       // The parcel is not private, do nothing
@@ -287,7 +287,7 @@ export default class ParcelBouncer {
       return
     }
     const pos = this.parcel.exteriorBounds
-    const distance = distanceToAABB(this.scene.cameraPosition, pos)
+    const distance = distanceToAABB(cameraPosition(this.scene), pos)
     // Quadratic function;
     // >1 between 0 and 10, negative after PARCEL_BOUNCER_MAX_VIEW_DISTANCE.
     const opacity = distance > PARCEL_BOUNCER_MAX_VIEW_DISTANCE ? 0 : 1 + 0.01420455 * distance - 0.001420455 * distance ** 2

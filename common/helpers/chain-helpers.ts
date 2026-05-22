@@ -31,7 +31,7 @@ export const ethChain: AddEthereumChainParameter = {
     symbol: 'ETH', // 2-6 characters long
     decimals: 18,
   },
-  rpcUrls: [`https://mainnet.infura.io/v3/${process.env.INFURA_KEY}`],
+  rpcUrls: [`https://eth-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_ETH_API_KEY}`],
   blockExplorerUrls: ['https://etherscan.io'],
 }
 
