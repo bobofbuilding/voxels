@@ -21,7 +21,7 @@ where w.token_id is not null
     )
 
 select *,
-       (select c.name from collections c where c.id = winfo.collection_id)    as collection_name,
+       (select c.name from collections c where c.id = winfo.collection_id) as collection_name,
        (select c.chainid from collections c where c.id = winfo.collection_id) as chain_id,
        (select c.address from collections c where c.id = winfo.collection_id) as collection_address
 from wearables_info winfo

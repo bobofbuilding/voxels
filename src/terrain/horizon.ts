@@ -1,4 +1,3 @@
-import type { Scene } from '../scene'
 import { HorizonMaterial } from '../shaders/horizon'
 
 // Horizon makes sure that the ground terrain and the skybox has a gradient fog blending them together
@@ -6,7 +5,7 @@ export default class Horizon {
   private mesh: BABYLON.Mesh
   private material: BABYLON.GradientMaterial
 
-  constructor(scene: Scene) {
+  constructor(scene: BABYLON.Scene) {
     const material = new HorizonMaterial('skybox/horizon', scene)
     material.fogEnabled = true
 
@@ -30,8 +29,8 @@ export default class Horizon {
       mesh.scaling.setAll(drawDistance * 1.8)
     }
 
-    updateHorizonScale(scene.draw.distance)
-    scene.draw.addEventListener('distance-changed', (e) => updateHorizonScale(e.detail), { passive: true })
+    updateHorizonScale(window.draw.distance)
+    window.draw.addEventListener('distance-changed', (e) => updateHorizonScale(e.detail), { passive: true })
 
     mesh.infiniteDistance = true
     mesh.isPickable = false

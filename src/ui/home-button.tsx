@@ -1,9 +1,8 @@
 import Grid from '../grid'
-import { Scene } from '../scene'
 
 interface Props {
   grid: Grid
-  scene: Scene
+  scene: BABYLON.Scene
 }
 
 export default function HomeButton(props: Props) {
