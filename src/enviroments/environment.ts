@@ -1,11 +1,10 @@
 import { createEvent, TypedEventTarget } from '../utils/EventEmitter'
-import type { Scene } from '../scene'
 import { TimeOfDay } from '../utils/time-of-day'
 import { StateObservable } from '../utils/state-observable'
 
 const AMBIENT = 0.3
 
-export abstract class Environment<EnvScene extends Scene = Scene> extends TypedEventTarget<{
+export abstract class Environment extends TypedEventTarget<{
   'fog-updated': void
   'parcel-collider-added': BABYLON.AbstractMesh
   'parcel-collider-removed': BABYLON.AbstractMesh
@@ -14,10 +13,10 @@ export abstract class Environment<EnvScene extends Scene = Scene> extends TypedE
 
   protected constructor(
     public parent: BABYLON.TransformNode,
-    protected readonly scene: EnvScene,
+    protected readonly scene: BABYLON.Scene,
   ) {
     super()
-    this._timeOfDay = scene.config.isNight ? TimeOfDay.Night : TimeOfDay.Day
+    this._timeOfDay = window.config.isNight ? TimeOfDay.Night : TimeOfDay.Day
   }
 
   public abstract get groundStateObservable(): StateObservable<'loaded' | 'unloaded'>
@@ -35,7 +34,7 @@ export abstract class Environment<EnvScene extends Scene = Scene> extends TypedE
   }
 
   get graphic() {
-    return this.scene.graphic
+    return window.graphic
   }
 
   get isUnderwater() {
@@ -59,7 +58,7 @@ export abstract class Environment<EnvScene extends Scene = Scene> extends TypedE
   }
 
   get fogDensity() {
-    return Math.max(3 / this.scene.draw.distance - 0.006, 0)
+    return Math.max(3 / window.draw.distance - 0.006, 0)
   }
 
   get fogColor() {
@@ -73,7 +72,7 @@ export abstract class Environment<EnvScene extends Scene = Scene> extends TypedE
   public abstract invalidateGroundLoaded(): void
 
   async load() {
-    this.scene.environment = this
+    window.environment = this
     this.scene.clearColor = this.clearColor
     this.updateFog(this.scene)
 
@@ -81,12 +80,11 @@ export abstract class Environment<EnvScene extends Scene = Scene> extends TypedE
     this.ambientLight.intensity = this.brightness
     this.ambientLight.groundColor = new BABYLON.Color3(this.ambient, this.ambient, this.ambient)
 
-    this.scene.draw.addEventListener('distance-changed', () => {
+    window.draw.addEventListener('distance-changed', () => {
       this.updateFog(this.scene)
     })
 
-    // Update fog when graphics settings change (e.g., fog toggle)
-    this.scene.graphic.addEventListener('settingsChanged', () => {
+    window.graphic.addEventListener('settingsChanged', () => {
       this.updateFog(this.scene)
     })
   }

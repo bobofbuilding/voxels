@@ -1,23 +1,23 @@
 import { Environment } from '../enviroments/environment'
 import RegionalManager from '../regional-effects-manager'
-import { isSpace, isWorld, Scene } from '../scene'
+import { isSpace, isWorld } from '../scene-config'
 import { easeInSineDistance } from '../utils/easing'
 import { WorldEnvironment } from '../enviroments/world-environment'
 import { SpacesEnvironment } from '../enviroments/space-environment'
 import { ScratchpadEnvironment } from '../enviroments/scratchpad-environment'
 
-function isScratchpad(scene: Scene) {
+function isScratchpad() {
   return window.location.pathname.includes('scratchpad')
 }
 
-export async function createEnvironment(scene: Scene, parent: BABYLON.TransformNode) {
+export async function createEnvironment(scene: BABYLON.Scene, parent: BABYLON.TransformNode) {
   let environment: Environment
 
-  if (isScratchpad(scene)) {
+  if (isScratchpad()) {
     environment = new ScratchpadEnvironment(parent, scene)
-  } else if (isSpace(scene)) {
+  } else if (isSpace()) {
     environment = new SpacesEnvironment(parent, scene)
-  } else if (isWorld(scene)) {
+  } else if (isWorld()) {
     environment = new WorldEnvironment(parent, scene)
   } else {
     throw new Error('Invalid Scene Config')

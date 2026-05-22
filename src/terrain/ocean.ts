@@ -4,7 +4,6 @@ import type { IslandRecord } from '../../common/messages/api-islands'
 import { SimpleWater } from '../shaders/simple-water'
 import { ReflectiveWater } from '../shaders/reflective-water'
 import { GraphicLevels } from '../graphic/graphic-engine'
-import { Scene } from '../scene'
 import Islands from './islands'
 import { OCEAN_HEIGHT_OFFSET } from '../constants'
 
@@ -26,7 +25,7 @@ export class Ocean implements ChunkObserver {
   private readonly size: number
   private readonly halfSize: number
   private readonly parent: BABYLON.TransformNode
-  private readonly scene: Scene
+  private readonly scene: BABYLON.Scene
   private readonly mesh: BABYLON.Mesh
   private readonly materials: { reflection: ReflectiveWater; simple: SimpleWater }
   private currentMaterial: WaterMaterialType
@@ -43,7 +42,7 @@ export class Ocean implements ChunkObserver {
   private baseReflectionMeshes: BABYLON.AbstractMesh[] = []
   private reflectionMeshes: BABYLON.AbstractMesh[] = []
 
-  constructor(size: number, scene: Scene, parent: BABYLON.TransformNode, reflectionMeshes: BABYLON.AbstractMesh[] = []) {
+  constructor(size: number, scene: BABYLON.Scene, parent: BABYLON.TransformNode, reflectionMeshes: BABYLON.AbstractMesh[] = []) {
     this.size = size
     this.halfSize = size * 0.5
     this.scene = scene
@@ -60,9 +59,9 @@ export class Ocean implements ChunkObserver {
       simple: new SimpleWater(scene),
       reflection: new ReflectiveWater(scene, { chunkSize: size, renderTargetSize: 512 }),
     }
-    this.currentMaterial = this.getMaterialTypeFor(this.scene.graphic.level)
+    this.currentMaterial = this.getMaterialTypeFor(window.graphic.level)
     this.updateUsedMaterial(this.currentMaterial)
-    this.scene.graphic.addEventListener('settingsChanged', this.onGraphicsLevelChanged.bind(this))
+    window.graphic.addEventListener('settingsChanged', this.onGraphicsLevelChanged.bind(this))
 
     for (const mesh of reflectionMeshes) {
       this.baseReflectionMeshes.push(mesh)
@@ -162,7 +161,7 @@ export class Ocean implements ChunkObserver {
     if (mesh.visibility === 0) return
     if (this.reflectionMeshes.includes(mesh)) return
     this.reflectionMeshes.push(mesh)
-    if (this.scene.graphic.level >= GraphicLevels.High) {
+    if (window.graphic.level >= GraphicLevels.High) {
       this.materials.reflection.addToReflectionList(mesh)
     }
   }
@@ -173,7 +172,7 @@ export class Ocean implements ChunkObserver {
   }
 
   private onGraphicsLevelChanged(): void {
-    const newType = this.getMaterialTypeFor(this.scene.graphic.level)
+    const newType = this.getMaterialTypeFor(window.graphic.level)
 
     if (this.currentMaterial !== newType) {
       this.currentMaterial = newType
@@ -182,7 +181,7 @@ export class Ocean implements ChunkObserver {
 
     this.materials.reflection.clearRenderList()
     this.baseReflectionMeshes.forEach((m) => this.materials.reflection.addToReflectionList(m))
-    if (this.scene.graphic.level >= GraphicLevels.High) {
+    if (window.graphic.level >= GraphicLevels.High) {
       this.reflectionMeshes.forEach((m) => this.materials.reflection.addToReflectionList(m))
     }
   }
@@ -523,7 +522,7 @@ export class Ocean implements ChunkObserver {
   private getMaterialTypeFor = (graphicLevel: GraphicLevels): WaterMaterialType => {
     // For custom graphics level, use the custom water quality setting
     if (graphicLevel === GraphicLevels.Custom) {
-      return this.scene.graphic.customWaterQuality
+      return window.graphic.customWaterQuality
     }
     // For other levels, use reflection for medium and above, simple for low and mobile
     return graphicLevel >= GraphicLevels.Medium ? 'reflection' : 'simple'

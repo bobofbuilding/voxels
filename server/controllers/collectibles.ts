@@ -1,13 +1,42 @@
 import { Request, Response } from 'express'
 import { ChainIdentifier, getChainIdByName, SUPPORTED_CHAINS } from '../../common/helpers/chain-helpers'
 import cache from '../cache'
-import { createCollectible, getAmountOfWearable, updateWearable, validateHashWearable } from '../handlers/collectible-handler'
 import { createRequestHandlerForQuery, queryAndCallback } from '../lib/query-helpers'
 import { parseQueryInt } from '../lib/query-parsing-helpers'
 import { Db } from '../pg'
-import { identifyCollectionParams } from './collections'
 
 export default function (db: Db, passport: any, app: any) {
+  app.get('/api/wearables/suggest', cache('5 seconds'), async (req: Request, res: Response) => {
+    const bone = req.query.bone || ''
+    const result = await db.query(
+      'embedded/wearables-suggest',
+      `select id, name, is_free from wearables
+       where suppressed is not true
+         and token_id is not null
+       order by
+         case when lower(default_bone) ilike lower($1) then 0 else 1 end,
+         is_free desc, name
+       limit 30`,
+      [bone],
+    )
+    res.json({ success: true, wearables: result.rows })
+  })
+
+  app.get('/api/wearables/search', cache('5 seconds'), async (req: Request, res: Response) => {
+    const q = `%${req.query.q || ''}%`
+    const result = await db.query(
+      'embedded/wearables-search',
+      `select id, name, is_free from wearables
+       where name ilike $1
+         and suppressed is not true
+         and token_id is not null
+       order by is_free desc, name
+       limit 50`,
+      [q],
+    )
+    res.json({ success: true, wearables: result.rows })
+  })
+
   app.get(
     '/api/collectibles.json',
     cache('5 seconds'),
@@ -18,30 +47,24 @@ export default function (db: Db, passport: any, app: any) {
     }),
   )
 
-  /**
-   *   Create any type of collectible
-   *  /api/collectibles/create/wearable
-   *  /api/collectibles/create/emitter -- in the future
-   *  /api/collectibles/create/furniture -- in the future
-   * */
-  app.post('/api/collectibles/create/wearable', passport.authenticate('jwt', { session: false }), createCollectible)
+  app.get(`/api/collectibles/:uuid/vox`, cache('10 minutes'), async (req: Request, res: Response) => {
+    const result = await db.query('sql/get-wearable', `select data from wearables where id=$1 limit 1`, [req.params.uuid])
+    console.log(result)
 
-  // Wearable updates:
-  app.post('/api/collectibles/w/:id/update', passport.authenticate('jwt', { session: false }), updateWearable)
-  app.post('/api/collectibles/w/:id/suppress', passport.authenticate('jwt', { session: false }), updateWearable)
-  app.post('/api/collectibles/w/:id/unsuppress', passport.authenticate('jwt', { session: false }), updateWearable)
-  app.post('/api/collectibles/w/:id/delete', passport.authenticate('jwt', { session: false }), updateWearable)
+    const data = result.rows[0].data
 
-  app.post('/api/collectibles/w/validate-hash', passport.authenticate('jwt', { session: false }), validateHashWearable)
+    if (!data) {
+      res.status(404).send({ success: false, message: 'Wearable not found' })
+      return
+    }
 
-  app.get('/api/collectibles/w/:chain/:address/:id/balanceof/:wallet', cache('30 seconds'), getAmountOfWearable)
-
-  // all collectibles (count)
-  app.get('/api/collectibles/info.json', cache('60 seconds'), createRequestHandlerForQuery(db, 'collectibles/get-collectibles-info', 'info'))
+    res.set('Content-Type', 'application/octet-stream')
+    res.status(200).send(data)
+  })
 
   //get a specific collectible given collection id
   app.get(
-    '/api/collections/:collection_id/c/:token_id.json',
+    '/api/collections/:collection_id/collectibles/:token_id',
     cache('60 seconds'),
     createRequestHandlerForQuery(db, 'collectibles/get-collectible', 'collectible', (req) => [parseInt(req.params.collection_id, 10), req.params.token_id]),
   )
@@ -76,64 +99,6 @@ export default function (db: Db, passport: any, app: any) {
     cache('60 seconds'),
     createRequestHandlerForQuery(db, 'collectibles/get-wearable-by-uuid', 'wearable', (req) => [req.params.uuid]),
   )
-
-  const getCollectiblesOfCollection = async (req: Request, res: Response) => {
-    const { chain_identifier, address } = req.params as { chain_identifier: ChainIdentifier; address: string }
-    if (!chain_identifier || !address) {
-      res.status(404).send({ success: false })
-      return
-    }
-
-    let token_ids: string[] | null = req.query.token_ids ? (req.query.token_ids instanceof Array ? (req.query.token_ids as string[]) : [req.query.token_ids as string]) : null
-
-    if (!token_ids) {
-      queryAndCallback(
-        db,
-        'collectibles/get-collectibles-by-collection',
-        'collectibles',
-        [getChainIdByName(chain_identifier), address, `%${req.query.q || ''}%`, parseQueryInt(req.query.page, 1) - 1, req.query.sort ? req.query.sort : 'updated_at', req.query.asc === 'true'],
-        (response) => {
-          res.status(200).send(response)
-        },
-      )
-      return
-    }
-
-    token_ids = token_ids.filter((id) => !isNaN(parseInt(id)))
-
-    if (token_ids.length === 0) {
-      res.status(200).send({ success: true, collectibles: [] })
-      return
-    }
-
-    const batch_queries = `select
-    w.id,
-    token_id,
-    w.name,
-    w.description,
-    collection_id,
-    w.category,
-    w.author,
-    w.hash,
-    w.suppressed,
-    c.chainid as chain_id,
-    c.address as collection_address,
-    c.name as collection_name
-    from
-    wearables w
-    left join collections c
-    on c.id = w.collection_id
-where
- (c.chainid = coalesce($1,1) AND lower(c.address) = lower($2))
-  and token_id in (${token_ids.join(',')})
-  `
-    const r = await db.query('embedded/get-collectibles-batch', batch_queries, [getChainIdByName(chain_identifier), address])
-    res.status(200).send({ success: !!r.rows[0], collectibles: r.rows })
-  }
-  /* Collections */
-  // new API
-  app.get('/api/collections/:chain_identifier/:address/collectibles.json', identifyCollectionParams, cache('30 seconds'), getCollectiblesOfCollection)
-
   //Collection submissions
 
   app.post('/api/collections/collectibles/review.json', passport.authenticate('jwt', { session: false }), async (req: Request, res: Response) => {
@@ -163,8 +128,11 @@ where
       'embedded/get-wearables-by-collection-paged',
       `
     select
-      *,
-      (select name from avatars where avatars.owner = w.author) as author_name
+      w.*,
+      COALESCE(
+        (SELECT row_to_json(sub) FROM (SELECT a.id, a.name, a.owner, a.created_at FROM avatars a WHERE lower(a.owner) = lower(w.author) LIMIT 1) sub),
+        to_json(w.author)
+      ) as author
     from
       wearables w
     where
@@ -213,8 +181,11 @@ where
       'embedded/get-wearables-by-wallet-2',
       `
     select
-      *,
-      (select name from avatars where avatars.owner = w.author) as author_name
+      w.*,
+      COALESCE(
+        (SELECT row_to_json(sub) FROM (SELECT a.id, a.name, a.owner, a.created_at FROM avatars a WHERE lower(a.owner) = lower(w.author) LIMIT 1) sub),
+        to_json(w.author)
+      ) as author
     from
       wearables w
     where

@@ -61,14 +61,13 @@ import MainLoop from './main-loop'
 import { createScene } from './init/scene'
 import { createEnvironment } from './init/environment'
 import { createWorld } from './init/world'
-import { sceneConfigFromURL } from './scene'
-import { Environment } from './enviroments/environment'
+import { sceneConfigFromURL, SceneConfig } from './scene-config'
+import type { Environment } from './enviroments/environment'
 import { PostProcesses } from './graphic/post-processes'
 import LutFactor from './graphic/lut-factor'
 import { ColorGrader } from './graphic/color-grading'
 import { FOV } from './graphic/field-of-view'
-import type { MinimapSettings } from './minimap'
-import { Minimap } from './minimap'
+import { Minimap, MinimapSettings } from './minimap'
 import { MetaMaskInpageProvider } from '@metamask/providers'
 import { currentBuildDate, currentVersion } from '../common/version'
 import { CameraSettings } from './controls/user-control-settings'
@@ -104,6 +103,14 @@ declare global {
     voxels: Voxels
 
     engine: BABYLON.Engine
+    scene: BABYLON.Scene
+    config: SceneConfig
+    graphic: GraphicEngine
+    draw: DrawDistance
+    fov: FOV
+    cameraSettings: CameraSettings
+    environment: Environment | undefined
+
     nameMesh: BABYLON.Mesh
     skyMat: BABYLON.GradientMaterial
 
@@ -227,20 +234,27 @@ declare global {
   }
 
   const sceneConfig = sceneConfigFromURL()
+  window.config = sceneConfig
 
   // the graphics engine keeps track of graphic settings and post-processing fx
   const graphic = new GraphicEngine(engine)
+  window.graphic = graphic
 
   // keeps track of how far we should render
   const draw = new DrawDistance(graphic, sceneConfig.isSpace)
+  window.draw = draw
 
   // keeps track of FOV settings
   const fov = new FOV()
+  window.fov = fov
 
   const cameraSettings = new CameraSettings()
+  window.cameraSettings = cameraSettings
+  window.environment = undefined
 
   // Create a main scene and stuff it with some scene globals
-  const scene = createScene(engine, graphic, draw, sceneConfig, fov, cameraSettings)
+  const scene = createScene(engine)
+  window.scene = scene
   // task runner, that attempts to run tasks without affecting framerate
 
   // if (isBatterySaver()) {
@@ -298,37 +312,47 @@ declare global {
   // and here we start all the main stuff, start the renderloop, the pump, web-workers and mess with some random
   // fixes for browsers
 
-  const map = new Minimap(engine, connector)
-  const mapSettings = map.getSettings()
+  let map: Minimap | null = null
+  let mapSettings: MinimapSettings | null = null
   let mapScene: BABYLON.Scene | null = null
 
-  if (!scene.config.isBot) {
-    main.start()
-    if (mapSettings.enabled && !scene.config.isOrbit && scene.config.wantsUI && !scene.config.isSpace) {
-      mapScene = map.start(scene)
-      main.setMapScene(mapScene)
-    }
-  }
+  // minimap is never shown on mobile (enabled getter returns false) but the constructor
+  // still allocates a Scene, camera, meshes and PostProcess -- skip it entirely
+  if (!isMobile()) {
+    map = new Minimap(engine, connector)
+    mapSettings = map.getSettings()
 
-  mapSettings.addEventListener('changed', (state) => {
-    if (state.detail.enabled && !state.detail.hide) {
-      mapScene = map.start(scene)
-      main.setMapScene(mapScene)
-    } else {
-      map.stop()
-      if (mapScene) {
-        main.unsetMapScene()
-        mapScene.dispose()
-        mapScene = null
+    if (!window.config.isBot) {
+      if (mapSettings.enabled && !window.config.isOrbit && window.config.wantsUI && !window.config.isSpace) {
+        mapScene = map.start(scene)
+        main.setMapScene(mapScene)
       }
     }
-  })
+
+    mapSettings.addEventListener('changed', (state) => {
+      if (state.detail.enabled && !state.detail.hide) {
+        mapScene = map!.start(scene)
+        main.setMapScene(mapScene)
+      } else {
+        map!.stop()
+        if (mapScene) {
+          main.unsetMapScene()
+          mapScene.dispose()
+          mapScene = null
+        }
+      }
+    })
+  }
+
+  if (!window.config.isBot) {
+    main.start()
+  }
 
   voxels.robots = new Robots(scene)
   voxels.robots.start()
 
   extendTabIndexOnClick()
-  startUserInterface(grid, connector, environment, map.getSettings())
+  startUserInterface(grid, connector, environment, mapSettings ?? new MinimapSettings())
   if (wantsXR()) return
 
   isInspect() && toggleBabylonInspector(scene).then(/** ignore promise */)
