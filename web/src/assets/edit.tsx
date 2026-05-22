@@ -1,129 +1,94 @@
-import { Component } from 'preact'
-import { Assetish } from '../asset'
+import { useEffect, useState } from 'preact/hooks'
 import { route } from 'preact-router'
-import LoadingPage from '../loading-page'
 import { JsonEditor } from 'json-edit-react'
-import Ajv from 'ajv'
-import { invalidateUrl } from '../helpers/cached-fetch'
+import { Login } from '../auth/login'
+import { app } from '../state'
 
-export interface Props {
+interface Props {
   path?: string
   id?: any
 }
 
-export interface State {
-  asset?: Assetish
-  categories?: string[]
-}
+export default function EditAsset(props: Props) {
+  if (!app.signedIn) return <Login reason="edit this asset" />
 
-export default class EditAsset extends Component<Props, State> {
-  ajv = new Ajv()
-  validate: any
+  const [asset, setAsset] = useState<any>(null)
+  const [categories, setCategories] = useState<string[]>([])
+  const [saving, setSaving] = useState(false)
 
-  fetch = async () => {
-    invalidateUrl(`/api/asset/*`)
+  useEffect(() => {
+    fetch(`/api/assets/${props.id}`)
+      .then((r) => r.json())
+      .then((d) => setAsset(d.asset))
+    fetch(`/api/assets/categories`)
+      .then((r) => r.json())
+      .then((d) => setCategories(d.categories || []))
+  }, [props.id])
 
-    var f = await fetch(`/api/assets/${this.props.id}`)
-    var { asset } = await f.json()
-    this.setState({ asset })
-
-    f = await fetch(`/api/assets/categories`)
-    var { categories } = await f.json()
-    this.setState({ categories })
-
-    f = await fetch(`/api/assets/schema`)
-    var { schema } = await f.json()
-    this.validate = this.ajv.compile(schema)
-  }
-
-  onUpdate = ({ newData }: { newData: any }) => {
-    if (!this.validate) {
-      return
-    }
-
-    const valid = this.validate(newData)
-
-    console.log(valid, this.validate)
-
-    if (!valid) {
-      console.log('Errors', this.validate.errors)
-      const errorMessage = this.validate.errors?.map((error: any) => `${error.instancePath}${error.instancePath ? ': ' : ''}${error.message}`).join('\n')
-      console.log({
-        title: 'Not compliant with JSON Schema',
-        description: errorMessage,
-        status: 'error',
-      })
-
-      return
-    }
-  }
-
-  onSave = async (e: any) => {
+  async function submit(e: Event) {
     e.preventDefault()
-
-    const f = await fetch(`/api/assets/${this.props.id}`, {
+    setSaving(true)
+    const r = await fetch(`/api/assets/${props.id}`, {
       method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        credentials: 'include',
-      },
-      body: JSON.stringify(this.state.asset),
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify(asset),
     })
-
-    if (f.ok) {
-      route(`/assets/${this.props.id}`)
-    }
+    setSaving(false)
+    if (r.ok) route(`/assets/${props.id}`)
   }
 
-  componentDidMount() {
-    this.fetch()
+  async function onDelete() {
+    if (!confirm('Delete this asset?')) return
+    await fetch(`/api/assets/${props.id}`, { method: 'DELETE', credentials: 'include' })
+    route('/assets')
   }
 
-  private set(key: string, value: string) {
-    this.setState({ asset: { ...this.state.asset!, [key]: value } })
+  function set(key: string, value: any) {
+    setAsset((a: any) => ({ ...a, [key]: value }))
   }
 
-  render() {
-    const categories = this.state.categories?.map((c) => <option value={c}>{c}</option>)
+  if (!asset) return <p>Loading...</p>
 
-    if (!this.state.asset) {
-      return <LoadingPage />
-    }
-
-    return (
-      <section>
-        <article>
-          <h1>Edit Asset</h1>
-
-          <form onSubmit={this.onSave}>
-            <div class="f">
-              <label>Name</label>
-              <input type="text" value={this.state.asset.name} onChange={(e: any) => this.set('name', e.target.value)} />
-            </div>
-
-            <div class="f">
-              <label>Description</label>
-              <textarea value={this.state.asset.description} onChange={(e: any) => this.set('description', e.target.value)} rows={10} />
-            </div>
-
-            <div class="f">
-              <label>Category</label>
-              <select value={this.state.asset.category} onChange={(e: any) => this.set('category', e.target.value)}>
-                {categories}
-              </select>
-            </div>
-
-            <div class="f">
-              <label>Content</label>
-              <JsonEditor data={this.state.asset.content} setData={(e: any) => this.set('content', e)} />
-            </div>
-
-            <div class="f">
-              <button type="submit">Save</button>
-            </div>
-          </form>
-        </article>
-      </section>
-    )
-  }
+  return (
+    <section class="columns">
+      <article>
+        <hgroup>
+          <h1>
+            <a href={`/assets/${props.id}`}>{asset.name}</a> / edit
+          </h1>
+        </hgroup>
+        <form onSubmit={submit}>
+          <div class="f">
+            <label>Name</label>
+            <input type="text" value={asset.name} onInput={(e: any) => set('name', e.target.value)} />
+          </div>
+          <div class="f">
+            <label>Description</label>
+            <textarea value={asset.description} onInput={(e: any) => set('description', e.target.value)} rows={5} />
+          </div>
+          <div class="f">
+            <label>Category</label>
+            <select value={asset.category} onChange={(e: any) => set('category', e.target.value)}>
+              {categories.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div class="f">
+            <label>Content</label>
+            <JsonEditor data={asset.content} setData={(e: any) => set('content', e)} />
+          </div>
+          <button type="submit" disabled={saving}>
+            {saving ? 'Saving...' : 'Save'}
+          </button>
+        </form>
+      </article>
+      <aside>
+        <button onClick={onDelete}>Delete</button>
+      </aside>
+    </section>
+  )
 }
