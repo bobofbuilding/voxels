@@ -1,4 +1,3 @@
-import type { Scene } from '../scene'
 import { cacheMaterial, generateCacheKey, getCachedMaterial } from './cache'
 
 export interface IslandMaterialConfig {
@@ -6,7 +5,7 @@ export interface IslandMaterialConfig {
   texture: BABYLON.Texture
 }
 
-export function createIslandMaterial(scene: Scene, config: IslandMaterialConfig): BABYLON.Material {
+export function createIslandMaterial(scene: BABYLON.Scene, config: IslandMaterialConfig): BABYLON.Material {
   const cacheKey = generateCacheKey('island', { name: config.name })
 
   const cached = getCachedMaterial(cacheKey)

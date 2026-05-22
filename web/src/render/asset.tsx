@@ -1,49 +1,15 @@
 import { useEffect, useState } from 'preact/hooks'
 import type { Assetish } from '../asset'
-// import Asset from '../../../src/features/asset'
 import type { ParcelRecord } from '../../../common/messages/parcel'
 import { VoxImporter } from '../../../common/vox-import/vox-import'
-import { CameraSettings } from '../../../src/controls/user-control-settings'
-import { DrawDistance } from '../../../src/graphic/draw-distance'
-import { FOV } from '../../../src/graphic/field-of-view'
-import { GraphicEngine } from '../../../src/graphic/graphic-engine'
 import { NullGrid } from '../../../src/null-grid'
 import Parcel from '../../../src/parcel'
-import { Scene, SceneConfig } from '../../../src/scene'
-
-class AssetScene extends Scene {
-  constructor(engine: BABYLON.Engine) {
-    // super(engine)
-
-    const graphic = new GraphicEngine(engine)
-    const draw = new DrawDistance(graphic, false)
-    const vi = new VoxImporter()
-
-    const config: SceneConfig = {
-      isSpace: true,
-      isGrid: false,
-      spaceId: '1',
-      isOrbit: false,
-      isBot: false,
-      isNight: false,
-      wantsAudio: false,
-      wantsURL: false,
-      isMultiuser: false,
-      wantsUI: false,
-    }
-    const fov = new FOV()
-    const cameraSettings = new CameraSettings()
-
-    super(engine, graphic, draw, vi, config, fov, cameraSettings)
-
-    // Render on a transparent background
-    this.clearColor.set(0, 0, 0, 0)
-
-    // Create voxel importer
-    vi.initialize(this)
-  }
-
-  disableShaders = true
+function createAssetScene(engine: BABYLON.Engine): BABYLON.Scene {
+  const scene = new BABYLON.Scene(engine)
+  scene.clearColor.set(0, 0, 0, 0)
+  const vi = new VoxImporter()
+  vi.initialize(scene)
+  return scene
 }
 
 type Props = {
@@ -123,7 +89,7 @@ function zoomCamera(camera: BABYLON.ArcRotateCamera, scene: BABYLON.Scene) {
 
 // {  "id": "bf3f5e0b-7c7c-4d0a-8fec-d5c3ebd4b94e", "name": "Boombox", "description": "A powerful 80s style boombox. \n\nDon't forget to insert 8 f*ng D batteries and start the party: \"To the bang bang boogie, say up jump the boogie, to the rhythm of the boogie, the beat.\"", "author": "0xe13d4abee4b304b67c52a56871141cad1b833aa7", "issues": 5, "token_id": 49, "created_at": "2021-12-11T07:44:07.202Z", "updated_at": null, "hash": "db7834643c9e808490b0deaf6f030749f4f5c84d", "rejected_at": null, "offer_prices": null, "collection_id": 1, "custom_attributes": null, "suppressed": false, "category": "facewear", "default_settings": null, "type": "wearable" }
 
-async function loadAsset(scene: Scene, asset: Assetish) {
+async function loadAsset(scene: BABYLON.Scene, asset: Assetish) {
   var features = asset.content ?? []
 
   if (asset.type === 'wearable') {
@@ -177,7 +143,7 @@ async function loadAsset(scene: Scene, asset: Assetish) {
 
 export default function RenderAsset(props: Props) {
   const [asset, setAsset] = useState<Assetish | null>(null)
-  var scene: AssetScene
+  var scene: BABYLON.Scene
 
   async function fetchAsset(id: string) {
     const f = await fetch(`/api/assets/${id}`)
@@ -203,7 +169,7 @@ export default function RenderAsset(props: Props) {
 
     const engine = new BABYLON.Engine(canvas, true)
 
-    scene = new AssetScene(engine)
+    scene = createAssetScene(engine)
 
     const camera = new BABYLON.ArcRotateCamera('wearable-camera', Math.PI / 4, Math.acos(1 / Math.sqrt(3)), 8, new BABYLON.Vector3(0, 0, 0), scene)
     camera.fov = 0.4

@@ -6,12 +6,11 @@ import { exitPointerLock, requestPointerLockIfNoOverlays } from '../../../common
 import type Parcel from '../../parcel'
 import FPSCounter from '../../components/fps-counter'
 import type Feature from '../../features/feature'
-import type { Scene } from '../../scene'
 import { FeatureRecord } from '../../../common/messages/feature'
 
 interface Props {
   onClose?: (e: MouseEvent) => void
-  scene: Scene
+  scene: BABYLON.Scene
 }
 
 type State = {
@@ -288,7 +287,7 @@ export class AreaContentAnalyzer extends Component<Props, State> {
   }
 }
 
-export function showAreaContentAnalyzeUI(scene: Scene) {
+export function showAreaContentAnalyzeUI(scene: BABYLON.Scene) {
   if (!!AreaContentAnalyzer.currentElement) {
     unmountComponentAtNode(AreaContentAnalyzer.currentElement) // unmount the component
     AreaContentAnalyzer.currentElement = null!

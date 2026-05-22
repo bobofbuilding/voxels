@@ -3,7 +3,6 @@ import { isAddress } from 'ethers'
 import { ChainID, Ethereum, Polygon, SUPPORTED_CHAINS_BY_ID, supportedChainsIds } from '../../../common/helpers/chain-helpers'
 import { provider } from '../auth/state-login'
 import { app } from '../state'
-import { fetchAPI } from '../utils'
 
 export const BATCH_TRANSFER_MATIC = '0x0c14093400f5de3de7326a9a7f49dcc53d6a9d0b'
 export const BATCH_TRANSFER_ETH = '0x9be54b221c44e8665c88af8bb1a99189a1f0e80a'
@@ -46,7 +45,7 @@ export class TransferCollectibleHelper {
     if (app?.signedIn) {
       let url = `/api/collectibles/w/${SUPPORTED_CHAINS_BY_ID[collectible.chain_id]}/${collectible.collection_address}/${collectible.token_id}/balanceof/${app.state.wallet}`
       if (cacheBust) url += `?cb=${Date.now()}`
-      const r = await fetchAPI(url)
+      const r = await fetch(url, { credentials: 'include' }).then((r) => r.json())
       if (r.success && r.balance) this._balance = r.balance
     }
     return this._balance

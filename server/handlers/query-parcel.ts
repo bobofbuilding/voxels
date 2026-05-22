@@ -16,12 +16,7 @@ export default async function queryParcel(req: Request, res: Response) {
     return
   }
 
-  try {
-    await parcel.queryContract()
-  } catch (e) {
-    res.json({ success: false })
-    return
-  }
+  await parcel.queryContract()
 
   res.json({ success: true, parcel })
 }

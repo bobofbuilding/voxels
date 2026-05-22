@@ -1,62 +1,22 @@
-import { ethers, JsonRpcProvider, Interface } from 'ethers'
+import { ethers, AlchemyProvider, Interface } from 'ethers'
 import { tokensToEnter } from '../../common/messages/parcel'
 import log from './logger'
 // import { Alchemy, Network } from 'alchemy-sdk' // REMOVED: Alchemy SDK no longer used
 import { maticChain, SUPPORTED_CHAINS } from '../../common/helpers/chain-helpers'
 
-const ETH_MAINNET_RPC_URL = process.env.ETH_MAINNET_RPC_URL || 'https://mainnet.infura.io/v3/EmvmpW109VE8WSfn1470T'
-const POLYGON_MAINNET_RPC_URL = process.env.POLYGON_MAINNET_RPC_URL || 'https://polygon-mainnet.infura.io/v3/EmvmpW109VE8WSfn1470T'
-
-export const ethAlchemy = new JsonRpcProvider(ETH_MAINNET_RPC_URL)
-export const polygonAlchemy = new JsonRpcProvider(POLYGON_MAINNET_RPC_URL)
+export const ethAlchemy = new AlchemyProvider('homestead', process.env.ALCHEMY_ETH_API_KEY)
+export const polygonAlchemy = new AlchemyProvider('matic', process.env.ALCHEMY_MATIC_API_KEY)
 
 // ETHEREUM UTILS ----------------------------------------
 export const ParcelContractABI = require('../../common/contracts/parcel.json')
 export const NameContractABI = require('../../common/contracts/name-v2.json')
 export const ColorContractABI = require('../../common/contracts/color.json')
 export const tokenContractABI = require('../../common/contracts/external/erc20.json')
-export const gnosisProxyABI = require('../../common/contracts/external/gnosisProxy.json')
-export const landworksConsumerOfABI = [
-  {
-    anonymous: false,
-    inputs: [
-      { indexed: true, internalType: 'address', name: 'owner', type: 'address' },
-      { indexed: true, internalType: 'address', name: 'consumer', type: 'address' },
-      { indexed: true, internalType: 'uint256', name: 'tokenId', type: 'uint256' },
-    ],
-    name: 'ConsumerChanged',
-    type: 'event',
-  },
-  {
-    inputs: [{ internalType: 'uint256', name: 'tokenId', type: 'uint256' }],
-    name: 'consumerOf',
-    outputs: [{ internalType: 'address', name: '', type: 'address' }],
-    stateMutability: 'view',
-    type: 'function',
-  },
-]
-export const chainlinkAggregatorABI = [
-  {
-    inputs: [],
-    name: 'latestRoundData',
-    outputs: [
-      { internalType: 'uint80', name: 'roundId', type: 'uint80' },
-      { internalType: 'int256', name: 'answer', type: 'int256' },
-      { internalType: 'uint256', name: 'startedAt', type: 'uint256' },
-      { internalType: 'uint256', name: 'updatedAt', type: 'uint256' },
-      { internalType: 'uint80', name: 'answeredInRound', type: 'uint80' },
-    ],
-    stateMutability: 'view',
-    type: 'function',
-  },
-  { inputs: [], name: 'decimals', outputs: [{ internalType: 'uint8', name: '', type: 'uint8' }], stateMutability: 'view', type: 'function' },
-]
 
 export const erc721ABI = require('../../common/contracts/external/erc721.json')
 export const erc1155ABI = require('../../common/contracts/external/erc1155.json')
 export const collectibleContractABI = require('../../common/contracts/collectibles-v2.json')
 export const parcelInterface = new Interface(ParcelContractABI.abi)
-export const landworksInterface = new Interface(landworksConsumerOfABI)
 
 // We have it here for CI to not fail
 export enum TokenAddress {
@@ -68,39 +28,23 @@ export enum TokenAddress {
 const NAME_ADDRESS = '0x684Cd10B02CdADE20f1858C6315052d66D1Eafc2'
 const PARCEL_ADDRESS = '0x79986aF15539de2db9A5086382daEdA917A9CF0C'
 const RINKEBY_PARCEL_ADDRESS = '0x13dBD857f5513C0d65a3a0690cF1e58a44D6a79e'
-// LANDWORKS RENTING CONTRACT
-export const LANDWORKS = '0x678d837fa15eba2b59f6cd5f9f4c580ac2dfc269'
 
 export const ADDRESSES = {
   PARCEL_ADDRESS,
   NAME_ADDRESS,
   RINKEBY_PARCEL_ADDRESS,
-  LANDWORKS,
 }
 
-export const getContract = async (label: 'parcel' | 'name' | 'landworks' | 'chainlink-eth-usd', chainId = SUPPORTED_CHAINS['matic']) => {
+export const getContract = async (label: 'parcel' | 'name', chainId = SUPPORTED_CHAINS['matic']) => {
   const alchemy = chainId == 1 ? ethAlchemy : polygonAlchemy
   switch (label) {
     case 'parcel':
       return new ethers.Contract(process.env.CONTRACT_ADDRESS || PARCEL_ADDRESS, ParcelContractABI.abi, alchemy)
     case 'name':
       return new ethers.Contract(process.env.NAME_ADDRESS || NAME_ADDRESS, NameContractABI.abi, alchemy)
-    case 'landworks':
-      return new ethers.Contract('0x616E2A8b62c91b6833fa37d21eDE90abF85622cC', landworksConsumerOfABI, alchemy)
-    case 'chainlink-eth-usd':
-      return new ethers.Contract('0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419', chainlinkAggregatorABI, alchemy)
     default:
       throw new Error(`Unknown contract label: ${label}`)
   }
-}
-
-// For multisig
-export const gnosisProxyContract = async (address: TokenAddress, chain = 1): Promise<ethers.Contract | null> => {
-  if (!ethers.isAddress(address)) {
-    return null
-  }
-  const provider = await getProviderGivenChain(chain)
-  return new ethers.Contract(address, gnosisProxyABI.abi, provider)
 }
 
 export const getProviderGivenChain = async (chain = 1) => {
