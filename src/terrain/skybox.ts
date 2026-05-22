@@ -1,10 +1,8 @@
-import type { Scene } from '../scene'
-
 export default class Skybox {
   private readonly _mesh: BABYLON.Mesh
   private material: BABYLON.SkyMaterial
 
-  constructor(scene: Scene) {
+  constructor(scene: BABYLON.Scene) {
     const material = new BABYLON.SkyMaterial('skybox/sky-material', scene)
     material.backFaceCulling = false // leave
     material.useSunPosition = true
@@ -22,8 +20,8 @@ export default class Skybox {
       mesh.scaling.setAll(drawDistance * 1.96)
     }
 
-    updateScale(scene.draw.distance)
-    scene.draw.addEventListener('distance-changed', (e) => updateScale(e.detail))
+    updateScale(window.draw.distance)
+    window.draw.addEventListener('distance-changed', (e) => updateScale(e.detail))
 
     mesh.material = material
     mesh.infiniteDistance = true

@@ -1,8 +1,7 @@
-import type { Scene } from './scene'
 import Grid from './grid'
 
 export class NullGrid extends Grid {
-  constructor(scene: Scene) {
+  constructor(scene: BABYLON.Scene) {
     const parent = new BABYLON.TransformNode('parcel/parent', scene)
     super(scene, parent)
   }

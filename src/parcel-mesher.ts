@@ -1,6 +1,5 @@
 import { RawVoxelizedMeshData, VoxelField } from './voxel-field'
 import { BakedVoxelField } from './baked-voxel-field'
-import { Scene } from './scene'
 import Parcel from './parcel'
 import { fetchAtlasTexture } from './textures/textures'
 
@@ -11,7 +10,7 @@ export class ParcelMesher {
   private voxelField: VoxelField
   private bakedVoxelField: BakedVoxelField
 
-  constructor(private scene: Scene) {
+  constructor(private scene: BABYLON.Scene) {
     this.voxelField = new VoxelField(scene, this)
     this.bakedVoxelField = new BakedVoxelField(scene, this)
   }

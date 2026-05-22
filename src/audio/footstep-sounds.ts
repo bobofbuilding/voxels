@@ -49,7 +49,7 @@ export class FootstepSounds {
   }
 
   hitGround(fallenHeight: any) {
-    if (!this.footStepsSupported) return
+    if (!this.footStepsSupported || !this.footstepsSprite) return
 
     // sets a max height to 3 to cap the noise it fall will make
     fallenHeight = Math.min(fallenHeight, 3)
@@ -98,7 +98,7 @@ export class FootstepSounds {
   }
 
   private footStep(isRunning: boolean) {
-    if (!this.footStepsSupported) return
+    if (!this.footStepsSupported || !this.footstepsSprite) return
 
     // debounce footsteps
     if (Date.now() - this.lastStepAt < RUN_DELAY) return
