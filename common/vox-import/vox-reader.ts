@@ -1,5 +1,5 @@
 import * as createAOMesh from 'ao-mesher'
-import * as ndarray from 'ndarray'
+import ndarray from 'ndarray'
 
 const VoxReader = require('@sh-dave/format-vox').VoxReader
 

@@ -5,7 +5,6 @@ import { app } from '../../web/src/state'
 import Avatar from '../avatar'
 import type Connector from '../connector'
 import type Parcel from '../parcel'
-import type { Scene } from '../scene'
 import { rebindGizmosBoundToFeature } from '../tools/gizmos'
 import { easingFunctions, easingModes, FeatureEditor, FeatureEditorProps } from '../ui/features'
 import FeatureBasicGUI from '../ui/gui/gui'
@@ -84,7 +83,7 @@ export default abstract class Feature<Description extends FeatureRecord = Featur
   static layer: BABYLON.HighlightLayer
   parent: BABYLON.TransformNode | null = null
   uuid: string
-  scene: Scene
+  scene: BABYLON.Scene
   mesh?: AbstractMeshExtended | TransformNodeExtended | null
   description: Description
   parcel: Parcel
@@ -104,7 +103,7 @@ export default abstract class Feature<Description extends FeatureRecord = Featur
   protected abortController = new AbortController()
   private animationInstance: BABYLON.Animatable | undefined = undefined
 
-  constructor(scene: Scene, parcel: Parcel, uuid: string, description: Description) {
+  constructor(scene: BABYLON.Scene, parcel: Parcel, uuid: string, description: Description) {
     super()
     this.scene = scene
     this.parcel = parcel
@@ -513,10 +512,10 @@ export default abstract class Feature<Description extends FeatureRecord = Featur
 
   onClickLink(url: string) {
     // We have a time flag in the world link
-    if (this.isWorldLink && this.linkHasTimeFlag && !this.scene.config.isSpace) {
+    if (this.isWorldLink && this.linkHasTimeFlag && !window.config.isSpace) {
       const time = this.linkHasTimeFlag
-      if (this.scene.environment && this.scene.environment.timeOfDay !== time) {
-        this.scene.environment.timeOfDay = time
+      if (window.environment && window.environment.timeOfDay !== time) {
+        window.environment.timeOfDay = time
       }
       if (this.linkHasCoords) {
         // We also have coords
@@ -525,7 +524,7 @@ export default abstract class Feature<Description extends FeatureRecord = Featur
       return
     }
 
-    if (this.isWorldLink && this.linkHasCoords && !this.scene.config.isSpace) {
+    if (this.isWorldLink && this.linkHasCoords && !window.config.isSpace) {
       window.persona.teleport(url)
       return
     }

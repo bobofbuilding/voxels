@@ -1,7 +1,6 @@
 // ABOUTME: Lightmap shader material for baked voxel rendering with ambient occlusion.
 // ABOUTME: Creates shader material that samples tilemap and lightmap textures for pre-baked lighting.
 
-import type { Scene } from '../scene'
 import lightmapMeshVertexShader from './lightmap-mesh.vsh'
 import lightmapMeshPixelShader from './lightmap-mesh.fsh'
 
@@ -9,7 +8,7 @@ import lightmapMeshPixelShader from './lightmap-mesh.fsh'
 BABYLON.Effect.ShadersStore['lightmapMeshVertexShader'] = lightmapMeshVertexShader
 BABYLON.Effect.ShadersStore['lightmapMeshPixelShader'] = lightmapMeshPixelShader
 
-export function createLightmapMaterial(scene: Scene, name: string): BABYLON.ShaderMaterial {
+export function createLightmapMaterial(scene: BABYLON.Scene, name: string): BABYLON.ShaderMaterial {
   const material = new BABYLON.ShaderMaterial(
     `voxelizer/${name}`,
     scene,
