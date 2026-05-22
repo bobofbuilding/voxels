@@ -34,6 +34,7 @@ export const featureBudget: BudgetLimits = {
   video: 40,
   'vid-screen': 5,
   youtube: 50,
+  showbox: 10,
   particles: 4,
   group: 1000,
 }

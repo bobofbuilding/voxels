@@ -6,7 +6,6 @@ import { PanelType } from '../../../web/src/components/panel'
 import Snackbar from '../../../web/src/components/snackbar'
 
 import Parcel from '../../parcel'
-import type { Scene } from '../../scene'
 import { SelectionMode } from '../../tools/voxel'
 import UserInterface from '../../user-interface'
 import CustomizeVoxels from './customize-voxels'
@@ -19,7 +18,7 @@ function useEffectEvent<T extends (...args: any[]) => any>(fn: T): T {
 
 interface Props {
   parcel: Parcel
-  scene: Scene
+  scene: BABYLON.Scene
 }
 
 const VoxelToolBelt = ({ parcel, scene }: Props) => {
@@ -208,12 +207,11 @@ const VoxelToolBelt = ({ parcel, scene }: Props) => {
         }}
       >
         <div class="wrapper">
-          <div class="add-menu-anchor">
-            <button type="button" class="add-menu-toolbelt-btn" title="Add features" aria-label="Add features" onClick={() => ui?.setPane('add')}>
+          <div class="dem-buttons">
+            <button type="button" class="iconish" title="Add features" aria-label="Add features" onClick={() => ui?.setPane('add')}>
               +
             </button>
-          </div>
-          <div class="tool-modes">
+
             <button class={'iconish -paint' + (mode === SelectionMode.Paint ? ' -selected' : '')} title="Paint Mode [Ctrl/Cmd + Click in build mode]" onClick={activatePaintTool}>
               P
             </button>

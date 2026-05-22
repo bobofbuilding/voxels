@@ -10,7 +10,7 @@ export default class Sign extends Feature2D<SignRecord> {
 
   static metadata: FeatureMetadata = {
     title: 'Sign',
-    subtitle: 'Single line',
+    subtitle: 'single line of text',
     type: 'sign',
     image: '/icons/sign.png',
   }
