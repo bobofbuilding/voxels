@@ -1,7 +1,7 @@
 import { isMobile } from '../../../common/helpers/detector'
 import { hasPointerLock, requestPointerLockIfNoOverlays } from '../../../common/helpers/ui-helpers'
 import Feature from '../../features/feature'
-import type { Scene } from '../../scene'
+import { cameraPosition } from '../../utils/camera'
 
 type guiControlsType = 'button' | 'text'
 
@@ -38,7 +38,7 @@ export type FeatureBasicGUIOptions = {
 }
 
 export default class FeatureBasicGUI {
-  scene: Scene
+  scene: BABYLON.Scene
   feature: Feature
   plane: BABYLON.Mesh = null!
   advancedDynamicTexture: BABYLON.GUI.AdvancedDynamicTexture
@@ -127,9 +127,9 @@ export default class FeatureBasicGUI {
     this.plane.setParent(this.parent)
 
     if (this.billBoardMode() == BABYLON.Mesh.BILLBOARDMODE_NONE) {
-      const cameraPosition = this.scene.cameraPosition
+      const camPos = cameraPosition(this.scene)
       const p = this.parent.position
-      const angle = Math.atan2(p.z - cameraPosition.z, p.x - cameraPosition.x)
+      const angle = Math.atan2(p.z - camPos.z, p.x - camPos.x)
       this.plane.rotation.set(0, Math.PI / 2 - angle, 0)
     } else {
       this.plane.rotation.set(0, 0, 0)

@@ -1,0 +1,4 @@
+## costuming
+
+- ownership tracking per wallet in DB - needed for "yours" tab in wearable selector (WearableSelector currently shows free/editions only)
+- ownership check API endpoint - given a wallet + list of wearable uuids, return which ones they don't own; needed to populate unowned[] state in Costumer, enable the shopping list and re-enable the Wear button guard

@@ -1,11 +1,9 @@
+import { voxImporter } from '../../common/vox-import/vox-import'
 import { Feature3D } from './feature'
 import { Advanced, Animation, FeatureEditor, FeatureEditorProps, Toolbar, UuidReadOnly } from '../ui/features'
-import Panel, { PanelType } from '../../web/src/components/panel'
-import ActionGui from '../ui/gui/action-button-gui'
-import { app, AppEvent } from '../../web/src/state'
+import Panel from '../../web/src/components/panel'
 import { PoapDispenserRecord } from '../../common/messages/feature'
-import { checkWalletOwnsPOAP } from '../../common/helpers/apis'
-import { FeatureMetadata, FeatureTemplate } from './_metadata'
+import { FeatureTemplate } from './_metadata'
 import { Position, Rotation, Scale } from '../../web/src/components/editor'
 
 const params = {
@@ -16,160 +14,18 @@ const params = {
   credentials: 'include',
 } as Record<string, Record<string, string> | string>
 
-//
-// Set up:
-// 1. People have to create their own poaps through the poap website.
-// 2a. They provide us the poap edit code and event id &
-// 2b. We encrypt the edit code & store it all in the feature description.
-// Redeeming:
-// 3a. We check if a visitor already has the poap and if not...
-// 3b. We pass the user supplied credentials to the server
-// Server:
-// Note: We query the poap api 3 times. Both times we use a private poap api key to make the queries.
-// 4a. The server's first query retrieves a list of all the the poap redeemable mint codes for the event
-// 4d. The next query will use the list and redeem one.
-//
 export default class PoapDispenser extends Feature3D<PoapDispenserRecord> {
-  static redeemPoapSound: BABYLON.Sound | null = null
-  static metadata: FeatureMetadata = {
-    title: 'POAP dispenser',
-    subtitle: 'Distribute event POAP tokens',
-    type: 'poap-dispenser',
-    image: '/icons/poap.png',
-  }
   static template: FeatureTemplate = {
     type: 'poap-dispenser',
     scale: [1, 1, 1],
   }
-  ActionGui: ActionGui | null = null
-  hasClaimed = false
-  redeeming = false
 
   whatIsThis() {
-    return <label>This feature will dispense user-created POAPs for time-sensitive events.</label>
-  }
-
-  shouldBeInteractive() {
-    return !this.hasUserRedeemed || this.parcel.canEdit
-  }
-
-  async onClick(): Promise<boolean> {
-    if (!app.signedIn) {
-      app.showSnackbar('You must be signed in to claim this!', PanelType.Danger)
-      return false
-    }
-    if (this.redeeming) {
-      app.showSnackbar('You already queried to redeem this POAP.', PanelType.Danger)
-      return false
-    }
-    if (await this.hasUserRedeemed()) {
-      app.showSnackbar('You have already redeemed this POAP!', PanelType.Danger)
-      return false
-    }
-
-    // Localstorage check
-    const redeemedPoaps = JSON.parse(localStorage.getItem('cv-poap') || '[]')
-    const compositeKey = `id-${this.parcel.id || this.parcel.spaceId}-uuid-${this.description.uuid}`
-    if (redeemedPoaps.includes(compositeKey)) {
-      app.showSnackbar('Error claiming POAP.', PanelType.Danger)
-      return false
-    }
-    app.showSnackbar('Requesting Poap...', PanelType.Warning)
-
-    this.redeeming = true
-    const body = {
-      wallet: app.state.wallet,
-      code: this.description.edit_code,
-      event_id: this.description.event_id,
-    }
-    let p, r
-    try {
-      p = await fetch(`/api/poap/redeem`, {
-        ...params,
-        method: 'post',
-        body: JSON.stringify(body),
-      })
-      r = await p.json()
-    } catch {
-      this.redeeming = false
-      app.showSnackbar('Error requesting POAP.', PanelType.Danger)
-      return false
-    }
-    this.redeeming = false
-    if (r && r.success) {
-      this.hideGui()
-      app.showSnackbar('Congratulation!', PanelType.Success)
-      this.avatar?.emote('🌟', this.positionInGrid.subtract(new BABYLON.Vector3(0, 1, 0)))
-      if (PoapDispenser.redeemPoapSound) {
-        PoapDispenser.redeemPoapSound.setPosition(this.absolutePosition)
-        PoapDispenser.redeemPoapSound.play()
-      }
-
-      // LocalStorage - Add Poap to redeemd list
-      const compositeKey = 'id-' + (this.parcel.id || this.parcel.spaceId) + '-uuid-' + (this.description.uuid as string)
-      let redeemedPoaps = JSON.parse(localStorage.getItem('cv-poap') || '[]')
-      redeemedPoaps = redeemedPoaps.slice(-100)
-      redeemedPoaps.push(compositeKey)
-      localStorage.setItem('cv-poap', JSON.stringify(redeemedPoaps))
-
-      this.showGui()
-    } else {
-      // what to do if successs if false
-      app.showSnackbar(r.error || 'Could not redeem', PanelType.Danger)
-
-      return false
-    }
-
-    return true
-  }
-
-  onUserLogin = () => {
-    this.hideGui()
-    this.showGui()
-  }
-
-  async showGui() {
-    if (this.ActionGui) return
-    if (!this.description.edit_code || !this.description.event_id) {
-      return
-    }
-    const nudge = this.mesh ? new BABYLON.Vector3(0, this.mesh.scaling.y, 0) : BABYLON.Vector3.Zero()
-    this.ActionGui = new ActionGui(this, { position: nudge })
-    const styling = { height: '50px', fontSizePx: '18px' }
-    if (!app.signedIn) {
-      this.ActionGui.addText('Login to Redeem', styling)
-      app.on(AppEvent.Login, this.onUserLogin)
-    } else if (this.parcel.canEdit || !(await this.hasUserRedeemed())) {
-      this.ActionGui.addButton('Click to Redeem POAP', { onClick: () => this.onClick(), ...styling })
-    } else {
-      this.ActionGui.addText('Thank you!', styling)
-    }
-    this.ActionGui.generate()
-  }
-
-  async hasUserRedeemed() {
-    if (!app.signedIn) {
-      return false
-    }
-    if (!this.description.event_id || this.description.event_id?.length == 0) {
-      return false
-    }
-    if (this.hasClaimed) {
-      return true
-    }
-    if (app.state.wallet) {
-      this.hasClaimed = await checkWalletOwnsPOAP(this.description.event_id, app.state.wallet)
-    }
-    return this.hasClaimed
-  }
-
-  onTrigger = () => {
-    this.showGui()
+    return <label>A POAP dispenser.</label>
   }
 
   async generate() {
     if (!this.description.animation) {
-      // set a default rotating animation if no animations set by user
       this.description.animation = {
         destination: 'rotation',
         keyframes: [
@@ -181,55 +37,17 @@ export default class PoapDispenser extends Feature3D<PoapDispenserRecord> {
       }
     }
 
-    this.mesh = await this.scene.importVox(process.env.ASSET_PATH + '/models/poap.vox', { signal: this.abortController.signal })
+    this.mesh = await voxImporter().import(process.env.ASSET_PATH + '/models/poap.vox', { signal: this.abortController.signal })
     this.mesh.isPickable = true
     this.mesh.name = this.uniqueEntityName('mesh')
     this.mesh.id = this.mesh.name
 
     this.setCommon()
-
-    this.addEvents()
-    this.addTrigger({ onTrigger: this.onTrigger, onUnTrigger: this.onUnTrigger, proximityToTrigger: 3.5 })
     this.addAnimation()
-    if (!PoapDispenser.redeemPoapSound && this.audio) {
-      PoapDispenser.redeemPoapSound = this.audio.createSound({
-        name: 'redeem-poap-sound',
-        url: `${process.env.SOUNDS_URL}/alerts/sign-guestbook.mp3`,
-        options: { loop: false, autoplay: false },
-      })
-    }
-  }
-
-  onUnTrigger = () => {
-    this.hideGui()
-  }
-
-  hideGui() {
-    if (this.ActionGui) {
-      this.ActionGui.dispose()
-      this.ActionGui = null
-    }
-    app.removeListener(AppEvent.Login, this.onUserLogin)
   }
 
   dispose() {
-    if (this.ActionGui) {
-      this.ActionGui.dispose()
-      this.ActionGui = null
-    }
-
-    // Remove localStorage of poap being redeemed if it exists.
-    const compositeKey = 'id-' + (this.parcel.id || this.parcel.spaceId) + '-uuid-' + (this.description.uuid as string)
-    let redeemedPoaps = JSON.parse(localStorage.getItem('cv-poap') || '[]')
-    redeemedPoaps = redeemedPoaps.filter((poap: string) => poap == compositeKey)
-    localStorage.setItem('cv-poap', JSON.stringify(redeemedPoaps))
-
     this._dispose()
-  }
-
-  afterSetCommon = () => {
-    this.hideGui()
-    this.showGui()
   }
 
   toString() {

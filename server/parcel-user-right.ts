@@ -1,4 +1,3 @@
-import { ethers } from 'ethers'
 import { UserRightRole } from '../common/helpers/parcel-helper'
 import db from './pg'
 
@@ -66,27 +65,6 @@ export default class ParcelUserRight {
     }
   }
 
-  static evictRenter = async (parcel_id: number) => {
-    const previousLeasees = await ParcelUserRight.loadUsersByRole(parcel_id, 'renter')
-    if (!previousLeasees) {
-      // if previousLeasees= null it means the query to DB failed, don't do anything.
-      return
-    }
-    previousLeasees.forEach((leasee) => leasee.delete())
-  }
-
-  static createRenter = async (parcel_id: number, wallet: string) => {
-    if (!ethers.isAddress(wallet)) {
-      return false
-    }
-    const new_renter = new ParcelUserRight({ parcel_id, wallet, role: 'renter' })
-    new_renter.create()
-    return true
-  }
-
-  /**
-   * Create a new role
-   */
   async create() {
     await db.query(
       'embedded/insert-parcel-user',
@@ -119,25 +97,6 @@ export default class ParcelUserRight {
     } catch {
       return { success: false, message: `Could not remove user` }
     }
-    return { success: true }
-  }
-
-  static async deleteAllButRenter(parcel_id: number) {
-    try {
-      await db.query(
-        'embedded/delete-all-parcel-user-but-renter',
-        `
-      delete from parcel_users where
-        parcel_id = $1 and
-        role <> 'renter'
-        returning parcel_id;
-    `,
-        [parcel_id],
-      )
-    } catch {
-      return { success: false, message: `Could not remove users` }
-    }
-
     return { success: true }
   }
 }

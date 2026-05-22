@@ -143,8 +143,10 @@ export default function (db: Db, passport: PassportStatic, app: Express) {
         CAST(distance_to_center as double precision),
         CAST(distance_to_ocean as double precision),
         CAST(distance_to_closest_common as double precision),
-        lower(properties.owner) as owner,
-        avatars.name as owner_name,
+        COALESCE(
+          (SELECT row_to_json(sub) FROM (SELECT a.id, a.name, a.owner, a.created_at FROM avatars a WHERE lower(a.owner) = lower(properties.owner) LIMIT 1) sub),
+          to_json(lower(properties.owner))
+        ) as owner,
         properties.x1,
         properties.x2,
         y1,
@@ -156,14 +158,12 @@ export default function (db: Db, passport: PassportStatic, app: Express) {
         count(*) OVER() AS pagination_count
       from
         properties
-      left join
-        avatars on lower(avatars.owner) = lower(properties.owner)
       left join suburbs on suburbs.id = properties.suburb_id
         where (is_common <> true)
       and
         (minted = true)
       and
-        (address ILIKE $1  or  properties.island ILIKE $1 or properties.name ILIKE $1 or lower(properties.owner)=lower($1) or  avatars.name ILIKE $1)
+        (address ILIKE $1  or  properties.island ILIKE $1 or properties.name ILIKE $1 or lower(properties.owner)=lower($1) or EXISTS (SELECT 1 FROM avatars av WHERE lower(av.owner)=lower(properties.owner) AND av.name ILIKE $1))
       order by
         ${orderBy}
       limit
@@ -363,9 +363,6 @@ export default function (db: Db, passport: PassportStatic, app: Express) {
     // res.json({success : true, parcel: parcel.summary})
   })
 
-  // Route to get count of parcels
-  app.get('/api/parcels/total.json', passport.authenticate(['jwt', 'anonymous'], { session: false }), cache('10 minutes'), createRequestHandlerForQuery(db, 'parcels/get-parcel-count', 'count'))
-
   // Route to allow users to share their parcels without using ?coords=
   app.get('/parcels/:id/visit', cache('15 seconds'), async (req, res) => {
     const id = Number(req.params.id)
@@ -454,43 +451,6 @@ export default function (db: Db, passport: PassportStatic, app: Express) {
       return [parseInt(req.params.id, 10), isNaN(limit) ? null : limit, isNaN(page) ? null : page, req.query.asc === 'true', isNaN(start_date) ? null : start_date, isNaN(end_date) ? null : end_date]
     }),
   )
-
-  app.delete('/api/parcels/:id/history', cache(false), passport.authenticate('jwt', { session: false }), async (req, res) => {
-    const parcelId = parseInt(req.params.id, 10)
-    if (isNaN(parcelId)) {
-      res.status(404).send({ success: false })
-      return
-    }
-
-    const parcel: ParcelRef | null = await Parcel.loadRef(parcelId)
-    if (!parcel) {
-      res.status(200).send({ success: false })
-
-      return
-    }
-
-    const user = req.user as VoxelsUser | null
-    if (!user || !user.wallet) {
-      return res.status(401).send({ success: false })
-    }
-
-    const auth: boolean | string = await authParcel(parcel, user)
-
-    if (auth !== 'Owner') {
-      res.status(400).send({ success: false })
-
-      return
-    }
-    const id = parcel.id
-    // Set name of snapshot
-    try {
-      await db.query('embedded/delete-parcel-snapshot', `delete from property_versions where parcel_id = $1 and is_snapshot=false`, [id])
-
-      res.status(200).send({ success: true })
-    } catch (err: any) {
-      res.status(200).send({ success: false, error: err.toString ? err.toString() : err })
-    }
-  })
 
   app.get(
     '/api/parcels/:id/history-count.json',

@@ -1,6 +1,5 @@
 import { Component } from 'preact'
 import { route } from 'preact-router'
-import { v7 as uuidv7 } from 'uuid'
 import { Costume } from '../../common/messages/costumes'
 import { loadingBox } from '../src/components/loading-icon'
 import { PanelType } from '../src/components/panel'
@@ -104,11 +103,6 @@ export default class CostumeList extends Component<Props, State> {
 
       delete j.wallet
       delete j.id
-
-      if (j.attachments) {
-        // What the heck is this == ???
-        j.attachments.forEach((a) => a.uuid == uuidv7())
-      }
 
       this.createCostume(j)
     }
