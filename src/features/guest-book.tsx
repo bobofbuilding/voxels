@@ -1,6 +1,7 @@
 import { ethers, verifyMessage } from 'ethers'
 import Config from '../../common/config'
 import { GuestBookRecord } from '../../common/messages/feature'
+import { voxImporter } from '../../common/vox-import/vox-import'
 import { provider } from '../../web/src/auth/state-login'
 import { Position, Rotation, Scale } from '../../web/src/components/editor'
 import Panel from '../../web/src/components/panel'
@@ -27,7 +28,7 @@ export async function signMessage(wallet: string, message: string): Promise<stri
     signature = null
   }
   if (signature == '0x') {
-    signature = 'multisig'
+    signature = null
   }
   return signature
 }
@@ -40,7 +41,7 @@ export default class GuestBook extends Feature3D<GuestBookRecord> {
   static signGuestbookSound: BABYLON.Sound | null = null
   static metadata: FeatureMetadata = {
     title: 'Guest Book',
-    subtitle: 'A guest book for your visitors to sign!',
+    subtitle: 'visitors leave a note',
     type: 'guest-book',
     image: '/icons/guest-book.png',
   }
@@ -74,7 +75,7 @@ export default class GuestBook extends Feature3D<GuestBookRecord> {
 
   get signatureMessage() {
     // if this changes, all signatures on this guestbook will become invalid
-    return `Sign Guestbook for ${this.scene.config.isSpace ? 'Space ' + this.scene.config.spaceId : 'Parcel ' + this.parcel.id}\n\n${this.signatureText}`
+    return `Sign Guestbook for ${window.config.isSpace ? 'Space ' + window.config.spaceId : 'Parcel ' + this.parcel.id}\n\n${this.signatureText}`
   }
 
   whatIsThis() {
@@ -145,7 +146,7 @@ export default class GuestBook extends Feature3D<GuestBookRecord> {
 
   async generate() {
     const url = Config.voxModelURL('https://voxels.com/models/guest-book.vox', this.parcel, 'vox-model')
-    this.mesh = await this.scene.importVox(url, { signal: this.abortController.signal })
+    this.mesh = await voxImporter().import(url, { signal: this.abortController.signal })
     this.mesh.isPickable = true
     this.mesh.id = this.uniqueEntityName('mesh')
 

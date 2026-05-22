@@ -1,5 +1,4 @@
-import { ApiAvatarMessage } from '../common/messages/api-avatars'
-import { validateMessageResponse } from '../common/messages/validate'
+import type { ApiAvatarMessage } from '../common/messages/api-avatars'
 import { app } from '../web/src/state'
 import { stringEllipsisInCanvas } from '../web/src/utils'
 import { AvatarAttachmentManager } from './attachment-manager'
@@ -11,11 +10,9 @@ import { Entity } from './entity'
 import { FeatureEvent, MeshExtended } from './features/feature'
 import type Parcel from './parcel'
 import ParcelScript from './parcel-script'
-import type Persona from './persona'
-import type { Scene } from './scene'
-import showAvatarHTMLUi from './ui/html-ui/avatar-ui'
 import { emote } from './utils/emote'
 import { Transform } from './utils/transform'
+import { Bubble } from './chat'
 
 const ANONYMOUS_NAME = 'anon'
 const DEFAULT_SKIN_SVG =
@@ -28,23 +25,13 @@ enum LoadState {
   Loaded,
 }
 
-export interface AvatarRecord {
-  name: string
-  wallet: string | null
-}
+export type AvatarRecord = import('../common/messages').AvatarIdentity
 
 const AVATAR_HEIGHT = 1.6
 const AVATAR_NAME_OFFSET = 0.5
-const NAME_CHAT_OFFSET = 0.6
-
-// fixme get screen refresh rate
-const DURATION = 12 // Math.floor(60 / UPDATE_HZ)
-const CHAT_READ_DURATION = 10e3
 
 // distance in meters from camera that we play sounds for this avatar
 const SOUND_DISTANCE = 20
-
-type ActionsMode = 'join' | 'joining' | 'leave' | 'sign-in' | null
 
 export default class Avatar extends Entity {
   private static woody: BABYLON.AssetContainer | undefined
@@ -53,24 +40,28 @@ export default class Avatar extends Entity {
   skeleton: BABYLON.Skeleton | null = null
   private readonly _description: AvatarRecord
   private readonly _uuid: string
-  private chatBubbles: Array<BABYLON.Mesh> = []
   private armatureMesh: BABYLON.Mesh | null = null
   private neckBone: BABYLON.Bone | undefined
   private nameMesh: BABYLON.Mesh | null = null
   private nameTexture: BABYLON.DynamicTexture | null = null
-  private actionsMesh: BABYLON.Mesh | null = null
-  private actionsTexture: BABYLON.GUI.AdvancedDynamicTexture | null = null
-  private actionsMode: ActionsMode = null
   private collider: MeshExtended | undefined
+  private _bubble: Bubble | null = null
   private clearBubbleTimer: NodeJS.Timeout | undefined
   private typingTimer: NodeJS.Timeout | undefined
   private isTyping = false
   private showNameTag = true
+  private _inConga = false
+  /** Remote: uuid of the avatar they follow in conga (from multiplayer). Local unused. */
+  private _congaFollowsUuid: string | null = null
 
-  constructor(scene: Scene, parent: BABYLON.TransformNode, joined: number, uuid: string, description: AvatarRecord) {
+  constructor(scene: BABYLON.Scene, parent: BABYLON.TransformNode, joined: number, uuid: string, description: AvatarRecord, isUser = false) {
     super(scene, parent, joined)
     this._uuid = uuid
     this._description = description
+    if (isUser) {
+      this._isUser = true
+      this.tickRate = 1000 / 60
+    }
   }
 
   tpose() {
@@ -91,21 +82,6 @@ export default class Avatar extends Entity {
    */
   private static get connector(): Connector {
     return window.connector
-  }
-
-  /**
-   * @returns Persona|null
-   */
-  private static get persona(): Persona | null {
-    return Avatar.connector?.persona || null
-  }
-
-  /**
-   * return whether or not this avatar is in first person mode or not.
-   * @returns boolean
-   */
-  private static get isFirstPerson(): boolean {
-    return Avatar.persona?.firstPersonView || true
   }
 
   private static get IsCrowded(): boolean {
@@ -192,11 +168,37 @@ export default class Avatar extends Entity {
     return this._description.wallet ?? undefined
   }
 
+  get inConga(): boolean {
+    return this._inConga
+  }
+
+  set inConga(value: boolean) {
+    if (this._inConga === value) return
+    this._inConga = value
+    this.redrawName()
+    if (value && this.nameMesh) {
+      this.nameMesh.metadata = { isAvatarPart: true, avatar: this }
+      ;(this.nameMesh as any).cvOnLeftClick = () => {
+        window.connector.sendMessage(`/conga ${this.name}`)
+      }
+    } else if (!value && this.nameMesh) {
+      delete (this.nameMesh as any).cvOnLeftClick
+    }
+  }
+
+  get congaFollowsUuid(): string | null {
+    return this._congaFollowsUuid
+  }
+
+  set congaFollowsUuid(value: string | null | undefined) {
+    this._congaFollowsUuid = value ?? null
+  }
+
   get main() {
     return window.main
   }
 
-  static ensureRootAvatar(scene: Scene): Promise<void> {
+  static ensureRootAvatar(scene: BABYLON.Scene): Promise<void> {
     return new Promise((resolve) => {
       if (Avatar.rootAvatarLoadState === LoadState.Loaded) {
         resolve()
@@ -209,7 +211,7 @@ export default class Avatar extends Entity {
     })
   }
 
-  private static async loadRootAvatar(scene: Scene) {
+  private static async loadRootAvatar(scene: BABYLON.Scene) {
     if (Avatar.rootAvatarLoadState !== LoadState.None) return
     Avatar.rootAvatarLoadState = LoadState.Loading
 
@@ -226,13 +228,6 @@ export default class Avatar extends Entity {
     while (Avatar.awaitingRootAvatarLoading.length) {
       Avatar.awaitingRootAvatarLoading.shift()!()
     }
-  }
-
-  onChat(text: string) {
-    if (this.distanceFromCamera >= SOUND_DISTANCE) return
-
-    Avatar.audio?.playSound('avatar.chat', true)
-    this.displayChatBubble(text.slice(5))
   }
 
   /**
@@ -264,10 +259,8 @@ export default class Avatar extends Entity {
 
     this.loadAvatarMesh()
 
-    //any changes in the costume?
-    if (!!updates.costume_id && this._attachmentManager) {
-      this._attachmentManager.costume_id = updates.costume_id
-      this._attachmentManager.refreshCostume(cacheKey)
+    if (updates.costume_id && this._attachmentManager) {
+      this._attachmentManager.loadCostume(undefined, updates.costume_id)
     }
   }
 
@@ -373,25 +366,6 @@ export default class Avatar extends Entity {
     }
   }
 
-  displayChatBubble(text: string) {
-    if (this.distanceFromCamera < SOUND_DISTANCE) {
-      Avatar.audio?.playSound('avatar.chat', true)
-    }
-
-    this.clearChatBubbles()
-    this.addChat(text)
-    if (this.typingTimer) {
-      clearTimeout(this.typingTimer)
-    }
-    if (this.clearBubbleTimer) {
-      clearTimeout(this.clearBubbleTimer)
-    }
-
-    this.clearBubbleTimer = setTimeout(this.clearChatBubbles.bind(this), CHAT_READ_DURATION)
-    this.isTyping = false
-    this.redrawName()
-  }
-
   /**
    * Generate particles around the avatar with the given emoji.
    * @param {string} emoji the emoji to display
@@ -417,7 +391,6 @@ export default class Avatar extends Entity {
   }
 
   onContextClick() {
-    showAvatarHTMLUi(this, this.scene)
     return true
   }
 
@@ -426,10 +399,6 @@ export default class Avatar extends Entity {
     this.disposeLocal()
   }
 
-  /**
-   * Show the avatar, including name and wearables
-   * Assumes code is not directly setting the visibility of the parts
-   */
   show() {
     if (this.armatureMesh && this.armatureMesh.visibility !== 1) {
       this.armatureMesh.visibility = 1
@@ -439,18 +408,11 @@ export default class Avatar extends Entity {
           m.visibility = 1
         })
       }
-      if (this.nameMesh) {
-        this.nameMesh.visibility = 1
-      }
+      if (this.nameMesh) this.nameMesh.visibility = 1
+      this._attachmentManager?.showAllWearables()
     }
-
-    this._attachmentManager?.showAllWearables()
   }
 
-  /**
-   * Hide the avatar, including name and wearables
-   * Assumes code is not directly setting the visibility of the parts
-   */
   hide() {
     if (this.armatureMesh && this.armatureMesh.visibility !== 0) {
       this.armatureMesh.visibility = 0
@@ -460,12 +422,9 @@ export default class Avatar extends Entity {
           m.visibility = 0
         })
       }
-      if (this.nameMesh) {
-        this.nameMesh.visibility = 0
-      }
+      if (this.nameMesh) this.nameMesh.visibility = 0
+      this._attachmentManager?.hideAllWearables()
     }
-
-    this._attachmentManager?.hideAllWearables()
   }
 
   disposeName() {
@@ -485,11 +444,6 @@ export default class Avatar extends Entity {
   public disposeLocal = () => {
     this.nameMesh?.dispose()
     this.nameMesh = null
-
-    this.removeActions()
-
-    this.chatBubbles.forEach((b) => b.dispose())
-    this.chatBubbles = []
 
     this._material?.dispose(true, true)
     this._material = null
@@ -546,10 +500,7 @@ export default class Avatar extends Entity {
 
   // is used before eg. position is changed so that we can compare coming changes
   protected onBeforeUpdate(next: Readonly<Transform>) {
-    const sqrDistance = BABYLON.Vector3.DistanceSquared(this.position, next.position)
-    if (sqrDistance > 0.1 * 0.1) {
-    }
-    if (sqrDistance > 16 * 16) {
+    if (BABYLON.Vector3.DistanceSquared(this.position, next.position) > 16 * 16) {
       this.teleportFX(this.absolutePosition, 'avatar.leave')
     }
   }
@@ -619,7 +570,8 @@ export default class Avatar extends Entity {
     }
 
     const p = await fetch(url)
-    const r = await validateMessageResponse(ApiAvatarMessage)(p)
+    if (!p.ok) throw p
+    const r = (await p.json()) as ApiAvatarMessage
 
     const name = (r.avatar && r.avatar.name) || r.avatar?.owner?.slice(0, 10) + '...' || ANONYMOUS_NAME
     const costume = (r.avatar && r.avatar.costume) || {}
@@ -680,13 +632,14 @@ export default class Avatar extends Entity {
     this.armatureMesh.material = this._material
 
     if (this.isAnon) {
-      this._material.diffuseColor.set(0, 0, 0)
-      this._material.emissiveColor.set(1, 1, 1)
-      this._material.disableLighting = true
-      this._material.specularPower = 0
+      this._material.diffuseColor.set(1, 1, 1)
+      this._material.specularColor.set(1, 1, 1)
+      this._material.emissiveColor.set(0.5, 0.5, 0.5)
+      // this._material.disableLighting = true
+      this._material.specularPower = 1000
 
       this.armatureMesh.outlineColor = new BABYLON.Color3(0.05, 0.05, 0.05)
-      this.armatureMesh.outlineWidth = 0.01
+      this.armatureMesh.outlineWidth = 0.02
       this.armatureMesh.renderOutline = true
     } else {
       this._material.diffuseColor.set(0.82, 0.81, 0.8)
@@ -739,7 +692,7 @@ export default class Avatar extends Entity {
     this._attachmentManager = new AvatarAttachmentManager(this.scene, this, AVATAR_VIEW_DISTANCE - 1)
 
     if (this.wallet) {
-      this._attachmentManager.loadCostume()
+      this._attachmentManager.loadCostume(undefined, this._description.costumeId)
       this.addEvents()
     }
 
@@ -817,130 +770,23 @@ export default class Avatar extends Entity {
     this.nameMesh.material = material
   }
 
-  /**
-   * add the name mesh to the avatar
-   * @param {string} text the text to display
-   * @returns void
-   */
-  private addChat(text: string) {
-    console.log('addChat', text)
+  addChat(text: string) {
+    // bubble parents to null (stays where you spoke), so node.getChildren() won't find it
+    this._bubble?.dispose()
 
-    const chatTexture = new BABYLON.DynamicTexture(
-      'avatar/chat/bubble',
-      {
-        width: 1024,
-        height: 512,
-      },
-      this.scene,
-      true,
-    )
-    chatTexture.hasAlpha = true
-
-    const mesh = BABYLON.MeshBuilder.CreatePlane(
-      'avatar/chat',
-      {
-        width: 2,
-        height: 1,
-        sideOrientation: BABYLON.Mesh.BACKSIDE,
-      },
-      this.scene,
-    )
-    mesh.billboardMode = BABYLON.Mesh.BILLBOARDMODE_Y
-
-    const material = new BABYLON.StandardMaterial('avatar/chat', this.scene)
-    material.blockDirtyMechanism = true
-    material.emissiveColor.set(0.7, 0.7, 0.7)
-    material.diffuseTexture = chatTexture
-    material.opacityTexture = chatTexture
-    material.sideOrientation = BABYLON.Mesh.DOUBLESIDE
-    material.alpha = 1
-    mesh.material = material
-    mesh.isPickable = false
-
-    const ctx = chatTexture.getContext() as CanvasRenderingContext2D
-    ctx.font = "32px 'helvetica neue', sans-serif"
-    ctx.textBaseline = 'middle'
-
-    const lines = getTextLines(ctx as CanvasRenderingContext2D, text, 1024 - 64)
-    const lineHeight = 40
-
-    const paddingX = 20
-    const paddingY = 10
-    const w = getLineMaxWidth(ctx as CanvasRenderingContext2D, lines) + paddingX * 2
-    const h = lineHeight * lines.length + paddingY * 2
-    const top = 512 - h
-    const left = 512 - w / 2
-
-    ctx.lineWidth = 0
-    ctx.strokeStyle = 'transparent'
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.5)'
-    ctx.beginPath()
-    ctx.rect(left, top, w, h)
-    ctx.fill()
-
-    // draw the text lines
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.8)'
-    lines.forEach((line, offset) => {
-      ctx.fillText(line, left + paddingX, top + lineHeight * offset + paddingY + lineHeight / 2)
-    })
-    chatTexture.update(true)
-    // mesh.setParent(this.node)
-
-    if (this.neckBone && this._avatarMesh) {
-      mesh.attachToBone(this.neckBone, this._avatarMesh)
+    const bubble = new Bubble(this.scene, this.node, text)
+    // snapshot the head position in world space; bubble stays where you spoke, doesn't follow you
+    const head = this.neckBone?.getTransformNode()?.getAbsolutePosition()
+    bubble.parent = null
+    if (head) {
+      bubble.position.copyFrom(head)
+      bubble.position.y += 0.6
+    } else {
+      bubble.position.copyFrom(this.absolutePosition)
+      bubble.position.y += 2
     }
 
-    // const forward = this.scene.activeCamera?.getForwardRay() ?? new BABYLON.Ray(BABYLON.Vector3.Zero(), BABYLON.Vector3.Zero())
-
-    const startPos = new BABYLON.Vector3(0, 0, 0)
-    const endPos = new BABYLON.Vector3(0, -1.5, 0)
-
-    const s = 2.5
-    mesh.position.copyFrom(startPos)
-    mesh.scaling.set(-s, -s, s)
-    mesh.rotation.set(0, Math.PI, 0)
-    this.chatBubbles.unshift(mesh)
-
-    const animation = new BABYLON.Animation('chat', 'position', 60, BABYLON.Animation.ANIMATIONTYPE_VECTOR3, BABYLON.Animation.ANIMATIONLOOPMODE_CYCLE)
-    mesh.animations.push(animation)
-
-    animation.setKeys([
-      { frame: 0, value: startPos },
-      { frame: DURATION, value: endPos },
-    ])
-
-    this.scene.beginAnimation(mesh, 0, DURATION, false)
-
-    // Hide name mesh while chat bubble is visible
-    if (this.nameMesh) {
-      this.nameMesh.visibility = 0
-    }
-  }
-
-  /**
-   * Clear chat bubbles generated by this avatar
-   * @returns void
-   */
-  private clearChatBubbles() {
-    // remove previous messages
-    while (this.chatBubbles.length) {
-      const lastMesh = this.chatBubbles.pop()!
-      lastMesh.animations[0].setKeys([
-        { frame: 0, value: lastMesh.position.clone() },
-        { frame: DURATION, value: new BABYLON.Vector3(0, 2, 0) },
-      ])
-      this.scene
-        .beginAnimation(lastMesh, 0, DURATION, false)
-        .waitAsync()
-        .then(() => {
-          lastMesh.dispose()
-
-          // Show name mesh again
-          if (this.nameMesh) {
-            this.nameMesh.visibility = 1
-          }
-        })
-    }
+    this._bubble = bubble
   }
 
   /**
@@ -955,15 +801,9 @@ export default class Avatar extends Entity {
 
     const ctx = this.nameTexture.getContext()
     const isHighlighted = highlight
-    const sharesRoomWithUser = false
 
     if (!ctx) {
       return
-    }
-
-    // always display name on top when in same room as user
-    if (this.nameMesh) {
-      this.nameMesh.renderingGroupId = sharesRoomWithUser ? 1 : 0
     }
 
     // clear previous render
@@ -983,118 +823,43 @@ export default class Avatar extends Entity {
     const paddingLeftRight = 20
     const width = ctx.measureText(name).width + paddingLeftRight * 2
 
+    const isConga = this._inConga
     ctx.fillStyle = isHighlighted ? '#338d48' : 'rgba(34, 34, 34, 0.8)'
     ctx.beginPath()
     ctx.rect(256 - width / 2, 48, width, 64)
     ctx.fill()
 
+    if (isConga) {
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)'
+      ctx.lineWidth = 2
+      ctx.strokeRect(256 - width / 2, 48, width, 64)
+    }
+
     ctx.fillStyle = 'rgba(255, 255, 255, 0.8)'
     ctx.fillText(name, 256, 94)
+
+    if (isConga) {
+      ctx.font = "24px 'helvetica neue', sans-serif"
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.7)'
+      ctx.fillText('conga!', 256, 42)
+    }
+
     this.nameTexture.update(true)
   }
-
-  private setActions(mode: ActionsMode) {
-    if (this.actionsMode !== mode) {
-      this.actionsMode = mode
-      this.redrawActions()
-    }
-  }
-
-  private refreshActions() {
-    if (!app.signedIn) {
-      this.setActions('sign-in')
-    } else {
-      this.setActions(null)
-    }
-  }
-
-  private redrawActions() {
-    if (!this.actionsTexture) {
-      return
-    }
-    this.actionsTexture.getChildren().forEach((control) => {
-      this.actionsTexture?.removeControl(control)
-      control.dispose()
-    })
-
-    const createButton = (name: string, text: string, background: string, hoverBackground: string, onClick: (() => void) | null) => {
-      const button = BABYLON.GUI.Button.CreateSimpleButton(name, text)
-      const textColor = '#EEE'
-
-      button.fontSize = 40
-      button.background = background
-      button.color = textColor
-      button.isPointerBlocker = true
-      button.cornerRadius = 20
-
-      if (onClick) {
-        button.onPointerUpObservable.add(() => {
-          onClick()
-        })
-
-        button.onPointerEnterObservable.add(() => {
-          button.background = hoverBackground
-        })
-
-        button.onPointerOutObservable.add(() => {
-          button.background = background
-        })
-      } else {
-        button.isEnabled = false
-      }
-
-      return button
-    }
-  }
-
-  private removeActions() {
-    this.actionsMesh?.dispose(false, true)
-    this.actionsMesh = null
-    this.actionsTexture = null
-  }
-}
-
-/**
- * Splits a string into an array of string given canvas restrictions.
- * @param {CanvasRenderingContext2D} ctx A canvasContext
- * @param {string} text the text to split to lines
- * @param {number} maxWidth the max width of the line.
- * @returns Array of strings
- */
-function getTextLines(ctx: CanvasRenderingContext2D, text: string, maxWidth: number) {
-  const lines = []
-  while (text.length) {
-    let i: number
-    // find maximum line length
-    for (i = text.length; ctx.measureText(text.substr(0, i)).width > maxWidth; i--);
-    const slice = text.substr(0, i)
-
-    // make sure we wrap on a space
-    let j: number | null = null
-    if (i !== text.length) {
-      for (j = 0; slice.indexOf(' ', j) !== -1; j = slice.indexOf(' ', j) + 1);
-    }
-
-    const line = slice.substr(0, j ?? slice.length)
-    lines.push(line)
-    text = text.slice(line.length)
-  }
-  return lines
-}
-
-function getLineMaxWidth(ctx: CanvasRenderingContext2D, lines: string[]): number {
-  return lines.reduce((result, line) => {
-    return Math.max(result, ctx.measureText(line).width)
-  }, 0)
 }
 
 // factory function to set up and create a avatar representing other players
-export async function LoadAvatar(scene: Scene, parent: BABYLON.TransformNode, joined: number, uuid: string, description: AvatarRecord): Promise<Avatar> {
+export async function LoadAvatar(scene: BABYLON.Scene, parent: BABYLON.TransformNode, joined: number, uuid: string, description: AvatarRecord): Promise<Avatar> {
   await Avatar.ensureRootAvatar(scene)
   return new Avatar(scene, parent, joined, uuid, description)
 }
 
-function loadAvatarContainer(scene: Scene, avatarFile: string): Promise<BABYLON.AssetContainer> {
+export async function LoadUserAvatar(scene: BABYLON.Scene, parent: BABYLON.TransformNode, uuid: string, description: AvatarRecord): Promise<Avatar> {
+  await Avatar.ensureRootAvatar(scene)
+  return new Avatar(scene, parent, Date.now(), uuid, description, true)
+}
+
+function loadAvatarContainer(scene: BABYLON.Scene, avatarFile: string): Promise<BABYLON.AssetContainer> {
   return new Promise((resolve, reject) => {
     BABYLON.SceneLoader.LoadAssetContainer(
       `/models/`,

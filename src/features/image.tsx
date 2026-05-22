@@ -11,7 +11,7 @@ import { Feature2D, MeshExtended, TransparencyMode } from './feature'
 export default class Image extends Feature2D<ImageRecord> {
   static metadata: FeatureMetadata = {
     title: 'Image',
-    subtitle: 'Image from URL',
+    subtitle: 'image from a url',
     type: 'image',
     image: '/icons/image.png',
   }
