@@ -80,7 +80,7 @@ const mobile = isMobile()
 
 function isRoomFullError(e: unknown) {
   const msg = (e instanceof Error ? e.message : String(e ?? '')).toLowerCase()
-  return msg.includes('room is full') || msg.includes('participant') && (msg.includes('limit') || msg.includes('max') || msg.includes('full'))
+  return msg.includes('room is full') || (msg.includes('participant') && (msg.includes('limit') || msg.includes('max') || msg.includes('full')))
 }
 
 // True when the page was opened via /live/:token and the guest pass targets this showbox.
@@ -1758,21 +1758,7 @@ class Editor extends FeatureEditor<Showbox> {
           <Position feature={this.props.feature} key={this.props.feature.position.toString()} />
           <Scale feature={this.props.feature} key={this.props.feature.scale.toString()} />
           <Rotation feature={this.props.feature} key={this.props.feature.rotation.toString()} />
-          <div className="f">
-            <label>guest link mode</label>
-            <div>
-              <label>
-                <input type="radio" name="guestMode" checked={this.state.guestMode === 'solo'} onChange={() => this.setState({ guestMode: 'solo' })} />
-                solo guest
-              </label>
-              <label>
-                <input type="radio" name="guestMode" checked={this.state.guestMode === 'cohost'} onChange={() => this.setState({ guestMode: 'cohost' })} />
-                co-host
-              </label>
-            </div>
-            <small>solo = guest replaces you. co-host = you on the left, guest on the right.</small>
-          </div>
-          <GuestPasses feature={this.props.feature} />
+          <GuestPasses feature={this.props.feature} guestMode={this.state.guestMode} onGuestModeChange={(guestMode) => this.setState({ guestMode })} />
           <Advanced>
             <FeatureID feature={this.props.feature} />
             <SetParentDropdown feature={this.props.feature} />
@@ -1800,7 +1786,10 @@ Showbox.Editor = Editor
 // that let an invited broadcaster (artist, speaker, DJ) go live on this showbox without an account.
 type Pass = { token: string; parcel_id: number; feature_uuid: string; name: string; created_at: string; revoked_at: string | null }
 
-class GuestPasses extends Component<{ feature: Showbox }, { passes: Pass[]; loading: boolean; creating: boolean; error: string | null }> {
+class GuestPasses extends Component<
+  { feature: Showbox; guestMode: GuestMode; onGuestModeChange: (mode: GuestMode) => void },
+  { passes: Pass[]; loading: boolean; creating: boolean; error: string | null }
+> {
   state = { passes: [] as Pass[], loading: true, creating: false, error: null as string | null }
   linkListRef: HTMLDivElement | null = null
 
@@ -1920,7 +1909,11 @@ class GuestPasses extends Component<{ feature: Showbox }, { passes: Pass[]; load
         {this.state.loading && <small>loading...</small>}
 
         {active.length > 0 && (
-          <div ref={(el) => (this.linkListRef = el)}>
+          <div
+            ref={(el) => {
+              this.linkListRef = el
+            }}
+          >
             {active.map((p) => (
               <div key={p.token}>
                 <div className="f">
@@ -1934,6 +1927,20 @@ class GuestPasses extends Component<{ feature: Showbox }, { passes: Pass[]; load
                   <button type="button" style={mobile ? { minHeight: '44px', width: '100%' } : undefined} onClick={() => this.revoke(p.token)}>
                     revoke
                   </button>
+                </div>
+                <div className="f">
+                  <label>guest link mode</label>
+                  <div>
+                    <label>
+                      <input type="radio" name="guestMode" checked={this.props.guestMode === 'solo'} onChange={() => this.props.onGuestModeChange('solo')} />
+                      solo guest
+                    </label>
+                    <label>
+                      <input type="radio" name="guestMode" checked={this.props.guestMode === 'cohost'} onChange={() => this.props.onGuestModeChange('cohost')} />
+                      co-host
+                    </label>
+                  </div>
+                  <small>solo = guest replaces you. co-host = you on the left, guest on the right.</small>
                 </div>
               </div>
             ))}
