@@ -80,7 +80,7 @@ const mobile = isMobile()
 
 function isRoomFullError(e: unknown) {
   const msg = (e instanceof Error ? e.message : String(e ?? '')).toLowerCase()
-  return msg.includes('room is full') || msg.includes('participant') && (msg.includes('limit') || msg.includes('max') || msg.includes('full'))
+  return msg.includes('room is full') || (msg.includes('participant') && (msg.includes('limit') || msg.includes('max') || msg.includes('full')))
 }
 
 // True when the page was opened via /live/:token and the guest pass targets this showbox.
@@ -1863,8 +1863,7 @@ class GuestPasses extends Component<{ feature: Showbox }, { passes: Pass[]; load
       const pass = j.pass as Pass | undefined
       if (pass?.token) {
         const url = this.liveUrl(pass.token)
-        this.copy(url)
-        app.showSnackbar('guest link created (copied)', PanelType.Success)
+        this.copy(url, 'guest link created (copied)')
         this.setState((s) => ({ passes: this.passesForFeature([pass, ...s.passes.filter((p) => p.token !== pass.token)]) }))
         requestAnimationFrame(() => this.linkListRef?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }))
       }
@@ -1885,8 +1884,9 @@ class GuestPasses extends Component<{ feature: Showbox }, { passes: Pass[]; load
     await this.refresh()
   }
 
-  copy(text: string) {
+  copy(text: string, snackbar = 'link copied') {
     navigator.clipboard.writeText(text).catch(() => {})
+    app.showSnackbar(snackbar, PanelType.Success)
   }
 
   liveUrl(token: string) {
@@ -1920,7 +1920,11 @@ class GuestPasses extends Component<{ feature: Showbox }, { passes: Pass[]; load
         {this.state.loading && <small>loading...</small>}
 
         {active.length > 0 && (
-          <div ref={(el) => (this.linkListRef = el)}>
+          <div
+            ref={(el) => {
+              this.linkListRef = el
+            }}
+          >
             {active.map((p) => (
               <div key={p.token}>
                 <div className="f">
