@@ -3,7 +3,7 @@ import { Component, createRef, Fragment, h } from 'preact'
 import { isMobileMedia } from '../common/helpers/detector'
 import { exitPointerLock, hasPointerLock, requestPointerLock } from '../common/helpers/ui-helpers'
 import { onBeginUpload, onCompleteUpload, onFailUpload } from '../common/helpers/upload-media'
-import { fetchFromMPServer, shorterWallet } from '../common/helpers/utils'
+import { shorterWallet } from '../common/helpers/utils'
 import { Login } from '../web/src/auth/login'
 import { PanelType } from '../web/src/components/panel'
 import Snackbar from '../web/src/components/snackbar'
@@ -122,7 +122,7 @@ type UserInterfaceState = {
   editor?: FeatureEditor
   feature?: Feature
   active: boolean
-  /** Shown next to minimap expand; same source as Explore Online tab */
+  /** Shown next to minimap expand; same source as Explore radar */
   onlineCount: number
   scratchpadGuideOpen?: boolean
   scratchpadGuideMini?: boolean
@@ -155,7 +155,8 @@ export default class UserInterface extends Component<UserInterfaceProps, UserInt
    * We use a ref here to avoid re-renders
    */
   explorerPaneInitialTab = createRef<Tab | undefined>()
-  onlineCountPoll: number | undefined
+  presenceEs: EventSource | null = null
+  presenceUuids = new Set<string>()
 
   constructor(props: UserInterfaceProps) {
     super(props)
@@ -240,8 +241,22 @@ export default class UserInterface extends Component<UserInterfaceProps, UserInt
     // setInterval(this.updateCanEdit.bind(this), 1000)
 
     if (this.props.minimapSettings.enabled && !window.config.isOrbit && !window.config.isSpace) {
-      this.pollOnlineCount()
-      this.onlineCountPoll = window.setInterval(() => this.pollOnlineCount(), 10000)
+      this.presenceEs = new EventSource('/api/users/live')
+      this.presenceEs.onmessage = (e) => {
+        try {
+          const msg = JSON.parse(e.data)
+          if (msg.type === 'snapshot') {
+            this.presenceUuids.clear()
+            for (const u of msg.users ?? []) this.presenceUuids.add(u.uuid)
+          } else if (msg.type === 'move') {
+            this.presenceUuids.add(msg.uuid)
+          } else if (msg.type === 'leave') {
+            this.presenceUuids.delete(msg.uuid)
+          } else return
+          const n = this.presenceUuids.size
+          if (n !== this.state.onlineCount) this.setState({ onlineCount: n })
+        } catch {}
+      }
     }
 
     onLoadPromise.then(() => {
@@ -254,14 +269,6 @@ export default class UserInterface extends Component<UserInterfaceProps, UserInt
 
   onChatSettingsChange = () => {
     this.setState({ chatEnabled: chatSettings.enabled })
-  }
-
-  pollOnlineCount = async () => {
-    const r = await fetchFromMPServer<{ users?: unknown[] }>('/api/users.json')
-    const n = r?.users?.length
-    if (typeof n === 'number' && n !== this.state.onlineCount) {
-      this.setState({ onlineCount: n })
-    }
   }
 
   enterScratchpadGuideMini = () => {
@@ -300,10 +307,8 @@ export default class UserInterface extends Component<UserInterfaceProps, UserInt
   updateCanEdit = () => {}
 
   componentWillUnmount() {
-    if (this.onlineCountPoll) {
-      clearInterval(this.onlineCountPoll)
-      this.onlineCountPoll = undefined
-    }
+    this.presenceEs?.close()
+    this.presenceEs = null
     app.removeListener(AppEvent.Change, this.onAppChange)
     document.removeEventListener('fullscreenchange', this.refreshFullscreen)
     document.removeEventListener('pointerlockchange', this.onPointerLockChange)
@@ -821,7 +826,9 @@ export default class UserInterface extends Component<UserInterfaceProps, UserInt
                 </a>
               </li>
               <li class={!this.state.signedIn ? 'disabled' : ''}>
-                <a href="/costumer" target="_blank" rel="noopener">Costumes</a>
+                <a href="/costumer" target="_blank" rel="noopener">
+                  Costumes
+                </a>
               </li>
               {/* <li class={active('summon')}>
                 <a title="I for one welcome our robot overlords" onClick={onSummon}>
