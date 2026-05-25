@@ -64,6 +64,9 @@ h4 {
 
   img + p {
     margin: 0;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    overflow: hidden;
   }
 }
 
@@ -86,6 +89,7 @@ button {
     background: #f3f3f3;
   }
 }
+
 button.iconish {
   font-family: 'Press Start 2P', monospace;
   font-size: 10px;
@@ -779,6 +783,7 @@ div.f {
   button {
     margin: 0 0.5rem;
   }
+
   button:first-child {
     margin-left: 0;
   }
@@ -1117,5 +1122,27 @@ table.spaces {
 .parcel-page {
   aside {
     width: 15rem;
+  }
+}
+
+// Radar
+
+.radar {
+  &,
+  ul,
+  li {
+    margin: 0;
+    padding: 0;
+  }
+
+  li li {
+    margin-left: 0.8rem;
+    padding-left: 0.8rem;
+    list-style-type: '>';
+  }
+
+  & > li {
+    margin-bottom: 1rem;
+    list-style: none;
   }
 }
