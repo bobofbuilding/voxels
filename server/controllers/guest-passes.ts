@@ -1,7 +1,7 @@
 import crypto from 'crypto'
 import path from 'path'
 import { Express, Response } from 'express'
-import { SignJWT } from 'jose'
+import { SignJWT, decodeJwt } from 'jose'
 import { PassportStatic } from 'passport'
 import authParcel from '../auth-parcel'
 import Parcel from '../parcel'
@@ -41,9 +41,52 @@ function guestBroadcastPlayQuery(parcelLocation: string, featureUuid: string, us
   return qs.toString()
 }
 
+function hostJoinPlayQuery(parcelLocation: string, featureUuid: string): string {
+  const qs = new URLSearchParams({ coords: parcelLocation, show: featureUuid, host: '1' })
+  return qs.toString()
+}
+
+function walletFromJwtCookie(req: { cookies?: Record<string, string> }): { wallet?: string; moderator?: boolean } | null {
+  const jwt = req.cookies?.jwt
+  if (!jwt) return null
+  try {
+    const payload = decodeJwt(jwt) as { wallet?: string; moderator?: boolean; guest_pass?: string }
+    if (!payload?.wallet || isGuestWallet(payload.wallet) || payload.guest_pass) return null
+    return { wallet: payload.wallet, moderator: payload.moderator }
+  } catch {
+    return null
+  }
+}
+
 export async function loadGuestPass(db: Db, token: string): Promise<GuestPassRow | null> {
   const r = await db.query('sql/guest-passes/get', `select * from guest_passes where token = $1`, [token])
   return r.rows[0] ?? null
+}
+
+function noStoreJson(res: Response, body: Record<string, unknown>) {
+  res.set('Cache-Control', 'no-store')
+  res.json(body)
+}
+
+export async function revokeGuestPassesForFeature(db: Db, livekit: RoomServiceClient, parcelId: number, featureUuid: string) {
+  const revoked = await db.query('sql/guest-passes/revoke-for-feature', `update guest_passes set revoked_at = now() where parcel_id = $1 and lower(feature_uuid) = lower($2) and revoked_at is null returning *`, [parcelId, featureUuid])
+  const passes = revoked.rows as GuestPassRow[]
+  if (!passes.length) return
+
+  try {
+    const roomName = `parcel-${parcelId}`
+    const participants = await livekit.listParticipants(roomName)
+    for (const row of passes) {
+      const tokenPrefix = row.token.slice(0, 12)
+      for (const p of participants) {
+        if (p.identity.startsWith(`guest-${tokenPrefix}`)) {
+          await livekit.removeParticipant(roomName, p.identity).catch(() => {})
+        }
+      }
+    }
+  } catch {
+    // room may not exist; nothing to kick
+  }
 }
 
 export default function GuestPassesController(db: Db, passport: PassportStatic, app: Express, livekit: RoomServiceClient) {
@@ -60,8 +103,17 @@ export default function GuestPassesController(db: Db, passport: PassportStatic, 
       return res.status(403).json({ success: false, error: 'Owner only' })
     }
 
-    const r = await db.query('sql/guest-passes/list', `select * from guest_passes where parcel_id = $1 order by created_at desc`, [parcelId])
-    res.json({ success: true, passes: r.rows })
+    const featureUuid = String(req.query.feature_uuid ?? '').trim()
+    const params: (number | string)[] = [parcelId]
+    let sql = `select * from guest_passes where parcel_id = $1`
+    if (featureUuid) {
+      sql += ` and lower(feature_uuid) = lower($2)`
+      params.push(featureUuid)
+    }
+    sql += ` order by created_at desc`
+
+    const r = await db.query('sql/guest-passes/list', sql, params)
+    noStoreJson(res, { success: true, passes: r.rows })
   })
 
   // Create a new pass - owner only
@@ -81,12 +133,12 @@ export default function GuestPassesController(db: Db, passport: PassportStatic, 
 
     if (!featureUuid) return res.status(400).json({ success: false, error: 'feature_uuid required' })
 
-    const feature = parcel.getFeatureByUuid(featureUuid)
-    if (!feature || feature.type !== 'showbox') {
+    const feature = parcel.getFeaturesByType('showbox').find((f) => f.uuid?.toLowerCase() === featureUuid.toLowerCase())
+    if (!feature?.uuid) {
       return res.status(400).json({ success: false, error: 'feature_uuid must reference a Showbox on this parcel' })
     }
 
-    const existing = await db.query('sql/guest-passes/active-for-feature', `select token from guest_passes where parcel_id = $1 and feature_uuid = $2 and revoked_at is null limit 1`, [parcelId, featureUuid])
+    const existing = await db.query('sql/guest-passes/active-for-feature', `select token from guest_passes where parcel_id = $1 and lower(feature_uuid) = lower($2) and revoked_at is null limit 1`, [parcelId, feature.uuid])
     if (existing.rows[0]) {
       return res.status(400).json({ success: false, error: 'revoke the existing link first' })
     }
@@ -94,7 +146,7 @@ export default function GuestPassesController(db: Db, passport: PassportStatic, 
     const token = crypto.randomBytes(24).toString('base64url')
     const createdBy = (req.user?.wallet ?? '').toLowerCase()
 
-    await db.query('sql/guest-passes/insert', `insert into guest_passes (token, parcel_id, feature_uuid, name, created_by) values ($1, $2, $3, '', $4)`, [token, parcelId, featureUuid, createdBy])
+    await db.query('sql/guest-passes/insert', `insert into guest_passes (token, parcel_id, feature_uuid, name, created_by) values ($1, $2, $3, '', $4)`, [token, parcelId, feature.uuid, createdBy])
 
     const pass = await loadGuestPass(db, token)
     res.json({ success: true, pass })
@@ -113,29 +165,42 @@ export default function GuestPassesController(db: Db, passport: PassportStatic, 
       return res.status(403).json({ success: false, error: 'Owner only' })
     }
 
-    const token = String(req.params.token)
+    const token = decodeURIComponent(String(req.params.token ?? ''))
     const pass = await loadGuestPass(db, token)
     if (!pass || pass.parcel_id !== parcelId) {
       return res.status(404).json({ success: false, error: 'Pass not found' })
     }
+    if (pass.revoked_at) {
+      return noStoreJson(res, { success: true, pass, passes: [pass] })
+    }
 
-    await db.query('sql/guest-passes/revoke', `update guest_passes set revoked_at = now() where token = $1 and revoked_at is null`, [token])
+    const revoked = await db.query('sql/guest-passes/revoke-for-feature', `update guest_passes set revoked_at = now() where parcel_id = $1 and lower(feature_uuid) = lower($2) and revoked_at is null returning *`, [
+      parcelId,
+      pass.feature_uuid,
+    ])
+    const passes = revoked.rows as GuestPassRow[]
+    const updated = passes.find((p) => p.token === token) ?? passes[0] ?? (await loadGuestPass(db, token))
+    if (!updated?.revoked_at) {
+      return res.status(500).json({ success: false, error: 'Could not revoke link' })
+    }
 
-    // Best-effort live kick: any participant whose identity carries this token prefix
+    // Best-effort live kick: any participant whose identity carries a revoked pass prefix
     try {
       const roomName = `parcel-${parcelId}`
       const participants = await livekit.listParticipants(roomName)
-      const tokenPrefix = token.slice(0, 12)
-      for (const p of participants) {
-        if (p.identity.startsWith(`guest-${tokenPrefix}`)) {
-          await livekit.removeParticipant(roomName, p.identity).catch(() => {})
+      for (const row of passes) {
+        const tokenPrefix = row.token.slice(0, 12)
+        for (const p of participants) {
+          if (p.identity.startsWith(`guest-${tokenPrefix}`)) {
+            await livekit.removeParticipant(roomName, p.identity).catch(() => {})
+          }
         }
       }
     } catch {
       // room may not exist; nothing to kick
     }
 
-    res.json({ success: true })
+    noStoreJson(res, { success: true, pass: updated, passes })
   })
 
   // Guest can update their own display name. Auth via the guest_pass jwt - if it doesn't match
@@ -192,6 +257,14 @@ export default function GuestPassesController(db: Db, passport: PassportStatic, 
 
     const parcel = await Parcel.load(pass.parcel_id)
     if (!parcel) return res.status(404).send('Parcel not found')
+
+    const signedIn = walletFromJwtCookie(req)
+    if (signedIn?.wallet) {
+      const auth = await authParcel(parcel, signedIn as any)
+      if (auth === 'Owner' || auth === 'Moderator') {
+        return res.redirect(302, `/play?${hostJoinPlayQuery(parcel.location, pass.feature_uuid)}`)
+      }
+    }
 
     const syntheticWallet = `guest:${token.slice(0, 12)}`.toLowerCase()
 
