@@ -80,7 +80,7 @@ const mobile = isMobile()
 
 function isRoomFullError(e: unknown) {
   const msg = (e instanceof Error ? e.message : String(e ?? '')).toLowerCase()
-  return msg.includes('room is full') || msg.includes('participant') && (msg.includes('limit') || msg.includes('max') || msg.includes('full'))
+  return msg.includes('room is full') || (msg.includes('participant') && (msg.includes('limit') || msg.includes('max') || msg.includes('full')))
 }
 
 // True when the page was opened via /live/:token and the guest pass targets this showbox.
@@ -118,6 +118,24 @@ function audienceShowUrl(feature: Showbox): string {
   return `${window.location.origin}/play?coords=${encodeURIComponent(coords)}`
 }
 
+// Owner/co-host join link. Keeps your normal login - just lands at the showbox and opens the broadcast dock.
+function hostJoinShowUrl(feature: Showbox): string {
+  const pos = feature.absolutePosition ?? new BABYLON.Vector3((feature.parcel.x1 + feature.parcel.x2) / 2, feature.parcel.y1, (feature.parcel.z1 + feature.parcel.z2) / 2)
+  const coords = encodeCoords({ position: pos, rotation: new BABYLON.Vector3(0, 0, 0) })
+  const qs = new URLSearchParams({ coords, show: feature.uuid, host: '1' })
+  return `${window.location.origin}/play?${qs.toString()}`
+}
+
+function isHostJoinForShowbox(uuid: string): boolean {
+  if (isGuestForShowbox(uuid)) return false
+  try {
+    const q = new URL(window.location.href).searchParams
+    return q.get('host') === '1' && q.get('show') === uuid
+  } catch {
+    return false
+  }
+}
+
 // Chat display name comes from the multiplayer login snapshot - reconnect after a rename so everyone sees it.
 function syncGuestDisplayName(name: string) {
   app.setName(name)
@@ -145,10 +163,11 @@ export default class Showbox extends Feature2D<ShowboxRecord> {
     type: 'showbox',
     image: '',
   }
-  static template: FeatureTemplate = {
+  static template = {
     type: 'showbox',
     scale: [2, 1, 0],
-  }
+    guestMode: 'solo',
+  } as FeatureTemplate
 
   livekitRoom: Room | null = null
   broadcastRoom: Room | null = null
@@ -525,7 +544,12 @@ export default class Showbox extends Feature2D<ShowboxRecord> {
     // Wallet may still be loading from the jwt cookie when onEnter fires; retry after app state settles.
     if (this.broadcastPanel) return
     const tryAutoOpen = () => {
-      if (isGuestForShowbox(this.uuid) && !this.broadcastPanel) {
+      if (this.broadcastPanel) return true
+      if (isGuestForShowbox(this.uuid)) {
+        this.openBroadcastPanel()
+        return true
+      }
+      if (this.isCohostMode() && this.parcel.canEdit && isHostJoinForShowbox(this.uuid)) {
         this.openBroadcastPanel()
         return true
       }
@@ -1758,21 +1782,7 @@ class Editor extends FeatureEditor<Showbox> {
           <Position feature={this.props.feature} key={this.props.feature.position.toString()} />
           <Scale feature={this.props.feature} key={this.props.feature.scale.toString()} />
           <Rotation feature={this.props.feature} key={this.props.feature.rotation.toString()} />
-          <div className="f">
-            <label>guest link mode</label>
-            <div>
-              <label>
-                <input type="radio" name="guestMode" checked={this.state.guestMode === 'solo'} onChange={() => this.setState({ guestMode: 'solo' })} />
-                solo guest
-              </label>
-              <label>
-                <input type="radio" name="guestMode" checked={this.state.guestMode === 'cohost'} onChange={() => this.setState({ guestMode: 'cohost' })} />
-                co-host
-              </label>
-            </div>
-            <small>solo = guest replaces you. co-host = you on the left, guest on the right.</small>
-          </div>
-          <GuestPasses feature={this.props.feature} />
+          <GuestPasses feature={this.props.feature} guestMode={this.state.guestMode} onGuestModeChange={(guestMode) => this.setState({ guestMode })} />
           <Advanced>
             <FeatureID feature={this.props.feature} />
             <SetParentDropdown feature={this.props.feature} />
@@ -1800,9 +1810,10 @@ Showbox.Editor = Editor
 // that let an invited broadcaster (artist, speaker, DJ) go live on this showbox without an account.
 type Pass = { token: string; parcel_id: number; feature_uuid: string; name: string; created_at: string; revoked_at: string | null }
 
-class GuestPasses extends Component<{ feature: Showbox }, { passes: Pass[]; loading: boolean; creating: boolean; error: string | null }> {
+class GuestPasses extends Component<{ feature: Showbox; guestMode: GuestMode; onGuestModeChange: (mode: GuestMode) => void }, { passes: Pass[]; loading: boolean; creating: boolean; error: string | null }> {
   state = { passes: [] as Pass[], loading: true, creating: false, error: null as string | null }
   linkListRef: HTMLDivElement | null = null
+  refreshGen = 0
 
   componentDidMount() {
     this.refresh()
@@ -1816,143 +1827,200 @@ class GuestPasses extends Component<{ feature: Showbox }, { passes: Pass[]; load
     return this.props.feature.uuid
   }
 
-  passesForFeature(all: Pass[]) {
-    const uuid = this.featureUuid().toLowerCase()
-    return all.filter((p) => p.feature_uuid?.toLowerCase() === uuid)
+  passActive(p: Pass) {
+    return !p.revoked_at
   }
 
-  canCreatePass() {
+  applyPass(pass: Pass) {
+    this.setState((s) => ({
+      passes: [pass, ...s.passes.filter((p) => p.token !== pass.token)],
+    }))
+  }
+
+  passesUrl() {
+    return `/api/parcels/${this.parcelId()}/guest-passes?feature_uuid=${encodeURIComponent(this.featureUuid())}`
+  }
+
+  canManagePasses() {
     const w = app.state.wallet?.toLowerCase()
     if (!w) return false
+    if (app.isAdmin()) return true
     return this.props.feature.parcel.owners.some((o) => o?.toLowerCase() === w)
   }
 
   async refresh() {
+    const gen = ++this.refreshGen
     try {
-      const r = await fetch(`/api/parcels/${this.parcelId()}/guest-passes`, { credentials: 'include' })
+      const r = await fetch(this.passesUrl(), { credentials: 'include', cache: 'no-store' })
       const j = await r.json().catch(() => ({}))
+      if (gen !== this.refreshGen) return false
       if (!r.ok || !j.success) {
         this.setState({ error: j.error || 'could not load guest links', loading: false })
-        return
+        return false
       }
-      this.setState({ passes: this.passesForFeature(j.passes ?? []), loading: false, error: null })
+      this.setState({ passes: j.passes ?? [], loading: false, error: null })
+      return true
     } catch {
+      if (gen !== this.refreshGen) return false
       this.setState({ loading: false, error: 'could not load guest links' })
+      return false
     }
   }
 
   async create() {
-    if (!this.canCreatePass()) {
+    if (!this.canManagePasses()) {
       this.setState({ error: 'only the parcel owner can create guest links' })
       return
     }
-    if (this.state.passes.some((p) => !p.revoked_at)) {
+    if (this.state.passes.some((p) => this.passActive(p))) {
       this.setState({ error: 'revoke the existing link first' })
       return
     }
+    this.refreshGen++
     this.setState({ creating: true, error: null })
     try {
       const r = await fetch(`/api/parcels/${this.parcelId()}/guest-passes`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
+        cache: 'no-store',
         body: JSON.stringify({ feature_uuid: this.featureUuid() }),
       })
       const j = await r.json().catch(() => ({}))
       if (!r.ok || !j.success) throw new Error(j.error || 'Could not create link')
       const pass = j.pass as Pass | undefined
-      if (pass?.token) {
-        const url = this.liveUrl(pass.token)
-        this.copy(url)
-        app.showSnackbar('guest link created (copied)', PanelType.Success)
-        this.setState((s) => ({ passes: this.passesForFeature([pass, ...s.passes.filter((p) => p.token !== pass.token)]) }))
-        requestAnimationFrame(() => this.linkListRef?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }))
-      }
-      await this.refresh()
+      if (!pass?.token) throw new Error('Could not create link')
+      const url = this.liveUrl(pass.token)
+      this.copy(url, 'guest link created (copied)')
+      this.applyPass(pass)
+      requestAnimationFrame(() => this.linkListRef?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }))
     } catch (e: any) {
-      this.setState({ error: e?.message ?? 'Could not create link' })
+      const msg = e?.message ?? 'Could not create link'
+      if (String(msg).toLowerCase().includes('revoke')) {
+        await this.refresh()
+        this.setState({ error: 'a guest link is still active on the server -- revoke it below or refresh the page' })
+      } else {
+        this.setState({ error: msg })
+      }
     } finally {
       this.setState({ creating: false })
     }
   }
 
   async revoke(token: string) {
+    if (!this.canManagePasses()) {
+      this.setState({ error: 'only the parcel owner can revoke guest links' })
+      return
+    }
     if (!confirm('Revoke this link? They will be kicked if currently live.')) return
-    await fetch(`/api/parcels/${this.parcelId()}/guest-passes/${encodeURIComponent(token)}`, {
-      method: 'DELETE',
-      credentials: 'include',
-    }).catch(() => {})
-    await this.refresh()
+    this.refreshGen++
+    this.setState({ error: null })
+    try {
+      const r = await fetch(`/api/parcels/${this.parcelId()}/guest-passes/${encodeURIComponent(token)}`, {
+        method: 'DELETE',
+        credentials: 'include',
+        cache: 'no-store',
+      })
+      const j = await r.json().catch(() => ({}))
+      if (!r.ok || !j.success) throw new Error(j.error || 'could not revoke link')
+      const passes = (j.passes as Pass[] | undefined) ?? (j.pass ? [j.pass as Pass] : [])
+      const revoked = passes.filter((p) => p?.revoked_at)
+      if (!revoked.length) throw new Error('could not revoke link')
+      this.setState((s) => ({
+        passes: [...revoked, ...s.passes.filter((p) => !revoked.some((r) => r.token === p.token))],
+      }))
+      app.showSnackbar('guest link revoked', PanelType.Success)
+    } catch (e: any) {
+      this.setState({ error: e?.message ?? 'could not revoke link' })
+      await this.refresh()
+    }
   }
 
-  copy(text: string) {
+  copy(text: string, snackbar = 'link copied') {
     navigator.clipboard.writeText(text).catch(() => {})
+    app.showSnackbar(snackbar, PanelType.Success)
   }
 
   liveUrl(token: string) {
     return `${window.location.origin}/live/${token}`
   }
 
+  hostJoinUrl() {
+    return hostJoinShowUrl(this.props.feature)
+  }
+
   render() {
     if (!this.props.feature.parcel.canEdit) return null
-    const active = this.state.passes.filter((p) => !p.revoked_at)
-    const revoked = this.state.passes.filter((p) => p.revoked_at)
-    const canCreate = this.canCreatePass() && active.length === 0
+    const active = this.state.passes.filter((p) => this.passActive(p))
+    const canManage = this.canManagePasses()
+    const canCreate = canManage && active.length === 0
 
     return (
       <div className="f">
-        <label>guest links</label>
-        <small>invite someone to go live here without a voxels account</small>
+        <div className="f">
+          <label>host link</label>
+          <input type="text" readOnly value={this.hostJoinUrl()} onClick={(e) => (e.currentTarget as HTMLInputElement).select()} style={mobile ? { fontSize: '16px', minHeight: '44px' } : undefined} />
+          <button type="button" style={mobile ? { minHeight: '44px' } : undefined} onClick={() => this.copy(this.hostJoinUrl())}>
+            copy host link
+          </button>
+        </div>
+
+        <label>invite a guest</label>
+        <small>A link that you can give to someone to go live here without a voxels account</small>
 
         <div className="f">
           {canCreate ? (
             <button type="button" style={mobile ? { minHeight: '44px' } : undefined} onClick={() => this.create()} disabled={this.state.creating}>
               {this.state.creating ? 'creating...' : 'create link'}
             </button>
-          ) : this.canCreatePass() && active.length > 0 ? (
-            <small>revoke the link below to create a new one</small>
-          ) : (
+          ) : !canManage ? (
             <small>owner only</small>
-          )}
+          ) : null}
           {this.state.error && <div style={{ color: '#dc1e1e' }}>{this.state.error}</div>}
         </div>
 
         {this.state.loading && <small>loading...</small>}
 
         {active.length > 0 && (
-          <div ref={(el) => (this.linkListRef = el)}>
+          <div
+            ref={(el) => {
+              this.linkListRef = el
+            }}
+          >
             {active.map((p) => (
               <div key={p.token}>
                 <div className="f">
                   <label>{p.name?.trim() || 'guest link'}</label>
+                  <small>send to your guest only - if you open it while signed in you'll join as host instead</small>
                   <input type="text" readOnly value={this.liveUrl(p.token)} onClick={(e) => (e.currentTarget as HTMLInputElement).select()} style={mobile ? { fontSize: '16px', minHeight: '44px' } : undefined} />
                 </div>
                 <div style={{ display: 'flex', gap: '0.5rem', flexDirection: mobile ? 'column' : 'row', marginBottom: '0.5rem' }}>
                   <button type="button" style={mobile ? { minHeight: '44px', width: '100%' } : undefined} onClick={() => this.copy(this.liveUrl(p.token))}>
                     copy
                   </button>
-                  <button type="button" style={mobile ? { minHeight: '44px', width: '100%' } : undefined} onClick={() => this.revoke(p.token)}>
-                    revoke
-                  </button>
+                  {canManage && (
+                    <button type="button" style={mobile ? { minHeight: '44px', width: '100%' } : undefined} onClick={() => this.revoke(p.token)}>
+                      revoke
+                    </button>
+                  )}
+                </div>
+                <div className="f">
+                  <label>guest link mode</label>
+                  <div>
+                    <label>
+                      <input type="radio" name="guestMode" checked={this.props.guestMode === 'solo'} onChange={() => this.props.onGuestModeChange('solo')} />
+                      solo guest
+                    </label>
+                    <label>
+                      <input type="radio" name="guestMode" checked={this.props.guestMode === 'cohost'} onChange={() => this.props.onGuestModeChange('cohost')} />
+                      co-host
+                    </label>
+                  </div>
+                  <small>solo = guest replaces you. co-host = you on the left, guest on the right.</small>
                 </div>
               </div>
             ))}
           </div>
-        )}
-
-        {revoked.length > 0 && (
-          <details>
-            <summary>{revoked.length} revoked</summary>
-            <ul>
-              {revoked.map((p) => (
-                <li key={p.token}>
-                  <small>
-                    {p.name} - revoked {new Date(p.revoked_at!).toLocaleDateString()}
-                  </small>
-                </li>
-              ))}
-            </ul>
-          </details>
         )}
       </div>
     )
