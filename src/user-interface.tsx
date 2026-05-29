@@ -1,9 +1,10 @@
 import type { Signal } from '@preact/signals'
+import { effect } from '@preact/signals'
 import { Component, createRef, Fragment, h } from 'preact'
 import { isMobileMedia } from '../common/helpers/detector'
 import { exitPointerLock, hasPointerLock, requestPointerLock } from '../common/helpers/ui-helpers'
 import { onBeginUpload, onCompleteUpload, onFailUpload } from '../common/helpers/upload-media'
-import { fetchFromMPServer, shorterWallet } from '../common/helpers/utils'
+import { shorterWallet } from '../common/helpers/utils'
 import { Login } from '../web/src/auth/login'
 import { PanelType } from '../web/src/components/panel'
 import Snackbar from '../web/src/components/snackbar'
@@ -12,7 +13,7 @@ import { KeyboardHandler } from './components/keyboard-handler'
 import { OnlyMobile, ViewOnCondition } from './components/utils'
 import { Animations } from './avatar-animations'
 import { EmoteAnimation } from './states'
-import Connector from './connector'
+import Connector, { messageList } from './connector'
 import DesktopControls from './controls/desktop/controls'
 import { Environment } from './enviroments/environment'
 import { createFeature } from './features/create'
@@ -122,7 +123,7 @@ type UserInterfaceState = {
   editor?: FeatureEditor
   feature?: Feature
   active: boolean
-  /** Shown next to minimap expand; same source as Explore Online tab */
+  /** Shown next to minimap expand; same source as Explore radar */
   onlineCount: number
   scratchpadGuideOpen?: boolean
   scratchpadGuideMini?: boolean
@@ -155,7 +156,10 @@ export default class UserInterface extends Component<UserInterfaceProps, UserInt
    * We use a ref here to avoid re-renders
    */
   explorerPaneInitialTab = createRef<Tab | undefined>()
-  onlineCountPoll: number | undefined
+  presenceEs: EventSource | null = null
+  presenceUuids = new Set<string>()
+  chatLastReadAt = Date.now()
+  chatListDispose?: () => void
 
   constructor(props: UserInterfaceProps) {
     super(props)
@@ -189,7 +193,7 @@ export default class UserInterface extends Component<UserInterfaceProps, UserInt
       unreadCount: app?.state.unreadMailCount ?? 0,
       fullscreen: false,
       currentOrNearestParcel: null,
-      active: true,
+      active: false,
       onlineCount: 0,
       chatEnabled: chatSettings.enabled,
     }
@@ -240,8 +244,22 @@ export default class UserInterface extends Component<UserInterfaceProps, UserInt
     // setInterval(this.updateCanEdit.bind(this), 1000)
 
     if (this.props.minimapSettings.enabled && !window.config.isOrbit && !window.config.isSpace) {
-      this.pollOnlineCount()
-      this.onlineCountPoll = window.setInterval(() => this.pollOnlineCount(), 10000)
+      this.presenceEs = new EventSource('/api/users/live')
+      this.presenceEs.onmessage = (e) => {
+        try {
+          const msg = JSON.parse(e.data)
+          if (msg.type === 'snapshot') {
+            this.presenceUuids.clear()
+            for (const u of msg.users ?? []) this.presenceUuids.add(u.uuid)
+          } else if (msg.type === 'move') {
+            this.presenceUuids.add(msg.uuid)
+          } else if (msg.type === 'leave') {
+            this.presenceUuids.delete(msg.uuid)
+          } else return
+          const n = this.presenceUuids.size
+          if (n !== this.state.onlineCount) this.setState({ onlineCount: n })
+        } catch {}
+      }
     }
 
     onLoadPromise.then(() => {
@@ -250,18 +268,21 @@ export default class UserInterface extends Component<UserInterfaceProps, UserInt
     })
 
     chatSettings.addEventListener('changed', this.onChatSettingsChange)
+
+    this.chatListDispose = effect(() => {
+      messageList.value
+      this.forceUpdate()
+    })
+  }
+
+  componentDidUpdate(_prevProps: UserInterfaceProps, prevState: UserInterfaceState) {
+    if (!prevState.active && this.state.active) {
+      this.chatLastReadAt = Date.now()
+    }
   }
 
   onChatSettingsChange = () => {
     this.setState({ chatEnabled: chatSettings.enabled })
-  }
-
-  pollOnlineCount = async () => {
-    const r = await fetchFromMPServer<{ users?: unknown[] }>('/api/users.json')
-    const n = r?.users?.length
-    if (typeof n === 'number' && n !== this.state.onlineCount) {
-      this.setState({ onlineCount: n })
-    }
   }
 
   enterScratchpadGuideMini = () => {
@@ -300,14 +321,13 @@ export default class UserInterface extends Component<UserInterfaceProps, UserInt
   updateCanEdit = () => {}
 
   componentWillUnmount() {
-    if (this.onlineCountPoll) {
-      clearInterval(this.onlineCountPoll)
-      this.onlineCountPoll = undefined
-    }
+    this.presenceEs?.close()
+    this.presenceEs = null
     app.removeListener(AppEvent.Change, this.onAppChange)
     document.removeEventListener('fullscreenchange', this.refreshFullscreen)
     document.removeEventListener('pointerlockchange', this.onPointerLockChange)
     chatSettings.removeEventListener('changed', this.onChatSettingsChange)
+    this.chatListDispose?.()
   }
 
   onPointerLockChange = () => {
@@ -404,7 +424,10 @@ export default class UserInterface extends Component<UserInterfaceProps, UserInt
       return
     }
 
-    if (this.state.active) {
+    // Regression from b0da1ac (Ben, May 20): `if (this.state.active) return` made
+    // sidebar nav dead on load (active started true) and blocked switching panes.
+    if (this.state.pane === pane && this.state.active) {
+      this.closeInteractOverlay()
       return
     }
 
@@ -603,7 +626,7 @@ export default class UserInterface extends Component<UserInterfaceProps, UserInt
   showExplorerMap() {
     // temporarily set the initial tab to map
     this.explorerPaneInitialTab.current = 'map'
-    this.setState({ pane: 'explorer' })
+    this.setState({ pane: 'explorer', active: true })
     setTimeout(() => {
       // reset to undefined after opening (next tick because setState is async)
       this.explorerPaneInitialTab.current = undefined
@@ -612,7 +635,7 @@ export default class UserInterface extends Component<UserInterfaceProps, UserInt
 
   showExplorerOnline() {
     this.explorerPaneInitialTab.current = 'users'
-    this.setState({ pane: 'explorer' })
+    this.setState({ pane: 'explorer', active: true })
     setTimeout(() => {
       this.explorerPaneInitialTab.current = undefined
     })
@@ -753,14 +776,22 @@ export default class UserInterface extends Component<UserInterfaceProps, UserInt
 
     const active = (pane: string, disabled?: boolean) => (this.state.pane === pane ? 'active' : disabled ? 'disabled' : '')
 
+    const unreadChat = this.state.chatEnabled && !this.state.active ? messageList.value.some((m) => m.timestamp > this.chatLastReadAt) : false
+
     return (
       <ViewOnCondition condition={window.config.wantsUI}>
         <div class={classes}>
           <Snackbar />
 
           <aside style={{ zIndex: 500 }} class={`ui-toggle-mobile ${this.state.active ? 'hidden' : ''}`}>
-            <button onClick={() => this.setState({ active: !this.state.active })} title="Toggle UI">
-              ☰
+            <button
+              onClick={(e) => {
+                e.stopPropagation()
+                this.setState({ active: !this.state.active })
+              }}
+              title={unreadChat ? 'Toggle UI (unread chat)' : 'Toggle UI'}
+            >
+              ☰{unreadChat && <span class="chat-unread-badge" />}
             </button>
           </aside>
           <aside data-active={this.state.active}>
@@ -821,7 +852,9 @@ export default class UserInterface extends Component<UserInterfaceProps, UserInt
                 </a>
               </li>
               <li class={!this.state.signedIn ? 'disabled' : ''}>
-                <a href="/costumer" target="_blank" rel="noopener">Costumes</a>
+                <a href="/costumer" target="_blank" rel="noopener">
+                  Costumes
+                </a>
               </li>
               {/* <li class={active('summon')}>
                 <a title="I for one welcome our robot overlords" onClick={onSummon}>
