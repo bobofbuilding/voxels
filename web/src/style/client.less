@@ -55,25 +55,6 @@
   border-radius: 6px;
 }
 
-a {
-  text-decoration: none;
-  color: white;
-
-  &:hover {
-    text-decoration: underline;
-  }
-}
-
-canvas#renderCanvas {
-  margin: 0;
-  padding: 0;
-  position: absolute;
-  inset: 0;
-  outline: none !important;
-  width: 100vw;
-  height: 100vh;
-}
-
 .no-touch {
   -webkit-touch-callout: none;
   -webkit-user-select: none;
@@ -168,11 +149,6 @@ aside:not(.ui-toggle-mobile) {
 
 aside {
   @width: 8rem;
-  width: @width;
-  position: fixed;
-  top: 0;
-  left: 0;
-  bottom: 0;
 
   & > ul {
     height: 100vh;
@@ -222,12 +198,11 @@ aside {
     .active u {
       text-decoration: underline;
       font-weight: bold;
-      color: #dc1e1e;
+      color: var(--red);
     }
   }
 
   dialog {
-    position: fixed;
     top: 1rem;
     left: 8rem;
     bottom: 0;
@@ -284,7 +259,6 @@ dialog .baking textarea {
 
 /* Chat */
 main.chat {
-  position: fixed;
   bottom: 0;
   left: 0;
   margin: 0 0 4px 0;
@@ -510,7 +484,7 @@ dialog.editor {
       margin: 0 0.4rem 0 0;
 
       &.active {
-        color: #dc1e1e;
+        color: var(--red);
         font-weight: bold;
       }
     }
@@ -779,8 +753,8 @@ dialog ul.toolbar {
     margin-left: 2px;
 
     &:hover {
-      background: #dc1e1e;
-      border-color: #dc1e1e;
+      background: var(--red);
+      border-color: var(--red);
       color: #fff;
     }
   }
@@ -791,7 +765,7 @@ section.build-tab nav.build-main-tabs {
   display: flex;
   padding: 8px;
   margin-bottom: 4px;
-  background-color: @editorBackground;
+  background-color: #0d0d0d;
 
   div.separator {
     width: 1px;
@@ -932,7 +906,6 @@ aside .login a.button {
 
 /* Voxel tool belt (minecraft-like bottom bar) */
 .VoxelToolBelt {
-  position: fixed;
   bottom: 0;
   left: 50%;
   transform: translateX(-50%);
@@ -1182,7 +1155,6 @@ aside .login a.button {
 
 /* Tint editor modal + customize voxels */
 .tint-modal-backdrop {
-  position: fixed;
   inset: 0;
   z-index: 9999;
   display: flex;
@@ -1394,8 +1366,8 @@ aside .login a.button {
     }
 
     &:hover {
-      background: #dc1e1e;
-      border-color: #dc1e1e;
+      background: var(--red);
+      border-color: var(--red);
     }
   }
 
@@ -1470,7 +1442,7 @@ aside .login a.button {
     color: #f5f5f0;
 
     &:hover {
-      color: #dc1e1e;
+      color: var(--red);
     }
   }
 
@@ -1766,7 +1738,7 @@ aside .login a.button {
   }
 
   li small > a {
-    color: #dc1e1e;
+    color: var(--red);
   }
 }
 
@@ -1835,7 +1807,6 @@ form.PermissionsRadioSelector > div {
 
 /* Scratchpad guide */
 .scratchpad-guide {
-  position: fixed;
   left: 12rem;
   bottom: 7rem;
   z-index: 600;
@@ -1911,7 +1882,6 @@ form.PermissionsRadioSelector > div {
 }
 
 .scratchpad-guide-restart {
-  position: fixed;
   left: 12rem;
   bottom: 7rem;
   z-index: 600;
@@ -2287,7 +2257,7 @@ div.NearbyPlayers {
     }
 
     &:hover {
-      background: #dc1e1e;
+      background: var(--red);
     }
   }
 }
@@ -2402,7 +2372,6 @@ div.NearbyPlayers {
 
 /* Upload status */
 .upload-status {
-  position: fixed;
   top: 10px;
   left: 10px;
   z-index: 1000000;
@@ -2432,7 +2401,6 @@ div.NearbyPlayers {
 
 /* Minimap corner controls */
 .minimap-corner-controls {
-  position: fixed;
   bottom: calc(15vw - 26px);
   right: 4px;
   z-index: 10;
@@ -2585,7 +2553,6 @@ div.mobile-buttons {
 }
 
 .mobile-dpad {
-  position: fixed;
   bottom: 64px;
   left: 0;
   height: 150px;
@@ -2666,7 +2633,6 @@ div.mobile-buttons {
   }
 
   &.-fixed {
-    position: fixed;
   }
 
   iframe {
@@ -2935,7 +2901,7 @@ div.mobile-buttons {
     cursor: pointer;
 
     &.-active {
-      border-bottom: 2px solid #dc1e1e;
+      border-bottom: 2px solid var(--red);
     }
   }
 }
@@ -3062,12 +3028,12 @@ div.css-icon {
 // showbox skin: red splash + flat + dark, applied site-wide.
 // ============================================================
 * {
-  accent-color: #dc1e1e;
+  accent-color: var(--red);
 }
 
 .demi-tabs li.-active,
 .inline-tabs li.-active {
-  border-bottom-color: #dc1e1e;
+  border-bottom-color: var(--red);
 }
 
 .overlay.inspect-feature,
