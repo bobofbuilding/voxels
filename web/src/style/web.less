@@ -13,6 +13,7 @@
 @pc: ~'only screen and (min-width: 800px)';
 
 :root {
+  --red: #dc1e1e;
   --border: 1px solid #aaa;
   --softborder: 1px solid #aaa;
   --soft: #888;
@@ -296,6 +297,7 @@ button.hamburger {
 }
 
 .columns {
+  margin: 0 1rem;
   display: flex;
   flex-direction: row;
   align-items: start;
@@ -318,6 +320,11 @@ button.hamburger {
 
   & > aside {
     width: 25vw;
+
+    a {
+      color: var(--red);
+      text-decoration: underline;
+    }
   }
 
   .hamburger {
@@ -386,12 +393,6 @@ button.hamburger {
     scroll-snap-align: start;
   }
 
-  a {
-    display: block;
-    text-decoration: none;
-    color: inherit;
-  }
-
   img {
     width: 100%;
     height: auto;
@@ -434,6 +435,8 @@ div.map {
   width: 100%;
   height: 80vh;
   max-width: 100%;
+  outline: none;
+  inset: 0;
 
   @media @mobile {
     width: 100%;
@@ -445,65 +448,50 @@ div.map {
   height: 60vh;
 }
 
-div.magic-frame {
-  z-index: 2;
-  position: fixed;
-  bottom: -5px;
-  right: 15px;
-  width: 320px;
-  height: 320px;
-  box-sizing: border-box;
-  box-shadow: 3px 3px 5px rgba(0, 0, 0, 0.3);
+// Fullscreen world view (the /play route). The persistent canvas gets reparented
+// into the .client-placeholder box, which fills this fixed fullscreen container.
+.world-fullscreen {
+  inset: 0;
+  z-index: 1;
 
-  .magic-frame-hit {
-    position: absolute;
-    inset: 0;
-    z-index: 2;
-    cursor: pointer;
-  }
-
-  iframe {
+  .client-placeholder {
+    position: relative;
     width: 100%;
     height: 100%;
-    pointer-events: none;
-    border: none;
   }
+}
 
-  .magic-frame-close {
-    position: absolute;
-    top: 0;
-    right: 0;
-    z-index: 3;
-    color: white;
-    padding: 0.4rem 0.6rem;
-    font-size: 1rem;
-    line-height: 1;
-    background: none;
-    border: none;
-    cursor: pointer;
-    pointer-events: auto;
-    text-shadow: 1px 1px 2px black;
+.client-placeholder {
+  position: relative;
+}
 
-    &:hover {
-      font-weight: bold;
-      background: none;
-    }
-  }
+dialog.first-time {
+  position: absolute;
+  inset: 0;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  background: var(--tinge);
+  pointer-events: none;
+  border: none;
+  margin: 0;
+  padding: 1rem;
+  z-index: 1;
+}
 
-  &.attached {
-    box-shadow: none;
+.play-preview {
+  display: none;
+  position: fixed;
+  right: 1rem;
+  bottom: 1rem;
+  width: 240px;
+  aspect-ratio: 4 / 3;
+  z-index: 999999;
+  cursor: pointer;
+  overflow: hidden;
 
-    .magic-frame-hit {
-      display: none;
-    }
-
-    .magic-frame-close {
-      display: none;
-    }
-
-    iframe {
-      pointer-events: unset;
-    }
+  &.on {
+    display: block;
   }
 }
 
@@ -545,7 +533,7 @@ figure {
   width: 100%;
   height: 100%;
   border: none;
-  position: fixed;
+
   left: 0;
   top: 0;
   background: none;
@@ -1125,7 +1113,6 @@ table.spaces {
 }
 
 .showbox-dock {
-  position: fixed;
   z-index: 999999;
   background: #0d0d0d;
   color: #f5f5f0;
@@ -1259,7 +1246,7 @@ table.spaces {
   display: flex;
   align-items: center;
   gap: 8px;
-  color: #dc1e1e;
+  color: var(--red);
   font-weight: bold;
   font-size: 14px;
   flex-shrink: 0;
@@ -1471,7 +1458,7 @@ table.spaces {
 }
 
 .showbox-dock-share-btn {
-  background: #dc1e1e;
+  background: var(--red);
   color: #f5f5f0;
   border: 0;
   padding: 8px 12px;
@@ -1490,7 +1477,7 @@ table.spaces {
 
 .showbox-dock-share-main,
 .showbox-dock-share-pick {
-  background: #dc1e1e;
+  background: var(--red);
   color: #f5f5f0;
   border: 0;
   cursor: pointer;
@@ -1540,7 +1527,7 @@ table.spaces {
 }
 
 .showbox-dock-go {
-  background: #dc1e1e;
+  background: var(--red);
   color: #f5f5f0;
   border: 0;
   padding: 12px 16px;
@@ -1598,7 +1585,7 @@ table.spaces {
     &:hover,
     &:focus,
     &:active {
-      background: #dc1e1e;
+      background: var(--red);
       color: #f5f5f0;
       outline: none;
     }
@@ -1654,12 +1641,8 @@ body {
   font-family: 'Source Code Pro', monospace;
 }
 
-a {
-  color: #f5f5f0;
-}
-
 a:hover {
-  color: #dc1e1e;
+  color: var(--red);
 }
 
 a.buttonish {
@@ -1670,7 +1653,7 @@ a.buttonish {
 a.active,
 .columns.nav li[aria-selected='true'] a,
 header nav a.active {
-  color: #dc1e1e;
+  color: var(--red);
 }
 
 header,
@@ -1697,8 +1680,8 @@ a.buttonish {
   box-shadow: none;
 
   &:hover {
-    background: #dc1e1e;
-    border-color: #dc1e1e;
+    background: var(--red);
+    border-color: var(--red);
     color: #fff;
   }
 
@@ -1711,8 +1694,8 @@ a.buttonish {
 button[type='submit'],
 button.primary,
 button.big-play {
-  background: #dc1e1e;
-  border-color: #dc1e1e;
+  background: var(--red);
+  border-color: var(--red);
   color: #fff;
 
   &:hover {
@@ -1750,8 +1733,8 @@ small,
 
 // active view toggle (figcaption) gets the red, not white
 figcaption button[data-active='true'] {
-  background: #dc1e1e;
-  border-color: #dc1e1e;
+  background: var(--red);
+  border-color: var(--red);
   color: #fff;
 }
 
