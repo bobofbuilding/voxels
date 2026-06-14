@@ -69,17 +69,6 @@ export default class DesktopControls extends Controls {
     this.featureSelectorObservable = this.featureSelectorObservable.bind(this)
 
     this.addFeatureSelector()
-
-    // spawn in third person; enterThirdPerson needs window.persona, so retry until it's ready
-    const tryThird = () => {
-      if (this.persona) {
-        this.enterThirdPerson()
-      } else {
-        requestAnimationFrame(tryThird)
-      }
-    }
-    requestAnimationFrame(tryThird)
-
     this.startSpawnGroundCheck()
   }
 
@@ -88,6 +77,8 @@ export default class DesktopControls extends Controls {
   private startSpawnGroundCheck() {
     const start = Date.now()
     const id = setInterval(() => {
+      console.log('eh?')
+
       if (Date.now() - start > 10_000) {
         clearInterval(id)
         return
@@ -290,7 +281,7 @@ export default class DesktopControls extends Controls {
       this.shiftKey = e.shiftKey
       this.ctrlKey = e.ctrlKey || e.metaKey
 
-      const congaCancelKeys = ['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Escape']
+      const congaCancelKeys = ['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight']
       if (this.congaTarget && congaCancelKeys.includes(e.code)) {
         this.stopConga()
       }

@@ -38,6 +38,7 @@ import Islands from './islands'
 import Mail from './mail'
 import WorldMap from './map'
 import Parcel from './parcel'
+import { Client } from './client'
 import ParcelEdit from './parcel-edit'
 import Parcels from './parcels'
 import Privacy from './privacy'
@@ -53,10 +54,12 @@ import WebHeader from './web-header'
 import Womp from './womp'
 import WompsPage from './womps'
 
-import { useEffect, useState } from 'preact/hooks'
+import { useEffect, useRef, useState } from 'preact/hooks'
 import { JSXInternal } from 'preact/src/jsx'
 import IslandsAdmin from './admin/islands'
 import NotFound from './not-found'
+import { PlayPreview } from './play-preview'
+import { maybePlayPreview } from './play-preview-route'
 import { app, AppEvent } from './state'
 
 class MainApp extends Component {
@@ -99,21 +102,31 @@ const Main = () => {
       window.location.href = e.url
     }
 
+    maybePlayPreview(prevUrl.current, e.url)
+    prevUrl.current = location.pathname + location.search
+
     setCurrentPath(e.url)
 
     app.send({ type: 'navigate', data: e.url })
   }
 
   const [currentPath, setCurrentPath] = useState(window.location.pathname)
+  const prevUrl = useRef(location.pathname + location.search)
   const lightBroadcast = currentPath.startsWith('/golive/broadcast')
+  // fullscreen world view: no web header/footer chrome
+  const fullWorld = currentPath.startsWith('/play') || currentPath.startsWith('/scratchpad') || currentPath.endsWith('/play')
 
   return (
     <MainApp>
-      <main class={lightBroadcast ? 'showbox-light-shell' : 'container-fluid'}>
-        {!lightBroadcast && <WebHeader path={currentPath} />}
+      <main class={lightBroadcast ? 'showbox-light-shell' : ''}>
+        {!lightBroadcast && !fullWorld && <WebHeader path={currentPath} />}
 
         <Router onChange={handleRoute}>
           <Explore path="/" />
+          <Play path="/play" />
+          <Play path="/scratchpad" />
+          <Play path="/spaces/:id/play" />
+          <Play path="/assets/:id/play" />
           <Terms path="/terms" />
           <Privacy path="/privacy" />
           <Conduct path="/conduct" />
@@ -174,11 +187,22 @@ const Main = () => {
 
           <IslandsAdmin path="/propose/islands" />
         </Router>
-        {!lightBroadcast && <Footer />}
+        {!lightBroadcast && !fullWorld && <Footer />}
       </main>
 
       <Snackbar />
+      <PlayPreview />
     </MainApp>
+  )
+}
+
+// Fullscreen world. Mounts the persistent canvas layer over a fullscreen placeholder.
+function Play(_props: { path?: string }) {
+  const coords = new URLSearchParams(window.location.search).get('coords') || ''
+  return (
+    <div class="world-fullscreen">
+      <Client full coords={coords} parcelId={0} />
+    </div>
   )
 }
 
