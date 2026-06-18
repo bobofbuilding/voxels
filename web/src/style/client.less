@@ -38,23 +38,6 @@
 @overlayWindowTextColor: #f5f5f0;
 @overlayWindowInputColor: #f5f5f0;
 
-:root {
-  color-scheme: dark;
-}
-
-::-webkit-scrollbar {
-  width: 12px;
-}
-::-webkit-scrollbar-thumb {
-  background: #999;
-  border-radius: 6px;
-}
-::-webkit-scrollbar-track {
-  background: #444;
-  margin: 1rem 0;
-  border-radius: 6px;
-}
-
 .no-touch {
   -webkit-touch-callout: none;
   -webkit-user-select: none;
@@ -62,7 +45,10 @@
   touch-action: none;
 }
 
-body {
+// The in-world skin only applies under body.in-world (toggled by Client.adopt/unmount),
+// so client.less's global resets stop bleeding onto web pages.
+body.in-world {
+  color-scheme: dark;
   -webkit-touch-callout: none;
   -webkit-user-select: none;
   user-select: none;
@@ -73,18 +59,39 @@ body {
   #babylonUnmuteIconBtn {
     left: 60px !important;
   }
+
+  ::-webkit-scrollbar {
+    width: 12px;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: #999;
+    border-radius: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: #444;
+    margin: 1rem 0;
+    border-radius: 6px;
+  }
+
+  p,
+  li,
+  ul,
+  section,
+  h1,
+  h2,
+  h3,
+  h4 {
+    margin: 0;
+    padding: 0;
+  }
 }
 
-p,
-li,
-ul,
-section,
-h1,
-h2,
-h3,
-h4 {
-  margin: 0;
-  padding: 0;
+html.in-world-theatre,
+body.in-world-theatre {
+  overflow: hidden;
+  height: 100%;
 }
 
 button.iconish {
@@ -99,7 +106,7 @@ button.iconish {
 }
 
 /* Sidebar nav */
-aside.ui-toggle-mobile {
+.UserInterface aside.ui-toggle-mobile {
   position: absolute;
   top: 1rem;
   left: 1rem;
@@ -130,24 +137,7 @@ aside.ui-toggle-mobile {
   }
 }
 
-aside:not(.ui-toggle-mobile) {
-  @media screen and (max-width: 799px), screen and (max-height: 449px) {
-    &[data-active='false'] {
-      & > ul.ui-sidebar {
-        transform: translateX(-100%);
-        visibility: hidden;
-        pointer-events: none;
-      }
-
-      main.chat {
-        visibility: hidden;
-        pointer-events: none;
-      }
-    }
-  }
-}
-
-aside {
+.UserInterface aside {
   @width: 8rem;
 
   & > ul {
@@ -250,7 +240,7 @@ aside {
   }
 }
 
-dialog .baking textarea {
+.UserInterface dialog .baking textarea {
   width: 100%;
   background: transparent;
   height: 80vh;
@@ -258,7 +248,8 @@ dialog .baking textarea {
 }
 
 /* Chat */
-main.chat {
+.UserInterface div.chat {
+  position: absolute;
   bottom: 0;
   left: 0;
   margin: 0 0 4px 0;
@@ -312,6 +303,41 @@ main.chat {
 
     input {
       font-size: 16px;
+    }
+  }
+}
+
+// Mobile: chat is a full-width bar pinned to the bottom of the screen.
+// Messages float above the input over the canvas; the canvas is shrunk by --chatbar.
+@media @mobile {
+  .UserInterface main.chat {
+    margin: 0;
+    padding: 0;
+
+    .chat-messages {
+      pointer-events: none;
+      max-height: 30vh;
+      overflow: hidden;
+      margin: 0;
+      padding: 0.25rem 0.5rem;
+
+      // float text over the canvas: no bubble, lean on the text-shadow for legibility
+      p span {
+        background: transparent;
+      }
+    }
+
+    form {
+      pointer-events: auto;
+      width: 100%;
+      margin: 0;
+      padding: 0.4rem 0.5rem;
+      box-sizing: border-box;
+      background: rgba(0, 0, 0, 0.5);
+
+      input {
+        flex: 1;
+      }
     }
   }
 }
@@ -377,7 +403,7 @@ main.chat {
   }
 }
 
-aside .EmoteList ul {
+.UserInterface aside .EmoteList ul {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(50px, 1fr));
   gap: 0.5rem;
@@ -394,7 +420,7 @@ aside .EmoteList ul {
   }
 }
 
-aside .AnimateList ul {
+.UserInterface aside .AnimateList ul {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
   gap: 0.5rem;
@@ -407,7 +433,7 @@ aside .AnimateList ul {
 }
 
 /* Feature editor */
-dialog.editor {
+.UserInterface dialog.editor {
   font-size: 1em;
 
   textarea,
@@ -739,7 +765,7 @@ dialog.editor {
   }
 }
 
-dialog ul.toolbar {
+.UserInterface dialog ul.toolbar {
   margin-bottom: 10px;
   padding-left: 0;
   display: flex;
@@ -877,7 +903,7 @@ section.build-tab nav.build-main-tabs {
 }
 
 /* Login */
-section.login {
+.UserInterface section.login {
   padding: 1rem;
 
   img {
@@ -885,7 +911,7 @@ section.login {
   }
 }
 
-aside .login a.button {
+.UserInterface aside .login a.button {
   position: relative;
   background: white;
   color: black;
@@ -1613,11 +1639,6 @@ aside .login a.button {
     flex-wrap: wrap;
   }
 
-  .scrollContainer {
-    overflow: hidden auto;
-    -webkit-overflow-scrolling: touch;
-  }
-
   h3,
   h4 {
     color: #eee;
@@ -2191,11 +2212,6 @@ div.NearbyPlayers {
     margin: 3px 0 0 5px;
   }
 
-  div.ScrollContainer {
-    max-height: 100px;
-    overflow: hidden auto;
-  }
-
   ul {
     margin: 0;
     padding: 10px;
@@ -2522,7 +2538,7 @@ div.NearbyPlayers {
 /* Mobile controls */
 div.mobile-buttons {
   position: absolute;
-  bottom: 0;
+  bottom: var(--chatbar);
   right: 0;
   display: flex;
   flex-direction: column;
@@ -2541,7 +2557,6 @@ div.mobile-buttons {
       font-size: 0.8rem;
       border: none;
       color: #f3f3f3;
-      border-radius: 2rem;
       background: #3335 !important;
       width: @size;
       height: @size;
@@ -2552,16 +2567,26 @@ div.mobile-buttons {
   }
 }
 
-.mobile-dpad {
-  bottom: 64px;
-  left: 0;
-  height: 150px;
-  width: 150px;
-  padding: 0;
-  border: 30px solid transparent;
+.mobile-pad {
+  position: fixed;
+  bottom: calc(var(--chatbar) + 1rem);
+  left: 1rem;
+  width: 40vw;
+  aspect-ratio: 1 / 1;
+  background: rgba(128, 128, 128, 0.3);
   touch-action: none;
-  display: flex;
   z-index: 2000;
+}
+
+.mobile-pad-nub {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 33%;
+  aspect-ratio: 1 / 1;
+  background: rgba(128, 128, 128, 0.6);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
 }
 
 /* Overlay windows (admin / nft / take-womp etc) */
@@ -3015,9 +3040,11 @@ div.css-icon {
     transform: scale(0.1, 0.1);
     opacity: 0;
   }
+
   50% {
     opacity: 1;
   }
+
   100% {
     transform: scale(1.2, 1.2);
     opacity: 0;
