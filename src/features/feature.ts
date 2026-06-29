@@ -391,6 +391,10 @@ export default abstract class Feature<Description extends FeatureRecord = Featur
 
   abstract scaleAxes(): XYZ[]
 
+  // UI preference (in-memory, not persisted): keep aspect ratio when scaling. Drives the editor's lock
+  // checkbox AND the in-world corner-resize handles so they agree. Subclasses can default it on.
+  scaleAspectLocked?: boolean
+
   abstract nudge(): number | null
 
   abstract legacyNudge(): number | null
@@ -845,6 +849,7 @@ export default abstract class Feature<Description extends FeatureRecord = Featur
     this.deinstance()
     this.dispose()
     this.budgetUnconsume()
+    window.main?.pump.dropFeature(this.parcel.id, this.uuid)
     this.sendDeletePatch()
     this.group?.deleteIfNoChildren()
     if (isShowbox) {

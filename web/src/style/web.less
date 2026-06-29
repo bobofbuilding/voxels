@@ -15,6 +15,9 @@
 
 :root {
   --red: #dc1e1e;
+  --axis-x: var(--red);
+  --axis-y: #6bbf59;
+  --axis-z: #6b9fd4;
   --border: 1px solid #aaa;
   --softborder: 1px solid #aaa;
   --soft: #888;
@@ -464,59 +467,109 @@ div.map {
   height: 60vh;
 }
 
-// Fullscreen world view (the /play route). The persistent canvas gets reparented
-// into the .client-placeholder box, which fills this fixed fullscreen container.
-.world-fullscreen {
-  position: fixed;
-  inset: 0;
-  width: 100vw;
+// ?coords= in URL: canvas in main > article, web/panes in main > aside
+body.in-world main {
+  display: grid;
+  grid-template-columns: 7fr 3fr;
+  grid-template-rows: auto 1fr;
+  grid-template-areas:
+    'header header'
+    'canvas sidebar';
   height: 100vh;
-  z-index: 101;
   overflow: hidden;
+  max-width: none;
 
-  .world-client {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
+  > header {
+    grid-area: header;
   }
 
-  .client-placeholder {
+  > article {
+    grid-area: canvas;
     position: relative;
-    width: 100%;
-    height: 100%;
+    min-height: 0;
+    min-width: 0;
+  }
 
-    @media @mobile {
-      height: calc(100dvh - var(--chatbar));
+  > aside {
+    grid-area: sidebar;
+    overflow-y: auto;
+    min-height: 0;
+    min-width: 0;
+    padding: 1rem;
+    color: #fff;
+    user-select: text;
+    -webkit-user-select: text;
+
+    a {
+      color: var(--red);
+      text-decoration: underline;
+    }
+
+    dl {
+      dt {
+        font-weight: bold;
+        margin-top: 0.5rem;
+      }
+
+      dd {
+        margin: 0 0 0.5rem 0;
+      }
+    }
+
+    img.womp {
+      max-width: 100%;
+      margin: 1rem 0;
+    }
+
+    .sidebar-tabs {
+      display: flex;
+      gap: 1rem;
+      margin: 0 0 1rem 0;
+      padding: 0;
+      list-style: none;
+
+      li {
+        cursor: pointer;
+        text-transform: lowercase;
+
+        &.-active {
+          font-weight: bold;
+          color: var(--red);
+        }
+      }
+    }
+
+    .parcel-sidebar-map {
+      height: 14rem;
+      width: 100%;
+    }
+
+    .parcels-table tr.-selected {
+      font-weight: bold;
+      color: var(--red);
     }
   }
 }
 
-// one nav: hide web header/footer/radio while the world canvas is active
-body.in-world > main > header,
-body.in-world > main > footer,
-body.in-world .voxel-radio-wrap {
-  display: none;
+main > article .UserInterface {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+
+  > * {
+    pointer-events: auto;
+  }
 }
 
-.world-client {
-  position: relative;
-  width: 100%;
-
-  > .UserInterface {
-    position: absolute;
-    inset: 0;
-    z-index: 2;
-    pointer-events: none;
-
-    > * {
-      pointer-events: auto;
-    }
-  }
+.sidebar-view {
+  padding: 0;
 }
 
 .client-placeholder {
   position: relative;
+  width: 100%;
+  height: 100%;
 }
 
 // We fullscreen <body> (not the canvas) so the in-world UI overlay stays visible.
@@ -881,7 +934,6 @@ section.login {
     margin-top: 0.2rem;
     padding: 0.4rem 0.5rem;
     border: 1px solid #999;
-    background: #fff;
     font-family: inherit;
     font-size: 0.9rem;
   }
@@ -970,6 +1022,72 @@ section.profile {
     margin: 0 0 0.5rem;
   }
 
+  .name-wizard {
+    margin: 0.5rem 0 1rem;
+    max-width: 28rem;
+
+    p {
+      margin: 0 0 0.75rem;
+    }
+
+    .name-box {
+      display: flex;
+      align-items: stretch;
+      border: 1px solid var(--red);
+
+      .chev {
+        display: flex;
+        align-items: center;
+        padding: 0 0.65rem;
+        color: var(--red);
+        user-select: none;
+        letter-spacing: -0.15em;
+      }
+
+      input {
+        flex: 1;
+        border: none;
+        background: transparent;
+        font-family: 'source code pro', monospace;
+        font-size: 1.35rem;
+        padding: 0.85rem 0.25rem;
+        outline: none;
+        min-width: 0;
+        width: 100%;
+      }
+    }
+
+    small {
+      display: block;
+      margin-top: 0.35rem;
+      opacity: 0.65;
+    }
+
+    .name-picked {
+      margin: 0 0 0.75rem;
+
+      small {
+        opacity: 0.65;
+      }
+    }
+
+    .name-status {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin: 0.65rem 0 0.5rem;
+      min-height: 1.25rem;
+
+      &.ok {
+        color: var(--red);
+      }
+
+      &.bad {
+        color: var(--red);
+      }
+    }
+  }
+
   .account-welcome-msg {
     font-size: 0.88rem;
     line-height: 1.45;
@@ -1029,6 +1147,13 @@ section.profile {
   aspect-ratio: 1/1;
   background: #eee;
   position: relative;
+
+  .loading {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    margin: -8px 0 0 -8px;
+  }
 
   img {
     position: absolute;
