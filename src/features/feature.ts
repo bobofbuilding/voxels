@@ -9,6 +9,7 @@ import { rebindGizmosBoundToFeature } from '../tools/gizmos'
 import { easingFunctions, easingModes, FeatureEditor, FeatureEditorProps } from '../ui/features'
 import FeatureBasicGUI from '../ui/gui/gui'
 import { inspectFeature } from '../ui/inspect-feature'
+import { enterAuthoring } from '../store'
 import { createEvent, TypedEventTarget } from '../utils/EventEmitter'
 import { getTransformVectorsRelativeToNode } from '../utils/feature'
 import { axisNames2D, axisNames3D, bboxCompletelyWithin, tidyURL, tidyVec3, XYZ } from '../utils/helpers'
@@ -99,7 +100,7 @@ export default abstract class Feature<Description extends FeatureRecord = Featur
   _triggers: Set<FeatureTrigger> = new Set()
   gizmos: BABYLON.Gizmo[] = []
   private _isPickable: boolean = true
-  public afterSetCommon?: () => void // Must be public for Group's afterSetCommon(), which calls its children
+  public afterSetCommon?: () => void
   protected abortController = new AbortController()
   private animationInstance: BABYLON.Animatable | undefined = undefined
 
@@ -391,6 +392,10 @@ export default abstract class Feature<Description extends FeatureRecord = Featur
 
   abstract scaleAxes(): XYZ[]
 
+  // UI preference (in-memory, not persisted): keep aspect ratio when scaling. Drives the editor's lock
+  // checkbox AND the in-world corner-resize handles so they agree. Subclasses can default it on.
+  scaleAspectLocked?: boolean
+
   abstract nudge(): number | null
 
   abstract legacyNudge(): number | null
@@ -472,6 +477,7 @@ export default abstract class Feature<Description extends FeatureRecord = Featur
     if (this.parcel.canEdit && window.ui) {
       const ui = window.ui
 
+      enterAuthoring(this.parcel.id)
       ui.activeTool = window.ui.featureTool
       // todo sort this shit
       ui.openEditor((this.constructor as any).Editor, this)
@@ -845,6 +851,7 @@ export default abstract class Feature<Description extends FeatureRecord = Featur
     this.deinstance()
     this.dispose()
     this.budgetUnconsume()
+    window.main?.pump.dropFeature(this.parcel.id, this.uuid)
     this.sendDeletePatch()
     this.group?.deleteIfNoChildren()
     if (isShowbox) {
@@ -960,7 +967,13 @@ export default abstract class Feature<Description extends FeatureRecord = Featur
       return { rotation, position, scaling }
     }
 
-    return getTransformVectorsRelativeToNode(this.mesh, node)
+    return this.stripMeshAdjustments(getTransformVectorsRelativeToNode(this.mesh, node))
+  }
+
+  protected applyMeshTransformAdjustments() {}
+
+  protected stripMeshAdjustments(tv: transformVectors): transformVectors {
+    return tv
   }
 
   deprecatedSince(releaseVersion: any) {
@@ -1029,6 +1042,8 @@ export default abstract class Feature<Description extends FeatureRecord = Featur
           this.mesh.scaling.addInPlaceFromFloats(nudgeGrowth, nudgeGrowth, 0)
         }
       }
+
+      this.applyMeshTransformAdjustments()
 
       // TODO FIX THIS SHIT
       const clickableMesh = this.mesh as AbstractMeshExtended
