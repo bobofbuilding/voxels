@@ -236,35 +236,40 @@ export default abstract class Controls implements IControls {
     }
   }
 
-  featureClickHandler(eventData: BABYLON.PointerInfo) {
-    // Left-click pointerdown in lock mode
-    // Note that we use POINTERTAP so it's the same event that captures pointerlock
-    // This means that the pointerlock capture can "skipNextObservers" and supress this behavour
-    if (eventData.event.button === 0 && eventData.type === BABYLON.PointerEventTypes.POINTERPICK && this.isFeatureClickingAllowed()) {
-      // Don't allow feature clicking while the UI is visible
-      if (window.ui?.visible || window.ui?.activeTool) {
-        return
-      }
-      const distance = eventData.pickInfo?.distance || Infinity
-      const parcel = (eventData?.pickInfo?.pickedMesh as MeshExtended | undefined)?.feature?.parcel
-      // Dont allow clicking if user is far away; UNLESS the feature is from a parcel you can edit
-      if (distance > this.MAX_PICK_DISTANCE && !parcel?.canEdit) return
-      const candidateHandler = (eventData?.pickInfo?.pickedMesh as MeshExtended).cvOnLeftClick
+  pickAtReticule() {
+    const engine = this.scene.getEngine()
+    const pick = this.scene.pick(engine.getRenderWidth() / 2, engine.getRenderHeight() / 2)
+    if (pick?.pickedPoint) pick.pickedPoint = pick.pickedPoint.subtract(this.worldOffset.position)
+    return pick
+  }
 
-      if (candidateHandler !== undefined) {
-        candidateHandler(eventData?.pickInfo)
-      }
+  pickForPointer(pickInfo?: BABYLON.PickingInfo | null) {
+    return hasPointerLock() ? this.pickAtReticule() : pickInfo
+  }
+
+  lockedLeftClick(pickInfo?: BABYLON.PickingInfo | null) {
+    if (!pickInfo) return
+    if (window.ui?.visible || window.ui?.activeTool) return
+    const distance = pickInfo.distance || Infinity
+    const parcel = (pickInfo.pickedMesh as MeshExtended | undefined)?.feature?.parcel
+    if (distance > this.MAX_PICK_DISTANCE && !parcel?.canEdit) return
+    const handler = (pickInfo.pickedMesh as MeshExtended | undefined)?.cvOnLeftClick
+    if (handler) handler(pickInfo)
+  }
+
+  featureClickHandler(eventData: BABYLON.PointerInfo) {
+    if (isDesktop()) return
+    if (eventData.event.button === 0 && eventData.type === BABYLON.PointerEventTypes.POINTERPICK) {
+      this.lockedLeftClick(eventData.pickInfo)
     }
   }
 
   handleContextClick(pickInfo?: BABYLON.PickingInfo | null) {
     if (!pickInfo) return
 
-    if (pickInfo.pickedMesh && 'feature' in pickInfo.pickedMesh && pickInfo.pickedMesh['feature'] instanceof Feature) {
-      const feature = pickInfo.pickedMesh['feature']
-      if (feature.onContextClick()) return
-      // we fall back to viewing parcel info if the onContextClick isn't handled by feature
-    }
+    const picked = featureFromPick(pickInfo)
+    const feature = picked?.mostParent
+    if (feature?.onContextClick()) return
 
     if (pickInfo.pickedMesh && pickInfo.pickedMesh.metadata?.avatar instanceof Avatar) {
       const avatar: Avatar = pickInfo.pickedMesh.metadata.avatar
@@ -662,13 +667,6 @@ export default abstract class Controls implements IControls {
     )
   }
 
-  /**
-   * Are features able to be clicked on? Overridden in device-specific control classes
-   */
-  isFeatureClickingAllowed(): boolean {
-    return true
-  }
-
   protected _handleGroundUnloaded() {
     this.grounded = false
   }
@@ -758,4 +756,13 @@ function generateReticule(scene: BABYLON.Scene, highlight = false) {
   // }
 
   return reticule
+}
+
+export function featureFromPick(pickInfo?: BABYLON.PickingInfo | null): Feature | null {
+  const mesh = pickInfo?.pickedMesh as MeshExtended | null
+  if (!mesh) return null
+  if (mesh.feature) return mesh.feature
+  const parent = mesh.parent as MeshExtended | null
+  if (parent?.feature) return parent.feature
+  return null
 }
