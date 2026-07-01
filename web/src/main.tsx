@@ -14,6 +14,7 @@ import NewSpace from '../account/new-space'
 import Asset from './asset'
 import Assets from './assets'
 import AssetsNew from './assets-new'
+import BehavioursDoc from './behaviours-doc'
 import EditAsset from './assets/edit'
 import { Login } from './auth/login'
 import Avatar from './avatar'
@@ -47,6 +48,7 @@ import Privacy from './privacy'
 import RenderAsset from './render/asset'
 import RenderCostume from './render/costume'
 import Search from './search'
+import Shop from './shop'
 import Space from './space'
 import SpaceEdit from './space-edit'
 import Spaces from './spaces'
@@ -63,9 +65,11 @@ import Admin from './admin/admin'
 import NotFound from './not-found'
 import { PlayPreview } from './play-preview'
 import { maybePlayPreview } from './play-preview-route'
+import { ensureRadio } from './radio/global'
 import { app, AppEvent } from './state'
 import { InWorldPane } from './in-world-pane'
 import { WorldSidebar } from './world-sidebar'
+import { ChatPage } from './chat-page'
 
 class MainApp extends Component {
   componentDidMount() {
@@ -125,6 +129,10 @@ const Main = () => {
   const coords = new URLSearchParams(urlSearch).get('coords') || ''
 
   useEffect(() => {
+    ensureRadio()
+  }, [])
+
+  useEffect(() => {
     const sync = () => setUrlSearch(location.search)
     window.addEventListener('popstate', sync)
     window.addEventListener('urlchange', sync)
@@ -160,6 +168,7 @@ const Main = () => {
         <WorldSidebar coords={coords} path={currentPath}>
           <Router onChange={handleRoute}>
             <Explore path="/" />
+            <ChatPage path="/chat" />
             <RadioPopout path="/radio" />
             <Play path="/play" />
             <Play path="/scratchpad" />
@@ -168,6 +177,7 @@ const Main = () => {
             <Terms path="/terms" />
             <Privacy path="/privacy" />
             <Conduct path="/conduct" />
+            <BehavioursDoc path="/behaviours" />
             <Logout path="/logout" />
             <NotFound path="/not-found" />
 
@@ -221,6 +231,7 @@ const Main = () => {
             <EventsNew path="/events/new" />
             <EventsEdit path="/events/:id/edit" />
             <Events path="/events" />
+            <Shop path="/shop" />
             <WompsPage path="/womps" />
 
             <IslandsAdmin path="/propose/islands" />

@@ -8,6 +8,7 @@ import { login } from './auth/state-login'
 import { PanelType } from './components/panel'
 import { app, AppEvent } from './state'
 import Icon, { CubeIcon } from './components/icons/icons'
+import RadioMini from './components/radio-mini'
 import { getCoords, withCoords } from './helpers/coords-nav'
 import { sidebarClosed } from '../../src/store'
 
@@ -19,6 +20,7 @@ const ROUTE_ICONS: Record<string, string> = {
   events: 'events',
   islands: 'islands',
   map: 'map',
+  chat: 'chat',
   parcels: 'parcels',
   spaces: 'spaces',
   womps: 'womps',
@@ -182,6 +184,7 @@ export default class WebHeader extends Component<Props, State> {
               <li>{navLink('Islands', '/islands', 'islands', isActive('islands'))}</li>
               <li>{navLink('Map', '/map', 'map', isActive('map'))}</li>
               <li>{navLink('Parcels', '/parcels', 'parcels', isActive('parcels'))}</li>
+              <li>{navLink('Chat', '/chat', 'chat', path?.startsWith('/chat') ?? false)}</li>
               <li>{navLink('Spaces', '/spaces', 'spaces', isActive('spaces'))}</li>
               <li>{navLink('Womps', '/womps', 'womps', isActive('womps'))}</li>
               <li>{navLink('Scratchpad', '/scratchpad', 'scratchpad', isActive('scratchpad'))}</li>
@@ -191,9 +194,12 @@ export default class WebHeader extends Component<Props, State> {
               {admin && <AdminMenu />}
 
               <li>
-                <form action="/search" onSubmit={this.onSubmit}>
-                  <input name="q" value={this.state.query} type="search" onInput={this.onInput} placeholder="Search" />
-                </form>
+                <div class="header-end">
+                  <RadioMini path={path ?? '/'} />
+                  <form action="/search" onSubmit={this.onSubmit}>
+                    <input name="q" value={this.state.query} type="search" onInput={this.onInput} placeholder="Search" />
+                  </form>
+                </div>
               </li>
             </ul>
           </nav>
