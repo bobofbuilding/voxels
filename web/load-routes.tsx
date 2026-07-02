@@ -20,6 +20,7 @@ import db from '../server/pg'
 import LoadingPage from './src/loading-page'
 
 import { Express } from 'express'
+import path from 'path'
 import { SUPPORTED_CHAINS_BY_ID } from '../common/helpers/chain-helpers'
 import NotFound from './src/not-found'
 
@@ -72,8 +73,13 @@ export default function loadRoutes(app: Express) {
   app.get('/conduct', cache(duration), (req, res) => {
     res.send(renderPage(<Conduct />))
   })
+
   app.get('/behaviours', cache(duration), (req, res) => {
     res.send(renderPage(<BehavioursDoc />))
+  })
+
+  app.get('/BEHAVIOURS.md', cache(duration), (req, res) => {
+    res.sendFile(path.join(__dirname, '..', 'BEHAVIOURS.md'))
   })
   app.get('/not-found', cache(duration), (req, res) => {
     res.send(renderPage(<NotFound path="/not-found" />))
@@ -96,6 +102,10 @@ export default function loadRoutes(app: Express) {
   // so if out of date, will update shortly after page load
   app.get('/parcels/:id', cache('10 seconds'), passport.authenticate(['jwt', 'anonymous'], { session: false }), (req, res) => {
     const id = parseInt(req.params.id, 10)
+    if (isNaN(id)) {
+      res.status(404).json({ success: false, message: 'not found' })
+      return
+    }
 
     queryAndCallback(db, 'get-parcel', 'parcel', [id, isOwner(req)], (response) => {
       if (!response.success) {
@@ -188,6 +198,7 @@ export default function loadRoutes(app: Express) {
     { path: '/map', cache: '1 minute' },
     { path: '/mail', cache: '1 minute' },
     { path: '/home', cache: '1 minute' },
+    { path: '/chat', cache: '1 minute' },
     { path: '/account', cache: '1 minute' },
     { path: '/account/edit', cache: '1 minute' },
     { path: '/golive', cache: '1 minute' },
@@ -211,6 +222,7 @@ export default function loadRoutes(app: Express) {
     { path: '/new', cache: '1 minute' },
     { path: '/events', cache: '1 minute' },
     { path: '/events/*', cache: '1 minute' },
+    { path: '/shop', cache: '1 minute' },
     { path: '/islands', cache: '1 minute' },
     { path: '/islands/:id', cache: '1 minute' },
     { path: '/parcels/:id', cache: '1 minute' },
