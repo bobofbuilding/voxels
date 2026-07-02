@@ -1,11 +1,21 @@
 import type Parcel from './parcel'
 import Feature from './features/feature'
 import Group from './features/group'
+import { restoreInfoOnMove } from '../common/ui-signals'
 import { signal } from '@preact/signals'
 import Grid from './grid'
 export type CheckedFeatures = Record<string, Feature>
 
 const TICK = 500
+
+// where you were standing when the womp sidebar opened; walking away from that spot restores info
+let wompAnchor: { x: number; z: number } | undefined
+let wompAnchorPath = ''
+
+const wompSidebarOpen = () =>
+  typeof location !== 'undefined' &&
+  !!new URLSearchParams(location.search).get('coords') &&
+  location.pathname.startsWith('/womps/')
 
 setInterval(() => {
   const grid = window.grid as Grid
@@ -28,6 +38,47 @@ setInterval(() => {
     currentOrNearestParcel.value = nearest
   } else {
     currentOrNearestParcel.value = undefined
+  }
+
+  // the parcel you're actually standing on (undefined in the void); drives the info pane's
+  // island-context view. separate from currentOrNearestParcel, which never goes empty.
+  currentParcel.value = grid.currentParcel() || undefined
+
+  // womp sidebar (homepage, recent womps in info, etc): once you walk again, snap back to info
+  // so you can hop between looking at womps and the parcel/island info + its recent womps list.
+  const wompSidebar = wompSidebarOpen()
+  const pane = uiPane.value
+
+  if (!wompSidebar && pane !== 'info') wompAnchor = undefined
+
+  if (!sidebarClosed.value && (restoreInfoOnMove.value || wompSidebar)) {
+    if (pane && pane !== 'info') {
+      restoreInfoOnMove.value = false
+      wompAnchor = undefined
+    } else if (wompSidebar && !pane) {
+      const path = location.pathname
+      if (path !== wompAnchorPath) {
+        wompAnchorPath = path
+        wompAnchor = undefined
+      }
+      const pos = window.persona?.position
+      if (!wompAnchor && pos) wompAnchor = { x: pos.x, z: pos.z }
+      const walked =
+        !!wompAnchor &&
+        !!pos &&
+        (Math.abs(pos.x - wompAnchor.x) > 0.08 || Math.abs(pos.z - wompAnchor.z) > 0.08)
+      if (walked) {
+        restoreInfoOnMove.value = false
+        wompAnchor = undefined
+        uiPane.value = 'info'
+        uiAsideTick.value++
+      }
+    } else if (restoreInfoOnMove.value && window.persona?.isMoving()) {
+      restoreInfoOnMove.value = false
+      wompAnchor = undefined
+      uiPane.value = 'info'
+      uiAsideTick.value++
+    }
   }
 }, TICK)
 
@@ -123,6 +174,12 @@ export const selectCurrentOrNearestParcel = () => {
   return currentOrNearestParcel.value
 }
 
+export const currentParcel = signal<Parcel | undefined>(undefined)
+
+export const selectCurrentParcel = () => {
+  return currentParcel.value
+}
+
 export const selectedFeature = signal<Feature | undefined>(undefined)
 
 export const selectSelectedFeature = () => {
@@ -153,6 +210,20 @@ export const closeBroadcastSidebar = () => {
   if (uiPane.value === 'broadcast') uiPane.value = undefined
   // the live reopen tab is gone once the uuid clears, so don't leave the sidebar stuck collapsed
   sidebarClosed.value = false
+  uiAsideTick.value++
+}
+
+export type PendingWomp = {
+  coords: string
+  parcel: Parcel
+  image: string
+}
+
+export const pendingWomp = signal<PendingWomp | null>(null)
+
+export const closeTakeWomp = () => {
+  pendingWomp.value = null
+  if (uiPane.value === 'takeWomp') uiPane.value = undefined
   uiAsideTick.value++
 }
 
