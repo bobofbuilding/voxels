@@ -7,9 +7,7 @@ import cachedFetch from '../src/helpers/cached-fetch'
 import { wompCache } from './store/index'
 import { AvatarLink } from './components/avatar-link'
 import { avatarName } from '../../common/messages/avatar-ref'
-import { Client } from './client'
-import { restoreInfoOnMove } from '../../common/ui-signals'
-import { isSplit } from './helpers/coords-nav'
+import { getCoords, naviportHere } from './helpers/coords-nav'
 import { app } from './state'
 
 const TTL = 60
@@ -55,13 +53,13 @@ export default class Womp extends Component<Props, State> {
 
   componentDidMount() {
     this.syncVisitUrl()
-    if (isSplit()) restoreInfoOnMove.value = true
+    this.ensureCoords()
     void this.fetchWomp(this.state.id)
   }
 
   async componentDidUpdate(prevProps: Props) {
     this.syncVisitUrl()
-    if (isSplit()) restoreInfoOnMove.value = true
+    this.ensureCoords()
     if (prevProps && prevProps.id != this.props.id) {
       const id = parseInt(this.props.id, 10)
       this.fetchWomp(id)
@@ -70,6 +68,13 @@ export default class Womp extends Component<Props, State> {
 
   componentWillUnmount() {
     app.visitUrl.value = undefined
+  }
+
+  ensureCoords() {
+    if (getCoords()) return
+    const c = this.state.womp?.coords
+    if (!c) return
+    naviportHere(c)
   }
 
   // the world this womp was shot in, so the header Play button enters it
@@ -148,20 +153,11 @@ export default class Womp extends Component<Props, State> {
       </Head>
     )
 
-    if (isSplit()) {
-      return (
-        <>
-          {head}
-          {this.renderAside(img)}
-        </>
-      )
-    }
-
     return (
       <section class="columns">
         <article>
           {head}
-          <Client coords={this.state.womp.coords} />
+          <div class="client-slot" />
         </article>
         <aside>{this.renderAside(img)}</aside>
       </section>

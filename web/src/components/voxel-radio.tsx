@@ -1,6 +1,6 @@
-import { Component, createRef } from 'preact'
+import { Component } from 'preact'
 import { trackTitle } from '../../../common/soundtracks'
-import { DAY, PedalId, Spot, VoxelRadioEngine } from '../radio/engine'
+import { DAY, Spot, VoxelRadioEngine } from '../radio/engine'
 import { ensureRadio, getRadio, onRadioChange } from '../radio/global'
 
 type Props = { popped?: boolean }
@@ -30,7 +30,6 @@ function savePanel(key: string, mode: PanelMode) {
   } catch {}
 }
 
-// 270deg gauge arc, gap at the bottom, 0 at top (12 o'clock)
 const R = 13
 const C = 16
 const A0 = -135
@@ -47,127 +46,7 @@ const arc = (to: number) => {
 }
 const FULL = arc(A0 + SPAN)
 
-type KnobProps = { label: string; min: number; max: number; step: number; value: number; compact?: boolean; onWake?: () => void; onChange: (v: number) => void }
-
-type KaossProps = {
-  label: string
-  x: number
-  y: number
-  level?: () => number
-  onWake?: () => void
-  onChange: (x: number, y: number) => void
-}
-
-const KCOLS = 7
-const KROWS = 7
-const KDOTS = KCOLS * KROWS
-
-class KaossPad extends Component<KaossProps> {
-  pad = createRef<HTMLDivElement>()
-  dots: HTMLSpanElement[] = []
-  held = false
-  over = false
-  idleT = 0
-  raf = 0
-
-  componentDidMount() {
-    this.loop()
-  }
-
-  componentWillUnmount() {
-    if (this.raf) cancelAnimationFrame(this.raf)
-  }
-
-  loop = () => {
-    this.raf = requestAnimationFrame(this.loop)
-    if (this.over || this.held) return
-    this.idleT += 0.016
-    const lvl = this.props.level?.() ?? 0
-    const orbit = 0.12 + lvl * 0.38
-    const x = Math.sin(this.idleT * 1.15) * orbit
-    const y = Math.cos(this.idleT * 0.92) * orbit
-    this.light(x, y, 0.1 + lvl * 0.4)
-  }
-
-  enter = () => {
-    this.over = true
-    this.props.onWake?.()
-  }
-
-  down = (e: PointerEvent) => {
-    e.preventDefault()
-    this.held = true
-    this.props.onWake?.()
-    try {
-      this.pad.current?.setPointerCapture(e.pointerId)
-    } catch {}
-    this.move(e)
-  }
-
-  move = (e: PointerEvent) => {
-    const el = this.pad.current
-    if (!el) return
-    const r = el.getBoundingClientRect()
-    const x = Math.max(-1, Math.min(1, ((e.clientX - r.left) / r.width) * 2 - 1))
-    const y = Math.max(-1, Math.min(1, (1 - (e.clientY - r.top) / r.height) * 2 - 1))
-    this.light(x, y)
-    this.props.onChange(x, y)
-  }
-
-  up = (e: PointerEvent) => {
-    this.held = false
-    try {
-      this.pad.current?.releasePointerCapture(e.pointerId)
-    } catch {}
-    this.reset()
-  }
-
-  leave = () => {
-    this.over = false
-    if (this.held) return
-    this.reset()
-  }
-
-  reset = () => {
-    this.props.onChange(0, 0)
-  }
-
-  light(x: number, y: number, boost = 0) {
-    const amt = Math.min(1, Math.max(Math.hypot(x, y), boost))
-    for (let i = 0; i < this.dots.length; i++) {
-      const dot = this.dots[i]
-      if (!dot) continue
-      const col = i % KCOLS
-      const row = Math.floor(i / KCOLS)
-      const dx = x - ((col / (KCOLS - 1)) * 2 - 1) * 0.55
-      const dy = y - ((1 - row / (KROWS - 1)) * 2 - 1) * 0.55
-      const d = Math.hypot(dx, dy)
-      const on = Math.max(0, 1 - d * 1.45) * (0.1 + amt * 0.9)
-      dot.style.opacity = String(Math.min(1, on))
-    }
-  }
-
-  render() {
-    const { label } = this.props
-    return (
-      <>
-        <div class="vr-kaoss-grid" ref={this.pad} onPointerEnter={this.enter} onPointerMove={this.move} onPointerLeave={this.leave} onPointerDown={this.down} onPointerUp={this.up} title={label}>
-          {Array.from({ length: KDOTS }, (_, i) => (
-            <span
-              key={i}
-              ref={(el) => {
-                if (el) this.dots[i] = el
-              }}
-            />
-          ))}
-        </div>
-        <div class="vr-dial-foot">
-          <span class="vr-dial-label">{label}</span>
-        </div>
-      </>
-    )
-  }
-}
+type KnobProps = { label: string; min: number; max: number; step: number; value: number; small?: boolean; onWake?: () => void; onChange: (v: number) => void }
 
 class Knob extends Component<KnobProps> {
   y = 0
@@ -193,18 +72,17 @@ class Knob extends Component<KnobProps> {
   }
 
   render() {
-    const { label, min, max, value, compact } = this.props
+    const { label, min, max, value, small } = this.props
     const t = (value - min) / (max - min)
-    const pct = compact ? Math.round(t * 100) : Math.round(value * 100)
+    const size = small ? '1.5rem' : '2rem'
     return (
-      <div class={`vr-knob${compact ? ' mini' : ''}`} onPointerDown={this.down} title={label}>
-        <svg viewBox="0 0 32 32">
-          {compact && <circle class="face" cx={C} cy={C} r={R + 2} />}
-          <path class="track" d={FULL} />
-          <path class="val" d={arc(A0 + t * SPAN)} />
+      <div onPointerDown={this.down} title={label}>
+        <svg viewBox="0 0 32 32" width={size} height={size}>
+          {small && <circle cx={C} cy={C} r={R + 2} fill="none" stroke="currentColor" stroke-width="1" />}
+          <path fill="none" stroke="currentColor" stroke-width="2" opacity="0.35" d={FULL} />
+          <path fill="none" stroke="currentColor" stroke-width="2" d={arc(A0 + t * SPAN)} />
         </svg>
-        {!compact && <span class="vr-knob-val">{pct}</span>}
-        {!compact && <label>{label}</label>}
+        {!small && <label>{label}</label>}
       </div>
     )
   }
@@ -283,118 +161,16 @@ export default class VoxelRadio extends Component<Props, State> {
     const from = Math.max(0, cur - 6)
     return items.slice(from, cur + 14).map((it) => {
       const live = it === items[cur]
-      const kind = it.spot ? 'spot' : 'music'
-      const when = live ? 'live' : it.at <= now ? 'past' : ''
       const parcelId = it.spot?.parcelId
-      const name = parcelId ? (
-        <a href={`/parcels/${parcelId}/play`} class="vr-name">
-          {it.label}
-        </a>
-      ) : (
-        <span class="vr-name">{it.label}</span>
-      )
+      const name = parcelId ? <a href={`/parcels/${parcelId}/play`}>{it.label}</a> : <span>{it.label}</span>
       return (
-        <li key={`${it.at}-${it.label}`} class={[when, kind].filter(Boolean).join(' ')} onClick={it.spot && !parcelId ? () => r?.previewSpot(it.spot!) : undefined}>
-          {live && <span class="vr-now">now</span>}
-          <span class="vr-time">{clock(it.at)}</span>
+        <li key={`${it.at}-${it.label}`} onClick={it.spot && !parcelId ? () => r?.previewSpot(it.spot!) : undefined}>
+          {live && <span>now</span>}
+          <span>{clock(it.at)}</span>
           {name}
         </li>
       )
     })
-  }
-
-  dialGrid(r: VoxelRadioEngine) {
-    const dials: { id: 'vol' | PedalId; label: string; min: number; max: number }[] = [
-      { id: 'vol', label: 'vol', min: 0, max: 1 },
-      { id: 'eq', label: 'eq', min: -1, max: 1 },
-      { id: 'dly', label: 'tape', min: -1, max: 1 },
-      { id: 'chp', label: 'gate', min: -1, max: 1 },
-    ]
-    return (
-      <>
-        {dials.map(({ id, label, min, max }) => (
-          <div class="vr-dial" key={id}>
-            <div class="vr-dial-body">
-              <Knob
-                compact
-                label={label}
-                min={min}
-                max={max}
-                step={0.03}
-                value={id === 'vol' ? r.trackVolume : r.pedalAmount(id)}
-                onWake={() => r.wake()}
-                onChange={(v) => {
-                  if (id === 'vol') r.setTrackVolume(v)
-                  else r.setPedal(id, v)
-                  this.forceUpdate()
-                }}
-              />
-            </div>
-            <div class="vr-dial-foot">
-              <span class="vr-dial-label">{label}</span>
-            </div>
-          </div>
-        ))}
-        <div class="vr-dial vr-dial-pad" key="wob">
-          <KaossPad
-            label="wob"
-            x={r.wobX}
-            y={r.wobY}
-            level={() => r.readLevel()}
-            onWake={() => r.wake()}
-            onChange={(x, y) => {
-              r.setWobPad(x, y)
-              this.forceUpdate()
-            }}
-          />
-        </div>
-      </>
-    )
-  }
-
-  panel(title: string, body: preact.ComponentChildren) {
-    if (this.state.pl === 'closed') return null
-    return (
-      <div class="vr-panel">
-        <div class="vr-panel-head">{title}</div>
-        <div class="vr-panel-body vr-playlist">{body}</div>
-      </div>
-    )
-  }
-
-  playlistBody(r: VoxelRadioEngine | null, pct: number) {
-    return (
-      <>
-        <small class="vr-day">
-          {clock(sec())} utc / day {pct}%
-        </small>
-        <div class="vr-controls">
-          <Knob
-            label="track"
-            min={0}
-            max={1}
-            step={0.05}
-            value={r?.trackVolume ?? 1}
-            onChange={(v) => {
-              r?.setTrackVolume(v)
-              this.forceUpdate()
-            }}
-          />
-          <Knob
-            label="spot"
-            min={0}
-            max={1}
-            step={0.05}
-            value={r?.spotVolume ?? 1}
-            onChange={(v) => {
-              r?.setSpotVolume(v)
-              this.forceUpdate()
-            }}
-          />
-        </div>
-        <ul>{this.rows()}</ul>
-      </>
-    )
   }
 
   render() {
@@ -407,62 +183,76 @@ export default class VoxelRadio extends Component<Props, State> {
     const compact = !this.props.popped
     const { pl } = this.state
 
-    return (
-      <div class={`voxel-radio-wrap${this.props.popped ? ' popped' : ''}${pl === 'open' ? ' pl-open' : ''}`}>
-        <div class={`voxel-radio${onAir ? ' on-air' : ''}${compact ? ' compact' : ''}`} onPointerDown={this.wake}>
-          <div class="vr-stack">
-            <div class="vr-main">
-              {compact ? (
-                <>
-                  <div class="vr-calc-head">
-                    <div class="vr-key-row">
-                      <button type="button" class="vr-key fn" onClick={this.transport} title={showPlay ? 'play' : 'stop'}>
-                        {showPlay ? '>' : '||'}
-                      </button>
-                      <button type="button" class={`vr-key fn${pl !== 'closed' ? ' on' : ''}`} onClick={this.togglePanel} title="playlist">
-                        PL
-                      </button>
-                      <button type="button" class="vr-key fn" onClick={this.popout} title="pop out">
-                        ^
-                      </button>
-                    </div>
-                    <div class="vr-calc-display">
-                      <span class="vr-brand">voxels radio{onAir ? ' *' : ''}</span>
-                      <span class="vr-track">
-                        <span>{text}</span>
-                      </span>
-                    </div>
-                  </div>
-                  {r && <div class="vr-dial-grid">{this.dialGrid(r)}</div>}
-                </>
-              ) : (
-                <>
-                  <div class="vr-calc-head popped-head">
-                    <div class="vr-screen">
-                      <span class="vr-label">voxels radio{onAir ? ' / on air' : ''}</span>
-                      <span class="vr-track">
-                        <span>{text}</span>
-                      </span>
-                    </div>
-                    <div class="vr-transport">
-                      <button type="button" class="vr-toggle" onClick={this.transport} title={showPlay ? 'play' : 'stop'}>
-                        {showPlay ? 'play' : 'stop'}
-                      </button>
-                      <button type="button" class={`vr-btn${pl !== 'closed' ? ' active' : ''}`} onClick={this.togglePanel} title="playlist">
-                        pl
-                      </button>
-                    </div>
-                  </div>
-                  <div class="vr-progress vr-progress-main">
-                    <span style={`width:${pct}%`} />
-                  </div>
-                </>
-              )}
-            </div>
-
-            {this.panel('playlist', this.playlistBody(r, pct))}
-          </div>
+    if (compact) {
+      return (
+        <div class="voxel-radio" onPointerDown={this.wake}>
+          <button type="button" onClick={this.transport} title={showPlay ? 'play' : 'pause'}>
+            {showPlay ? '\u25B6' : '\u23F8'}
+          </button>
+          <a href="/radio">{text}</a>
+          {r && (
+            <Knob
+              small
+              label="vol"
+              min={0}
+              max={1}
+              step={0.03}
+              value={r.trackVolume}
+              onWake={() => r.wake()}
+              onChange={(v) => {
+                r.setTrackVolume(v)
+                this.forceUpdate()
+              }}
+            />
+          )}
         </div>
+      )
+    }
+
+    return (
+      <div class="voxel-radio" style={{ flexDirection: 'column', alignItems: 'stretch' }} onPointerDown={this.wake}>
+        <span>{onAir ? 'Radio / on air' : 'Radio'}</span>
+        <span>{text}</span>
+        <button type="button" onClick={this.transport} title={showPlay ? 'play' : 'stop'}>
+          {showPlay ? 'play' : 'stop'}
+        </button>
+        <button type="button" onClick={this.togglePanel} title="playlist">
+          pl
+        </button>
+        <div style={{ height: '0.25rem', background: 'var(--tinge)' }}>
+          <span style={{ display: 'block', height: '100%', width: `${pct}%`, background: 'var(--bright)' }} />
+        </div>
+        {pl !== 'closed' && (
+          <>
+            <strong>playlist</strong>
+            <small>
+              {clock(sec())} utc / day {pct}%
+            </small>
+            <Knob
+              label="track"
+              min={0}
+              max={1}
+              step={0.05}
+              value={r?.trackVolume ?? 1}
+              onChange={(v) => {
+                r?.setTrackVolume(v)
+                this.forceUpdate()
+              }}
+            />
+            <Knob
+              label="spot"
+              min={0}
+              max={1}
+              step={0.05}
+              value={r?.spotVolume ?? 1}
+              onChange={(v) => {
+                r?.setSpotVolume(v)
+                this.forceUpdate()
+              }}
+            />
+            <ul>{this.rows()}</ul>
+          </>
+        )}
       </div>
     )
   }

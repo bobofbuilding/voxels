@@ -1,6 +1,6 @@
 import Controls, { CAMERA_DISTANCE } from '../controls'
 import DpadControls, { toggleDpadControls } from '../../ui/mobile/dpad'
-import OurCamera from '../utils/our-camera'
+import PlayerCamera from '../utils/player-camera'
 import { decodeCoords } from '../../../common/helpers/utils'
 import { getCoordsFromURL } from '../../utils/helpers'
 import { createFirstPersonCamera } from '../utils/fps-camera'
@@ -31,7 +31,7 @@ export default class MobileControls extends Controls {
     return camera
   }
 
-  addControls(camera: OurCamera | BABYLON.ArcRotateCamera) {
+  addControls(camera: PlayerCamera | BABYLON.ArcRotateCamera) {
     camera.attachControl(this.canvas, true)
 
     // Mobile overlays
@@ -44,6 +44,13 @@ export default class MobileControls extends Controls {
       this.reticuleNormal.visibility = 0
       this.reticuleHighlight.visibility = 0
       this.walking()
+    })
+
+    this.scene.onPointerObservable.add((info) => {
+      if (!this.idleLook.active) return
+      if (info.type !== BABYLON.PointerEventTypes.POINTERMOVE) return
+      const e = info.event as PointerEvent
+      if (e.movementX || e.movementY) this.idleLook.stop()
     })
 
     // by now the UX buttons for the mobile should be in the DOM so we can grab them
@@ -95,13 +102,14 @@ export default class MobileControls extends Controls {
     // while driving, dpad feeds updateVehicle via this.direction - do not also walk the camera
     if (this.vehicleFeature) return
 
-    const camera = this.camera as OurCamera & {
+    const camera = this.camera as PlayerCamera & {
       _localDirection: BABYLON.Vector3
       _transformedDirection: BABYLON.Vector3
       _cameraTransformMatrix: BABYLON.Matrix
     }
 
     if (this.direction) {
+      if (this.direction.lengthSquared() > 1e-6) this.idleLook.stop()
       camera._localDirection.copyFrom(this.direction)
     }
 

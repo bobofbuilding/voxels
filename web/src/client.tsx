@@ -2,23 +2,27 @@ import { Component, createRef } from 'preact'
 import { route } from 'preact-router'
 import { canUseDom } from '../../common/helpers/utils'
 import { getCoords, notifyUrlChange, syncParcelUrl } from './helpers/coords-nav'
-import { app } from './state'
 import type { BootResult } from '../../src'
 
 function boot(): Promise<BootResult> {
   return import(/* webpackMode: "eager" */ '../../src').then((m) => m.bootEngine())
 }
 
+type Mode = 'full' | 'embed'
+
 type FrameProps = {
   coords: string
+  mode: Mode
 }
 
 type FrameState = { ui?: BootResult }
 
 export class Client extends Component<FrameProps, FrameState> {
+  root = createRef<HTMLDivElement>()
   box = createRef<HTMLDivElement>()
   observer: ResizeObserver | null = null
   watch: ReturnType<typeof setInterval> | null = null
+  fit: (() => void) | null = null
 
   componentDidMount() {
     if (!canUseDom) {
@@ -34,22 +38,20 @@ export class Client extends Component<FrameProps, FrameState> {
     if (previousProps.coords !== this.props.coords && this.props.coords) {
       this.naviport()
     }
+    if (this.props.mode === 'embed' || previousProps.mode !== this.props.mode) {
+      this.track()
+    }
   }
 
   componentWillUnmount() {
-    this.observer?.disconnect()
-    this.observer = null
+    this.untrack()
     if (this.watch) clearInterval(this.watch)
     this.watch = null
 
     const canvas = document.getElementById('renderCanvas')
     if (canvas && this.box.current?.contains(canvas)) {
-      if (app.playPreview.value) {
-        document.getElementById('world-preview')?.appendChild(canvas)
-        window.engine?.resize()
-      } else {
-        document.getElementById('world-holder')?.appendChild(canvas)
-      }
+      canvas.style.display = 'none'
+      document.body.appendChild(canvas)
     }
 
     document.body.classList.remove('in-world')
@@ -63,15 +65,10 @@ export class Client extends Component<FrameProps, FrameState> {
     }
 
     box.appendChild(canvas)
+    canvas.style.display = 'block'
     document.body.classList.add('in-world')
-
     this.syncCoordsUrl()
-
-    this.observer?.disconnect()
-    this.observer = new ResizeObserver(() => window.engine?.resize())
-    this.observer.observe(box)
-    window.engine?.resize()
-
+    this.track()
     this.naviport()
 
     if (this.watch) clearInterval(this.watch)
@@ -86,6 +83,49 @@ export class Client extends Component<FrameProps, FrameState> {
         syncParcelUrl(id)
       }
     }, 200)
+  }
+
+  private untrack() {
+    this.observer?.disconnect()
+    this.observer = null
+    if (this.fit) {
+      window.removeEventListener('scroll', this.fit, true)
+      this.fit = null
+    }
+  }
+
+  private track() {
+    this.untrack()
+
+    const root = this.root.current
+    if (!root) return
+
+    if (this.props.mode === 'full') {
+      root.style.top = ''
+      root.style.left = ''
+      root.style.width = ''
+      root.style.height = ''
+      window.engine?.resize()
+      return
+    }
+
+    const slot = document.querySelector('.client-slot') as HTMLElement | null
+    if (!slot) return
+
+    const fit = () => {
+      const r = slot.getBoundingClientRect()
+      root.style.top = `${r.top + window.scrollY}px`
+      root.style.left = `${r.left + window.scrollX}px`
+      root.style.width = `${r.width}px`
+      root.style.height = `${r.height}px`
+      window.engine?.resize()
+    }
+
+    this.fit = fit
+    fit()
+    this.observer = new ResizeObserver(fit)
+    this.observer.observe(slot)
+    window.addEventListener('scroll', fit, true)
   }
 
   private syncCoordsUrl() {
@@ -116,10 +156,10 @@ export class Client extends Component<FrameProps, FrameState> {
   render() {
     const ui = this.state.ui
     return (
-      <>
-        <div class="client-placeholder" ref={this.box} />
+      <div class={`client -${this.props.mode}`} ref={this.root}>
+        <div class="client-canvas" ref={this.box} />
         {ui && <ui.UI {...ui.props} />}
-      </>
+      </div>
     )
   }
 }

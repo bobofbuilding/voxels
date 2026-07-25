@@ -11,9 +11,8 @@ import { app, AppEvent } from './state'
 import { fetchOptions } from './utils'
 import { AvatarLink } from './components/avatar-link'
 import { ParcelMetrics as Metrics } from './components/metrics'
-import { Client } from './client'
 import { ParcelShop } from './components/parcel-shop'
-import { isSplit, getParcelIdFromPath, routeWithCoords, withCoords } from './helpers/coords-nav'
+import { getCoords, getParcelIdFromPath, naviportHere, routeWithCoords, withCoords } from './helpers/coords-nav'
 
 export interface Props {
   parcel?: ParcelWithMintednessRecord
@@ -99,7 +98,6 @@ export default class Parcel extends Component<Props, State> {
   }
 
   onUrl = () => {
-    if (!isSplit()) return
     const id = getParcelIdFromPath()
     if (!id || id === this.state.parcelId) return
     void this.fetch(id)
@@ -132,6 +130,13 @@ export default class Parcel extends Component<Props, State> {
     this.abort = null
   }
 
+  ensureCoords() {
+    if (getCoords()) return
+    const c = this.helper?.spawnCoords
+    if (!c) return
+    naviportHere(c)
+  }
+
   componentDidMount() {
     this.syncVisitUrl()
     void this.fetch(this.props.id!)
@@ -140,14 +145,13 @@ export default class Parcel extends Component<Props, State> {
       history.pushState = (history as any)['oldPushState']
     }
     app.on(AppEvent.Change, this.onAppChange)
-    if (isSplit()) {
-      window.addEventListener('parcelchange', this.onUrl)
-    }
+    window.addEventListener('parcelchange', this.onUrl)
   }
 
   componentDidUpdate(prevProps: Props, prevState: State) {
     this.syncVisitUrl()
-    if (!isSplit() && this.props.id != this.state.parcelId) {
+    this.ensureCoords()
+    if (this.props.id != this.state.parcelId) {
       void this.fetch(this.props.id!)
     }
 
@@ -172,9 +176,7 @@ export default class Parcel extends Component<Props, State> {
     this.map = null
     this.parcelLayer = null
 
-    if (isSplit()) {
-      window.removeEventListener('parcelchange', this.onUrl)
-    }
+    window.removeEventListener('parcelchange', this.onUrl)
 
     history.pushState = function () {
       ;(history as any)['oldPushState'].apply(this, arguments as any)
@@ -396,20 +398,11 @@ export default class Parcel extends Component<Props, State> {
 
     const head = <Head title={parcelName} description={parcelDesc} url={`/parcels/${this.state.parcelId}`} imageURL={ogImage} />
 
-    if (isSplit()) {
-      return (
-        <>
-          {head}
-          {this.renderSidebar(islandSlug!)}
-        </>
-      )
-    }
-
     return (
       <section class="columns parcel-page">
         <article>
           {head}
-          <Client coords={this.helper.spawnCoords} />
+          <div class="client-slot" />
         </article>
         <aside>{this.renderSidebar(islandSlug!)}</aside>
       </section>
