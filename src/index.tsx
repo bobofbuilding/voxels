@@ -61,7 +61,6 @@ import { createWorld } from './init/world'
 import { sceneConfigFromURL, SceneConfig } from './scene-config'
 import type { Environment } from './enviroments/environment'
 import { PostProcesses } from './graphic/post-processes'
-import LutFactor from './graphic/lut-factor'
 import { ColorGrader } from './graphic/color-grading'
 import { FOV } from './graphic/field-of-view'
 import { Minimap, MinimapSettings } from './minimap'
@@ -158,21 +157,13 @@ async function main() {
 
   const canvas = document.createElement('canvas')
   canvas.id = 'renderCanvas'
-  canvas.style.cssText = 'width: 100%; height: 100%; display: block; touch-action: none;'
-
-  // The one canvas lives forever. The web router (web/src/parcel.tsx Client)
-  // reparents it into whatever view is on screen and parks it back here when no
-  // world is visible, so the WebGL context never dies between navigations.
-  const holder = document.createElement('div')
-  holder.id = 'world-holder'
-  holder.style.cssText = 'position: fixed; left: -99999px; width: 1px; height: 1px; overflow: hidden;'
-  holder.appendChild(canvas)
-  document.body.appendChild(holder)
+  canvas.style.cssText = 'width: 100%; height: 100%; display: none; touch-action: none;'
+  document.body.appendChild(canvas)
 
   canvas.addEventListener(
     'wheel',
     (e) => {
-      if (document.body.classList.contains('in-world')) e.preventDefault()
+      if (document.querySelector('.client')?.contains(canvas)) e.preventDefault()
     },
     { passive: false },
   )
@@ -313,7 +304,7 @@ async function main() {
   new DragDrop(scene)
 
   // not related to a parcel or space
-  const { environment, regions } = await createEnvironment(scene, controls.worldOffset)
+  const { environment } = await createEnvironment(scene, controls.worldOffset)
   // Give the Controls a chance to observe things in the Environment
   controls.attachEnvironment(environment)
 
@@ -321,13 +312,7 @@ async function main() {
     xr.attachEnvironment(environment)
   }
 
-  const lutFactor = new LutFactor()
-  const color = new ColorGrader(scene, lutFactor)
-  regions.addEventListener('color-grading-entered', color.colorGradingEntered.bind(color))
-  regions.addEventListener('color-grading-exited', color.colorGradingExited.bind(color))
-
-  // @ts-expect-error for debug
-  window._lutFactor = lutFactor
+  const color = new ColorGrader(scene)
   window._color = color
 
   graphic.postProcesses = new PostProcesses(scene, color, graphic)
@@ -348,7 +333,7 @@ async function main() {
     mapSettings = map.getSettings()
 
     if (!window.config.isBot) {
-      if (mapSettings.enabled && !window.config.isOrbit && !window.config.isSpace) {
+      if (mapSettings.enabled && !window.config.isSpace) {
         mapScene = map.start(scene)
         main.setMapScene(mapScene)
       }
@@ -387,13 +372,13 @@ async function main() {
 
   if (wantsXR()) return ui
 
-  isInspect() && toggleBabylonInspector(scene).then(/** ignore promise */)
-  // also toggle the inspector on Shift + CTRL + Meta + I
-  window.addEventListener('keydown', (ev) => {
-    if (ev.shiftKey && ev.ctrlKey && ev.metaKey && ev.code === 'KeyI') {
-      toggleBabylonInspector(scene)
-    }
-  })
+  // isInspect() && toggleBabylonInspector(scene).then(/** ignore promise */)
+  // // also toggle the inspector on Shift + CTRL + Meta + I
+  // window.addEventListener('keydown', (ev) => {
+  //   if (ev.shiftKey && ev.ctrlKey && ev.metaKey && ev.code === 'KeyI') {
+  //     toggleBabylonInspector(scene)
+  //   }
+  // })
 
   return ui
 

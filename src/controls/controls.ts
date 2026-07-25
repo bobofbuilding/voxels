@@ -4,7 +4,7 @@ import { decodeCoordsFromURL } from '../utils/helpers'
 import { encodeCoords } from '../../common/helpers/utils'
 import type Grid from '../grid'
 import Connector from '../connector'
-import OurCamera from './utils/our-camera'
+import PlayerCamera from './utils/player-camera'
 import { isLoaded } from '../utils/loading-done'
 import Feature, { MeshExtended } from '../features/feature'
 import Avatar from '../avatar'
@@ -13,6 +13,7 @@ import type { Environment } from '../enviroments/environment'
 import { hasPointerLock } from '../../common/helpers/ui-helpers'
 import { IControls } from './iControls'
 import { Animations } from '../avatar-animations'
+import { IdleLook } from './idle-look'
 
 export const CAMERA_DISTANCE = isMobile() ? 2.5 : 1.5
 export const MIN_CAMERA_DISTANCE = 0.5
@@ -75,7 +76,7 @@ const easeCamera = (current: number, target: number, easingSpeed = CAMERA_EASE_O
 const MIN_CAMERA_DISTANCE_FOR_SELF_AVATAR = 0.2
 
 export default abstract class Controls implements IControls {
-  camera: OurCamera | BABYLON.ArcRotateCamera = undefined!
+  camera: PlayerCamera | BABYLON.ArcRotateCamera = undefined!
   // initialCameraPos:
   // this allows us to do camera transformation for 1st/3rd view and still keeping the
   // Controls to move the camera. The trick is to cache the camera position before rendering
@@ -128,6 +129,7 @@ export default abstract class Controls implements IControls {
   private vehicleWasFirstPerson = true
   private vehicleFlyingRestore: boolean | null = null
   private vehicleLastStateAt = 0
+  private vehicleNearbyAt = 0
   private vehicleHintEl: HTMLDivElement | null = null
   vehicleNearby: import('../features/vox-model').Megavox | null = null
   /** mobile / shared: -1..1 forward and turn while driving */
@@ -136,6 +138,7 @@ export default abstract class Controls implements IControls {
   MAX_PICK_DISTANCE = 20
   gravityDisabledOverride: boolean | null = null
   audioContext: AudioContext = undefined!
+  idleLook: IdleLook
   private cameraZoomed = false
   // For gravity gating. See refreshGravity().
   private _containingParcelsWaitState: 'ready' | 'waiting-for-parcel-list' | 'waiting-for-colliders' = 'ready'
@@ -146,6 +149,7 @@ export default abstract class Controls implements IControls {
     protected canvas: HTMLCanvasElement,
   ) {
     this.user = window.user
+    this.idleLook = new IdleLook(this, this.scene)
 
     this.worldOffset = new BABYLON.TransformNode('avatar/worldOffset', this.scene)
 
@@ -179,32 +183,33 @@ export default abstract class Controls implements IControls {
       })
     }
 
-    if (!window.config.isOrbit) {
-      this.scene.onBeforeRenderObservable.add(() => {
-        if (this.initialCameraPos) {
-          console.warn('this.initialCameraPos already set in onBeforeRenderObservable(). suspected logic error')
-        }
-        this.updateConga()
-        this.updateVehicle()
-        // let persona update its position from the camera, since we are steering the camera
-        this.persona.update(cameraPosition(this.scene), cameraRotation(this.scene), this)
-        this.swimming = this.persona.isSwimming(SWIM_LEVEL) ?? this.swimming
-        // store the position before we do camera adjustment in perspectiveAdjustment
-        this.initialCameraPos = this.camera.position.clone()
-        // adjust camera for 1st / 3rd person view
-        this.firstOrThirdPersonAdjustment()
-      })
+    this.scene.onBeforeRenderObservable.add(() => {
+      if (this.initialCameraPos) {
+        console.warn('this.initialCameraPos already set in onBeforeRenderObservable(). suspected logic error')
+      }
+      if (this.idleLook.active) {
+        this.idleLook.tick(this.scene.getEngine().getDeltaTime() / 1000)
+      }
+      this.updateConga()
+      this.updateVehicle()
+      // let persona update its position from the camera, since we are steering the camera
+      this.persona.update(cameraPosition(this.scene), cameraRotation(this.scene), this)
+      this.swimming = this.persona.isSwimming(SWIM_LEVEL) ?? this.swimming
+      // store the position before we do camera adjustment in perspectiveAdjustment
+      this.initialCameraPos = this.camera.position.clone()
+      // adjust camera for 1st / 3rd person view
+      this.firstOrThirdPersonAdjustment()
+    })
 
-      this.scene.onAfterRenderObservable.add(() => {
-        if (this.initialCameraPos) {
-          // we have rendered, possibly with the camera in 3rd person view, set it back to how it was before adjustement
-          this.camera.position = this.initialCameraPos
-          this.initialCameraPos = null
-        } else {
-          console.warn('resetCamera() called without an this.initialCameraPos. suspected logic error')
-        }
-      })
-    }
+    this.scene.onAfterRenderObservable.add(() => {
+      if (this.initialCameraPos) {
+        // we have rendered, possibly with the camera in 3rd person view, set it back to how it was before adjustement
+        this.camera.position = this.initialCameraPos
+        this.initialCameraPos = null
+      } else {
+        console.warn('resetCamera() called without an this.initialCameraPos. suspected logic error')
+      }
+    })
 
     // Seriously limit pick checking on mouse moves
     this.defaultPointerMovePredicate = this.defaultPointerMovePredicate.bind(this)
@@ -264,7 +269,7 @@ export default abstract class Controls implements IControls {
       // Only third person needs to move the pick camera back to match the rendered view.
       // First person picks with the live camera (same path as the working unlocked pick),
       // so the ray starts at the true eye, not the persona origin.
-      if (!window.config.isOrbit && !this.firstPersonView && this.persona) {
+      if (!this.firstPersonView && this.persona) {
         const q = BABYLON.Quaternion.RotationYawPitchRoll(cam.rotation.y, cam.rotation.x, cam.rotation.z)
         const back = new BABYLON.Vector3(0, 0, -1).rotateByQuaternionToRef(q, new BABYLON.Vector3())
         cam.position.copyFrom(this.persona.position.add(back.scale(this.cameraDistance)))
@@ -294,7 +299,7 @@ export default abstract class Controls implements IControls {
     if (hasPointerLock()) {
       return this.pickAtView(undefined, undefined, true)
     }
-    if (!window.config.isOrbit && !this.firstPersonView) {
+    if (!this.firstPersonView) {
       return this.pickAtView(this.scene.pointerX, this.scene.pointerY, true) ?? pickInfo ?? null
     }
     return pickInfo ?? null
@@ -372,9 +377,9 @@ export default abstract class Controls implements IControls {
     this.showSelfAvatar ? this.persona.avatar?.show() : this.persona.avatar?.hide()
   }
 
-  abstract createCamera(): OurCamera | BABYLON.ArcRotateCamera
+  abstract createCamera(): PlayerCamera | BABYLON.ArcRotateCamera
 
-  abstract addControls(camera: OurCamera | BABYLON.ArcRotateCamera): void
+  abstract addControls(camera: PlayerCamera | BABYLON.ArcRotateCamera): void
 
   enableMovement() {
     this.camera.speed = this.running ? this.runSpeed : this.defaultSpeed
@@ -491,7 +496,7 @@ export default abstract class Controls implements IControls {
 
   // this is called by the render loop in index.ts
   refreshGravity() {
-    if (this.camera instanceof OurCamera) {
+    if (this.camera instanceof PlayerCamera) {
       // To avoid falling into the abyss, or through the floor of a second-floor parcel, gravity stays off at least until:
       // 1. All islands have been meshed (this.grounded === true), and
       // 2. Every parcel containing the camera position has a collider (this._containingParcelsWaitState === 'ready').
@@ -733,7 +738,8 @@ export default abstract class Controls implements IControls {
   findNearbyDriveable(): import('../features/vox-model').Megavox | null {
     const grid = this.grid
     if (!grid) return null
-    const me = this.persona.position
+    // persona is world/grid; absolutePosition is scene-absolute (includes worldOffset)
+    const me = this.persona.position.add(this.worldOffset.position)
     let best: import('../features/vox-model').Megavox | null = null
     let bestD = 4 * 4
     const parcels = this.grid.parcels
@@ -862,14 +868,18 @@ export default abstract class Controls implements IControls {
   private updateVehicle() {
     // proximity hint when not driving
     if (!this.vehicleFeature) {
-      const near = this.findNearbyDriveable()
-      this.vehicleNearby = near
+      const now = Date.now()
+      if (now - this.vehicleNearbyAt > 250) {
+        this.vehicleNearbyAt = now
+        this.vehicleNearby = this.findNearbyDriveable()
+        this.refreshMobileDriveChrome?.()
+      }
+      const near = this.vehicleNearby
       if (near && !near.driverUuid) {
         this.setVehicleHint(isMobile() ? null : 'E drive')
       } else {
         this.setVehicleHint(null)
       }
-      this.refreshMobileDriveChrome?.()
       return
     }
 
