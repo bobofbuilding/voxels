@@ -77,13 +77,6 @@ export default class Persona {
       }
     }, 500)
 
-    // Don't load the avatar resources in orbit mode;
-    // Login is also not allowed in orbit mode
-    // This can be changed in the future when we have readonly mode
-    if (window.config.isOrbit) {
-      return
-    }
-
     // load avatar on startup for all users (anonymous or logged in)
     loadAvatar()
 
@@ -96,6 +89,10 @@ export default class Persona {
         this.avatar.attachmentManager?.loadCostume()
       }
     })
+
+    setTimeout(() => {
+      this.controls.idleLook?.start()
+    }, 1000)
   }
 
   private _animation: Animations
@@ -196,6 +193,8 @@ export default class Persona {
 
     // clear out previous grounded and wait for new ground to load so that we don't fall before parcel has loaded
     this.controls.invalidateGroundLoaded()
+
+    this.controls.idleLook?.start()
   }
 
   popState(controls: Controls) {

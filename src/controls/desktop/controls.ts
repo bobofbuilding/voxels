@@ -1,6 +1,6 @@
 import Controls, { featureFromPick, MAX_CAMERA_DISTANCE, MIN_CAMERA_DISTANCE } from '../controls'
 
-import OurCamera from '../utils/our-camera'
+import PlayerCamera from '../utils/player-camera'
 import { LocaleKeyboardMoveInput } from '../utils/locale-keyboard-move-input'
 import { clamp } from 'lodash'
 import { unmountComponentAtNode } from 'preact/compat'
@@ -35,7 +35,7 @@ export default class DesktopControls extends Controls {
     return camera
   }
 
-  addControls(camera: OurCamera) {
+  addControls(camera: PlayerCamera) {
     camera.attachControl(this.canvas, true)
     this.addLockListener()
 
@@ -73,7 +73,7 @@ export default class DesktopControls extends Controls {
   }
 
   onPointerLockChange() {
-    const cam = this.camera as OurCamera | undefined
+    const cam = this.camera as PlayerCamera | undefined
     if (!cam?.inputs) return
 
     const canvas = this.scene.getEngine().getRenderingCanvas()
@@ -84,10 +84,13 @@ export default class DesktopControls extends Controls {
 
     const mouse = cam.inputs.attached['mouse'] as BABYLON.FreeCameraMouseInput | undefined
     if (locked) {
+      // lerp out — don't abort/snap
+      this.idleLook.stop()
       mouse?.attachControl(true)
     } else {
       mouse?.detachControl()
       this.resetControls()
+      this.idleLook.start()
     }
   }
 
@@ -112,6 +115,8 @@ export default class DesktopControls extends Controls {
 
     if (eventData.type === BABYLON.PointerEventTypes.POINTERDOWN && btn === 0 && !hasPointerLock() && !eventData.event.shiftKey) {
       window.ui?.clearAllExplore()
+      // start lerp-out on the click itself so it doesn't snap when lock fires
+      this.idleLook.stop()
       this.requestPointerLock()?.catch(() => {})
       return
     }
@@ -226,6 +231,9 @@ export default class DesktopControls extends Controls {
       this.shiftKey = e.shiftKey
       this.ctrlKey = e.ctrlKey || e.metaKey
 
+      const moveKeys = ['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space', 'PageUp', 'PageDown', 'KeyV']
+      if (moveKeys.includes(e.code)) this.idleLook.stop()
+
       const congaCancelKeys = ['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight']
       if (this.congaTarget && congaCancelKeys.includes(e.code)) {
         this.stopConga()
@@ -285,7 +293,7 @@ export default class DesktopControls extends Controls {
     )
   }
 
-  addGamepadControls(camera: OurCamera) {
+  addGamepadControls(camera: PlayerCamera) {
     camera.inputs.addGamepad()
     const gamepad = <BABYLON.FreeCameraGamepadInput>camera.inputs.attached['gamepad']
 
@@ -367,11 +375,13 @@ export default class DesktopControls extends Controls {
       element.remove()
     })
 
-    this.canvas.focus()
-
+    // don't focus() before lock — steals the user gesture, forces a second click
     const maybePromise: unknown = this.canvas.requestPointerLock()
     if (maybePromise instanceof Promise) {
-      return maybePromise
+      return maybePromise.then((v) => {
+        this.canvas.focus()
+        return v
+      })
     }
 
     return new Promise<Event>((resolve, reject) => {
@@ -385,6 +395,7 @@ export default class DesktopControls extends Controls {
       }
       const pointerLockSuccess = (e: Event) => {
         removeEvents()
+        this.canvas.focus()
         resolve(e)
       }
 

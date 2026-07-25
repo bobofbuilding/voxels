@@ -5,8 +5,18 @@ export function getCoords() {
   return new URLSearchParams(location.search).get('coords') || ''
 }
 
-export function isSplit() {
-  return !!getCoords()
+export function isFullClientPath(path?: string) {
+  const p = (path || (typeof location !== 'undefined' ? location.pathname : '')).split('?')[0]
+  if (p === '/play' || p === '/scratchpad') return true
+  if (/^\/spaces\/[^/]+\/play$/.test(p)) return true
+  if (/^\/assets\/\d+\/play$/.test(p)) return true
+  return false
+}
+
+/** space/asset detail pages that host an embedded client-slot */
+export function isEmbedClientPath(path?: string) {
+  const p = (path || (typeof location !== 'undefined' ? location.pathname : '')).split('?')[0]
+  return /^\/spaces\/[^/]+$/.test(p) || /^\/assets\/\d+$/.test(p)
 }
 
 export function withCoords(path: string) {
