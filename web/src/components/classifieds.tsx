@@ -3,11 +3,11 @@ import cachedFetch from '../helpers/cached-fetch'
 import Toggle from './toggle'
 
 type Item = { id: number; name: string | null; address: string; price: number; permalink: string }
-type Data = { fresh: Item[]; secondary: Item[]; deals: Item[] }
-type Tab = 'fresh' | 'secondary' | 'deals'
+type Data = { fresh: Item[]; secondary: Item[] }
+type Tab = 'fresh' | 'secondary'
 type Sort = 'name' | 'address' | 'price'
 
-const LABELS: Record<Tab, string> = { fresh: 'freshly minted', secondary: 'secondary', deals: 'deals' }
+const LABELS: Record<Tab, string> = { fresh: 'freshly minted', secondary: 'secondary' }
 const URL = '/api/classifieds.json'
 const eth = (n: number) => parseFloat(n.toFixed(3))
 const name = (i: Item) => i.name || i.address || `#${i.id}`
@@ -37,10 +37,10 @@ export default function Classifieds({ limit }: Props) {
       .catch(() => {})
   }, [limit])
 
-  if (!data || (!data.fresh.length && !data.secondary.length && !data.deals.length)) return null
+  if (!data || (!data.fresh.length && !data.secondary.length)) return null
 
-  const tabs = (['fresh', 'secondary', 'deals'] as Tab[]).filter((t) => t !== 'fresh' || data.fresh.length)
-  const active = tabs.includes(tab) ? tab : tabs[0]
+  const showTabs = data.fresh.length > 0 && data.secondary.length > 0
+  const active: Tab = showTabs ? (tab === 'fresh' ? 'fresh' : 'secondary') : data.fresh.length ? 'fresh' : 'secondary'
 
   const toggleSort = (field: Sort) => {
     if (sort === field) setAsc(!asc)
@@ -83,8 +83,12 @@ export default function Classifieds({ limit }: Props) {
 
   return (
     <div class="classifieds">
+      <br />
+      <br />
       <div class="classifieds-head">
-        <h3>shop</h3>
+        <h3>
+          <a href="/shop">Shop</a>
+        </h3>
         {!limit && (
           <div class="classifieds-currency">
             <span class={!usd ? 'active' : ''}>eth</span>
@@ -93,13 +97,15 @@ export default function Classifieds({ limit }: Props) {
           </div>
         )}
       </div>
-      <nav class="classifieds-tabs">
-        {tabs.map((t) => (
-          <button key={t} class={active === t ? 'active' : ''} onClick={() => setTab(t)}>
-            {LABELS[t]}
-          </button>
-        ))}
-      </nav>
+      {showTabs && (
+        <nav class="classifieds-tabs">
+          {(['fresh', 'secondary'] as Tab[]).map((t) => (
+            <button key={t} class={active === t ? 'active' : ''} onClick={() => setTab(t)}>
+              {LABELS[t]}
+            </button>
+          ))}
+        </nav>
+      )}
       <table class="clipped">
         <thead>
           <tr>
@@ -126,11 +132,6 @@ export default function Classifieds({ limit }: Props) {
           )}
         </tbody>
       </table>
-      {limit ? (
-        <p>
-          <a href="/shop">view all listings</a>
-        </p>
-      ) : null}
     </div>
   )
 }

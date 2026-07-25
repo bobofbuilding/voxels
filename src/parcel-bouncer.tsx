@@ -120,8 +120,6 @@ export default class ParcelBouncer {
   }
 
   async handleUser() {
-    // Dont handle a non existant user in orbit mode
-    if (window.config.isOrbit) return
     this.init()
     if (!this.onlyTokenHoldersCanEnter) {
       // The parcel is not private, do nothing
@@ -357,7 +355,7 @@ function DisplayParcelNFTRequirementsOverlay({ parcel, state, onClose }: { parce
   const nfts = parcel.settings.tokensToEnter?.map((t) => <TokenToHave tokensToEnter={t} key={t.address + t.tokenId} />)
 
   return (
-    <div className="OverlayWindow -auto-height">
+    <dialog className="-auto-height">
       <header>
         <h3>This parcel limits entry to NFT holders</h3>
         <button className="close" onClick={onClose}>
@@ -381,7 +379,7 @@ function DisplayParcelNFTRequirementsOverlay({ parcel, state, onClose }: { parce
       ) : (
         <Panel type="danger"> You do not meet any of the conditions to enter this parcel</Panel>
       )}
-    </div>
+    </dialog>
   )
 }
 
