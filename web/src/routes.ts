@@ -13,14 +13,12 @@ export const routes: RouteDef[] = [
   { path: '/blog', component: 'blog' },
   { path: '/blog/:slug', component: 'post' },
   { path: '/chat', component: 'chat' },
-  { path: '/menu', component: 'menu' },
   { path: '/terms', component: 'terms', server: false },
   { path: '/privacy', component: 'privacy', server: false },
   { path: '/conduct', component: 'conduct', server: false },
   { path: '/behaviours', component: 'behaviours', server: false },
   { path: '/logout', component: 'logout', cache: false },
   { path: '/not-found', component: 'notFound', server: false },
-  { path: '/mail', component: 'mail' },
   { path: '/search', component: 'search' },
   { path: '/assets', component: 'assets' },
   { path: '/assets/new', component: 'assetsNew' },
@@ -73,7 +71,6 @@ export const routes: RouteDef[] = [
   { path: '/costumes/', server: '/costumes/', cache: '30 seconds' },
   { path: '/metrics', server: '/metrics', cache: false },
   { path: '/radio', server: '/radio' },
-  { path: '/scratchpad', server: '/scratchpad' },
 ]
 
 type ShellRoute = { path: string; cache: string | false }

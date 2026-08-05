@@ -76,7 +76,6 @@ export default class Selector implements Tool {
   private lastParcel: Parcel | undefined = undefined
 
   onBuildToolActivate: BABYLON.Observable<void> = new BABYLON.Observable()
-  onVoxelAction: BABYLON.Observable<{ mode: SelectionMode }> = new BABYLON.Observable()
   onCurrentTextureTintUpdate: BABYLON.Observable<{ texture: number; tint: number }> = new BABYLON.Observable<{ texture: number; tint: number }>()
 
   constructor(scene: BABYLON.Scene, parent: BABYLON.TransformNode, grid: Grid, controls: Controls, connector: Connector) {
@@ -331,8 +330,13 @@ export default class Selector implements Tool {
     if (!hasPointerLock()) {
       // Escaped out of the reticule: drop the ghost now instead of waiting for a mouse move.
       if (this.controls.firstPersonView) this.box.visibility = 0
+
+      // Set default tool
+      window.ui?.setTool(window.ui?.defaultTool)
+
       return
     }
+
     const pick = this.controls.pickForPointer(null)
     if (pick) this.onMove(pick)
   }
@@ -364,7 +368,6 @@ export default class Selector implements Tool {
       }
 
       this.placeBlocks(this.selection.parcel, this.selection.start, this.selection.end, block)
-      this.onVoxelAction.notifyObservers({ mode: this.selection.mode })
       this.audio?.playSound('build.place')
       this.onMove(pickResult)
     }

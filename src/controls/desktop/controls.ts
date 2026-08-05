@@ -6,12 +6,14 @@ import { clamp } from 'lodash'
 import { unmountComponentAtNode } from 'preact/compat'
 import { createFirstPersonCamera } from '../utils/fps-camera'
 import { decodeCoordsFromURL } from '../../utils/helpers'
-import { hasPointerLock } from '../../../common/helpers/ui-helpers'
+import { hasPointerLock, isFastviewBlocking } from '../../../common/helpers/ui-helpers'
 import { app, AppEvent } from '../../../web/src/state'
 const POINTER_WHEEL_MULTIPLIER = 0.001
 export default class DesktopControls extends Controls {
   keyboardInput?: LocaleKeyboardMoveInput
   private lockListener?: () => void
+  private nerfClick = false
+  private mouseLookAttached = false
 
   constructor(scene: BABYLON.Scene, canvas: HTMLCanvasElement) {
     super(scene, canvas)
@@ -35,8 +37,17 @@ export default class DesktopControls extends Controls {
     return camera
   }
 
+  override setFlying(value: boolean) {
+    super.setFlying(value)
+    if (this.keyboardInput) {
+      this.keyboardInput.keysUpward = value ? ['PageUp', 'Space'] : []
+      this.keyboardInput.keysDownward = value ? ['PageDown', 'KeyV'] : []
+    }
+  }
+
   addControls(camera: PlayerCamera) {
     camera.attachControl(this.canvas, true)
+    this.mouseLookAttached = true // camera.attachControl attaches mouse; lock handler may detach
     this.addLockListener()
 
     this.addKeyboardControls(camera)
@@ -46,25 +57,6 @@ export default class DesktopControls extends Controls {
     this.scene.onPointerObservable.add(this.desktopClicks, undefined, true)
 
     this.canvas.addEventListener('contextmenu', (e) => e.preventDefault())
-    this.startSpawnGroundCheck()
-  }
-
-  private startSpawnGroundCheck() {
-    const start = Date.now()
-    const id = setInterval(() => {
-      if (Date.now() - start > 10_000) {
-        clearInterval(id)
-        return
-      }
-      if (!this.persona) return
-      const origin = this.persona.position.add(this.worldOffset.position)
-      const ray = new BABYLON.Ray(origin, new BABYLON.Vector3(0, -1, 0), 2)
-      const hit = this.scene.pickWithRay(ray, (e) => e.checkCollisions, true)
-      if (hit?.hit) {
-        this.setFlying(false)
-        clearInterval(id)
-      }
-    }, 100)
   }
 
   dispose() {
@@ -86,9 +78,16 @@ export default class DesktopControls extends Controls {
     if (locked) {
       // lerp out — don't abort/snap
       this.idleLook.stop()
-      mouse?.attachControl(true)
+      // Babylon FreeCameraMouseInput stacks observers on every attach; never attach twice
+      if (!this.mouseLookAttached) {
+        mouse?.attachControl(true)
+        this.mouseLookAttached = true
+      }
     } else {
-      mouse?.detachControl()
+      if (this.mouseLookAttached) {
+        mouse?.detachControl()
+        this.mouseLookAttached = false
+      }
       this.resetControls()
       this.idleLook.start()
     }
@@ -102,6 +101,8 @@ export default class DesktopControls extends Controls {
   resetControls() {
     this.shiftKey = false
     this.ctrlKey = false
+    this.crouchHeld = false
+    this.setCrouching(false, true)
     this.walk()
     this.keyboardInput?.reset()
   }
@@ -114,9 +115,9 @@ export default class DesktopControls extends Controls {
     const btn = eventData.event.button
 
     if (eventData.type === BABYLON.PointerEventTypes.POINTERDOWN && btn === 0 && !hasPointerLock() && !eventData.event.shiftKey) {
-      window.ui?.clearAllExplore()
       // start lerp-out on the click itself so it doesn't snap when lock fires
       this.idleLook.stop()
+      this.nerfClick = true
       this.requestPointerLock()?.catch(() => {})
       return
     }
@@ -147,20 +148,26 @@ export default class DesktopControls extends Controls {
           break
         }
         if (btn === 0 && hasPointerLock() && !window.ui?.activeTool) {
-          this.lockedLeftClick(this.pickAtReticule())
+          if (isFastviewBlocking()) {
+            const fv = document.querySelector('dialog.fastview, dialog.nft-view.-out') as any
+            fv?.dismiss?.()
+            eventState.skipNextObservers = true
+            break
+          }
+          if (this.nerfClick) {
+            this.nerfClick = false
+          } else {
+            this.lockedLeftClick(this.pickAtReticule())
+          }
           eventState.skipNextObservers = true
         }
         break
 
       case BABYLON.PointerEventTypes.POINTERMOVE:
-        const metadata = eventData.pickInfo?.pickedMesh?.metadata
-        const distance = eventData.pickInfo?.distance || Infinity
-
-        if (metadata && !!metadata.isInteractive && distance < this.MAX_PICK_DISTANCE) {
-          this.setActiveReticule(true)
-        } else {
-          this.setActiveReticule(false)
-        }
+        const pick = hasPointerLock() ? this.pickAtReticule() : eventData.pickInfo
+        const feature = featureFromPick(pick)
+        const distance = pick?.distance || Infinity
+        this.setActiveReticule(!!feature?.isInteract && distance < this.MAX_PICK_DISTANCE)
         this.updateMuteHint(eventData)
     }
   }
@@ -217,9 +224,9 @@ export default class DesktopControls extends Controls {
   addKeyboardControls(camera: BABYLON.Camera) {
     this.keyboardInput = new LocaleKeyboardMoveInput({
       keysUp: ['ArrowUp', 'KeyW'],
-      keysUpward: ['PageUp', 'Space'],
+      keysUpward: this.flying ? ['PageUp', 'Space'] : [],
       keysDown: ['ArrowDown', 'KeyS'],
-      keysDownward: ['PageDown', 'KeyV'],
+      keysDownward: this.flying ? ['PageDown', 'KeyV'] : [],
       keysLeft: ['ArrowLeft', 'KeyA'],
       keysRight: ['ArrowRight', 'KeyD'],
     })
@@ -230,6 +237,11 @@ export default class DesktopControls extends Controls {
 
       this.shiftKey = e.shiftKey
       this.ctrlKey = e.ctrlKey || e.metaKey
+
+      if (e.code === 'ControlLeft' || e.code === 'ControlRight') {
+        this.crouchHeld = true
+        this.idleLook.stop()
+      }
 
       const moveKeys = ['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space', 'PageUp', 'PageDown', 'KeyV']
       if (moveKeys.includes(e.code)) this.idleLook.stop()
@@ -267,6 +279,10 @@ export default class DesktopControls extends Controls {
     window.addEventListener('keyup', (e) => {
       this.shiftKey = e.shiftKey
       this.ctrlKey = e.ctrlKey || e.metaKey
+
+      if (e.code === 'ControlLeft' || e.code === 'ControlRight') {
+        this.crouchHeld = e.ctrlKey
+      }
 
       if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') {
         this.walk()
@@ -374,6 +390,7 @@ export default class DesktopControls extends Controls {
       unmountComponentAtNode(element)
       element.remove()
     })
+    ;(window as any).engine?.setBlur?.(false)
 
     // don't focus() before lock — steals the user gesture, forces a second click
     const maybePromise: unknown = this.canvas.requestPointerLock()
