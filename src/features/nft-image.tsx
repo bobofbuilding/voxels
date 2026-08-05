@@ -8,15 +8,15 @@ import nftFrameBlueShaderBlue from '../shaders/nft-frame-blue.fsh'
 import nftFrameShaderClassic from '../shaders/nft-frame-classic.fsh'
 import nftFrameColorsShaderColors from '../shaders/nft-frame-colors.fsh'
 import nftVertexShader from '../shaders/nft.vsh'
-import { fetchSpinnerTexture, fetchTexture } from '../textures/textures'
-import { rebindGizmosBoundToFeature } from '../tools/gizmos'
+import { fetchTexture } from '../textures/textures'
+import { rebindGizmos } from '../tools/gizmos'
 import { Advanced, BlendMode, FeatureEditor, FeatureEditorProps, FeatureID, Toolbar, UrlSourceNftImages } from '../ui/features'
 import OpenseaAssetHelper from '../ui/gui/opensea-asset-helper'
-import showNftImageHTMLUi from '../ui/html-ui/nft-image-ui'
+import showNftView from '../ui/html-ui/nft-view'
 import { tidyFloat } from '../utils/helpers'
 import { opensea, readOpenseaUrl } from '../utils/proxy'
 import { FeatureMetadata, FeatureTemplate } from './_metadata'
-import { Feature2D, TransparencyMode } from './feature'
+import Feature, { Feature2D, TransparencyMode } from './feature'
 import { setTextureProperties } from './image'
 import NFTFrame from './utils/nft-frame'
 import { Action } from '../../common/messages'
@@ -121,12 +121,18 @@ export default class NftImage extends Feature2D<NftImageRecord> {
     this.generateNFT()
   }
 
-  async renderLoading() {
-    const texture = await fetchSpinnerTexture(this.scene, this.abortController.signal)
-    // if for some reason the loading image takes longer to load than the actual image, don't replace it!
-    if (this.loaded) return null
-    texture.hasAlpha = false
-    return this.renderImage(texture)
+  generateDraft() {
+    if (this.disposed) return
+    if (!(this.mesh instanceof BABYLON.Mesh)) {
+      this.mesh = BABYLON.MeshBuilder.CreatePlane(this.uniqueEntityName('mesh'), { size: 1 }, this.scene)
+      rebindGizmos(this)
+    }
+    this.mesh.material = Feature.getDraftMaterial(this.scene)
+    this.setCommon()
+  }
+
+  get isInteract() {
+    return true
   }
 
   shouldBeInteractive() {
@@ -138,13 +144,6 @@ export default class NftImage extends Feature2D<NftImageRecord> {
       NftImage.generateFrameMaterials(this.scene)
     }
 
-    if (this.deprecatedSince('5.40.1')) {
-      this.description.hasGui = true
-      this.description.hasGuiResizable = false
-    }
-    if (this.deprecatedSince('5.23.0')) {
-      this.description.hasFrame = true
-    }
     this.generateNFT()
 
     return Promise.resolve()
@@ -154,13 +153,12 @@ export default class NftImage extends Feature2D<NftImageRecord> {
     // get the URL of the asset
     return new Promise(async (resolve) => {
       this.loaded = false
-      if (this.recentlySpawned) {
-        // we don't want to show a loading image in other cases as this makes the world look more janky, but it is important
-        // for builder user experience to show loading image if the image was just added by the user (e.g. drag and drop)
-        await this.renderLoading()
-        resolve()
-      }
+      this.generateDraft()
       var url = await this.loadURL()
+
+      if (this.disposed || this.abortController.signal.aborted) {
+        return resolve()
+      }
 
       if (!this.assetHelper) {
         console.warn('NFT URL:', this.url, 'could not be loaded.')
@@ -268,14 +266,22 @@ export default class NftImage extends Feature2D<NftImageRecord> {
         }, 1000)
       }
 
-      const texture = await fetchTexture(this.scene, url, this.abortController.signal, {
-        transparent: !!this.description.transparent,
-        stretch: !!this.description.stretch,
-        pixelated: this.description.pixelated,
-      })
-      texture.hasAlpha = false
-      this.renderImage(texture)
-      this.loaded = true
+      try {
+        const texture = await fetchTexture(this.scene, url, this.abortController.signal, {
+          transparent: !!this.description.transparent,
+          stretch: !!this.description.stretch,
+          pixelated: this.description.pixelated,
+        })
+        if (this.disposed || this.abortController.signal.aborted) {
+          texture.dispose()
+          return resolve()
+        }
+        texture.hasAlpha = false
+        this.renderImage(texture)
+        this.loaded = true
+      } catch {
+        // aborted or failed: leave draft
+      }
       resolve()
     })
   }
@@ -297,7 +303,7 @@ export default class NftImage extends Feature2D<NftImageRecord> {
     }
     this.asset = this.assetHelper = null
 
-    const data = await opensea(nftInfo.contract, nftInfo.token, nftInfo.chain, this.parcel.owner, this.forceUpdate).catch((err) => {
+    const data = await opensea(nftInfo.contract, nftInfo.token, nftInfo.chain).catch((err) => {
       console.warn(`couldn't fetch NFT for parcel ${this.parcel.id}`, err, nftInfo)
     })
 
@@ -316,15 +322,12 @@ export default class NftImage extends Feature2D<NftImageRecord> {
 
   onClick() {
     this.connector.sendMetric(Action.Inspect)
-
-    // I guess we'll still use the `HasGUI` for the option of opening the HTMLUI.
-    this.description.hasGui && showNftImageHTMLUi(this)
+    showNftView(this)
   }
 
   renderImage(texture: BABYLON.Texture): BABYLON.Mesh | null {
     if (this.disposed) return null
 
-    const plane = BABYLON.MeshBuilder.CreatePlane(this.uniqueEntityName('mesh'), { size: 1 }, this.scene)
     const material = new BABYLON.StandardMaterial(this.uniqueEntityName('material'), this.scene)
     material.specularColor.set(0, 0, 0)
     material.diffuseColor.set(1, 1, 1)
@@ -343,20 +346,23 @@ export default class NftImage extends Feature2D<NftImageRecord> {
     material.zOffset = -2
     material.diffuseTexture = texture
 
-    plane.material = material
-
-    if (this.mesh) {
-      this.mesh.dispose()
+    if (!(this.mesh instanceof BABYLON.Mesh)) {
+      this.mesh = BABYLON.MeshBuilder.CreatePlane(this.uniqueEntityName('mesh'), { size: 1 }, this.scene)
+      rebindGizmos(this)
+    } else {
+      const old = this.mesh.material
+      this.mesh.material = null
+      if (old instanceof BABYLON.StandardMaterial && old !== Feature.draftMaterial && old.getBindedMeshes().length <= 1) {
+        old.dispose(false, true)
+      }
     }
-    this.mesh = plane
 
-    // if any gizmos are bound to this feature we need to rebind them, since we just replaced mesh.
-    rebindGizmosBoundToFeature(this)
+    this.mesh.material = material
 
-    setTextureProperties(this, texture, material, plane)
+    setTextureProperties(this, texture, material, this.mesh)
 
     this.setCommon()
-    return plane
+    return this.mesh
   }
 
   afterSetCommon = () => {
@@ -446,7 +452,6 @@ class Editor extends FeatureEditor<NftImage> {
       pixelated: !!props.feature.description.pixelated,
       hasFrame: !!props.feature.description.hasFrame,
       nftFrameStyle: props.feature.description.nftFrameStyle || 'classic',
-      hasGui: !!props.feature.description.hasGui,
       blendMode: props.feature.blendMode,
       transparencyMode: props.feature.transparencyMode,
       emissiveColorIntensity: tidyFloat(props.feature.description.emissiveColorIntensity, 0.5),
@@ -486,7 +491,6 @@ class Editor extends FeatureEditor<NftImage> {
       emissiveColorIntensity: parseFloat(this.state.emissiveColorIntensity).toFixed(2),
       hasFrame: this.state.hasFrame,
       nftFrameStyle: this.state.nftFrameStyle,
-      hasGui: this.state.hasGui,
     })
   }
 
@@ -511,7 +515,7 @@ class Editor extends FeatureEditor<NftImage> {
       return
     }
 
-    const r = await opensea(nftInfo.contract, nftInfo.token, nftInfo.chain, app.state.wallet, cachebust)
+    const r = await opensea(nftInfo.contract, nftInfo.token, nftInfo.chain)
 
     const helper = new OpenseaAssetHelper(r)
     this.setState({ isOwner: helper.isOwner(app.state.wallet) })
@@ -524,90 +528,75 @@ class Editor extends FeatureEditor<NftImage> {
   render() {
     return (
       <section>
-        <header>
-          <h2>Edit NFT Image</h2>
-          <button onClick={this.onBackClick} class="close">
-            <span>&times;</span>
-          </button>
-        </header>
-        <div className="scrollContainer">
-          <Toolbar feature={this.props.feature} scene={this.props.scene} />
-          <EditorProps>
-            {/* keys are provided so that the getState in the component is reset after gizmo is used */}
-            <Position feature={this.props.feature} key={this.props.feature.position.toString()} />
-            <Scale feature={this.props.feature} key={this.props.feature.scale.toString()} />
-            <Rotation feature={this.props.feature} key={this.props.feature.rotation.toString()} />
+        <Toolbar feature={this.props.feature} scene={this.props.scene} />
+        <EditorProps>
+          {/* keys are provided so that the getState in the component is reset after gizmo is used */}
+          <Position feature={this.props.feature} key={this.props.feature.position.toString()} />
+          <Scale feature={this.props.feature} key={this.props.feature.scale.toString()} />
+          <Rotation feature={this.props.feature} key={this.props.feature.rotation.toString()} />
 
-            <UrlSourceNftImages feature={this.props.feature} handleStateChange={this.onUrlChange} />
+          <UrlSourceNftImages feature={this.props.feature} handleStateChange={this.onUrlChange} />
 
-            <Advanced>
-              <FeatureID feature={this.props.feature} />
+          <Advanced>
+            <FeatureID feature={this.props.feature} />
 
+            <div className="f">
+              <label>Display</label>
+              <label>
+                <input type="checkbox" checked={this.state.stretch} onChange={(e) => this.setState({ stretch: e.currentTarget.checked })} />
+                Stretch
+              </label>
+              <label>
+                <input type="checkbox" checked={this.state.pixelated} onChange={(e) => this.setState({ pixelated: e.currentTarget.checked })} />
+                Pixelate
+              </label>
+            </div>
+
+            <BlendMode feature={this.props.feature} handleStateChange={this.onBlendModeChange} />
+
+            <div className="f">
+              <label>Transparency</label>
+              <select onInput={(e) => this.setState({ transparencyMode: e.currentTarget.value })} value={this.state.transparencyMode}>
+                <option value={TransparencyMode.Ignore}>Ignore Alpha</option>
+                <option value={TransparencyMode.AlphaBlend}>Alpha Blended</option>
+                <option value={TransparencyMode.AlphaTest}>Alpha Tested</option>
+                <option value={TransparencyMode.Background}>Blended Background</option>
+              </select>
+            </div>
+
+            <div className="f">
+              <label>Emissive Color Intensity {'(Current : ' + (this.state.emissiveColorIntensity * 100).toFixed(2) + '% )'}</label>
+              <input type="range" min={0.01} max={1} value={this.state.emissiveColorIntensity} step={0.01} onChange={(e) => this.setState({ emissiveColorIntensity: e.currentTarget.value })}></input>
+            </div>
+
+            {this.state.isOwner && (
               <div className="f">
-                <label>Display</label>
+                <label>Frame</label>
                 <label>
-                  <input type="checkbox" checked={this.state.stretch} onChange={(e) => this.setState({ stretch: e.currentTarget.checked })} />
-                  Stretch
+                  <input type="checkbox" checked={this.state.hasFrame} onChange={(e) => this.setState({ hasFrame: e.currentTarget.checked })} />
+                  Show frame
                 </label>
-                <label>
-                  <input type="checkbox" checked={this.state.pixelated} onChange={(e) => this.setState({ pixelated: e.currentTarget.checked })} />
-                  Pixelate
-                </label>
+                <small>This frame shows you (the parcel owner) owns this nft.</small>
               </div>
+            )}
 
-              <BlendMode feature={this.props.feature} handleStateChange={this.onBlendModeChange} />
-
-              <div className="f">
-                <label>Transparency</label>
-                <select onInput={(e) => this.setState({ transparencyMode: e.currentTarget.value })} value={this.state.transparencyMode}>
-                  <option value={TransparencyMode.Ignore}>Ignore Alpha</option>
-                  <option value={TransparencyMode.AlphaBlend}>Alpha Blended</option>
-                  <option value={TransparencyMode.AlphaTest}>Alpha Tested</option>
-                  <option value={TransparencyMode.Background}>Blended Background</option>
-                </select>
-              </div>
-
-              <div className="f">
-                <label>Emissive Color Intensity {'(Current : ' + (this.state.emissiveColorIntensity * 100).toFixed(2) + '% )'}</label>
-                <input type="range" min={0.01} max={1} value={this.state.emissiveColorIntensity} step={0.01} onChange={(e) => this.setState({ emissiveColorIntensity: e.currentTarget.value })}></input>
-              </div>
-
-              <div className="f">
-                <label>Gui</label>
-                <label>
-                  <input type="checkbox" checked={this.state.hasGui} onChange={(e) => this.setState({ hasGui: e.currentTarget.checked })} />
-                  Show Information on click
-                </label>
-              </div>
-              {this.state.isOwner && (
+            {this.state.isOwner && !!this.state.hasFrame && (
+              <div className="sub-f">
                 <div className="f">
-                  <label>Frame</label>
-                  <label>
-                    <input type="checkbox" checked={this.state.hasFrame} onChange={(e) => this.setState({ hasFrame: e.currentTarget.checked })} />
-                    Show frame
-                  </label>
-                  <small>This frame shows you (the parcel owner) owns this nft.</small>
+                  <label>Frame style</label>
+                  <select onInput={(e) => this.setState({ nftFrameStyle: e.currentTarget.value })} value={this.state.nftFrameStyle}>
+                    <option value={'classic'}>Classic</option>
+                    <option value={'colors'}>Colors</option>
+                    <option value={'blue'}>Blue</option>
+                  </select>
+                  <small>Select a frame color style</small>
                 </div>
-              )}
+              </div>
+            )}
 
-              {this.state.isOwner && !!this.state.hasFrame && (
-                <div className="sub-f">
-                  <div className="f">
-                    <label>Frame style</label>
-                    <select onInput={(e) => this.setState({ nftFrameStyle: e.currentTarget.value })} value={this.state.nftFrameStyle}>
-                      <option value={'classic'}>Classic</option>
-                      <option value={'colors'}>Colors</option>
-                      <option value={'blue'}>Blue</option>
-                    </select>
-                    <small>Select a frame color style</small>
-                  </div>
-                </div>
-              )}
-
-              <Behaviours feature={this.props.feature} />
-            </Advanced>
-          </EditorProps>
-        </div>
+            <Behaviours feature={this.props.feature} />
+          </Advanced>
+        </EditorProps>
       </section>
     )
   }

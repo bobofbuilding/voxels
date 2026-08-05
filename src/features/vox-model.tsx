@@ -3,10 +3,11 @@ import { MegavoxRecord, VoxModelRecord } from '../../common/messages/feature'
 import { Options as VoxImportOptions, voxImporter } from '../../common/vox-import/vox-import'
 import { Position, Rotation, Scale, Behaviours, EditorProps } from '../../web/src/components/editor'
 import Panel from '../../web/src/components/panel'
+import { rebindGizmos } from '../tools/gizmos'
 import { Advanced, Animation, FeatureEditor, FeatureEditorProps, FeatureID, Hyperlink, Toolbar, UrlSourceVoxModels } from '../ui/features'
 import { isURL } from '../utils/helpers'
 import { FeatureMetadata, FeatureTemplate } from './_metadata'
-import { Feature3D, FeatureEvent, MeshExtended, transformVectors } from './feature'
+import Feature, { Feature3D, FeatureEvent, MeshExtended, transformVectors } from './feature'
 
 // used when "Scale To Grid" is enabled
 const CUBESCALE_MULTIPLIER_X = 0.02
@@ -85,7 +86,39 @@ export default class VoxModel<Description extends VoxModelRecord | MegavoxRecord
     this.refreshCollidable()
   }
 
+  generateDraft() {
+    if (this.disposed) return
+    if (!(this.mesh instanceof BABYLON.Mesh)) {
+      this.mesh = BABYLON.MeshBuilder.CreateBox(this.uniqueEntityName('mesh'), { size: 1 }, this.scene)
+      rebindGizmos(this)
+    }
+    this.mesh.material = Feature.getDraftMaterial(this.scene)
+    this.setCommon()
+  }
+
+  private applyImportedMesh(imported: BABYLON.Mesh) {
+    if (!(this.mesh instanceof BABYLON.Mesh)) {
+      this.mesh = imported
+    } else {
+      BABYLON.VertexData.ExtractFromMesh(imported).applyToMesh(this.mesh)
+      this.mesh.material = imported.material
+      imported.material = null
+      imported.dispose()
+    }
+    this.mesh.isPickable = true
+    this.mesh.checkCollisions = false
+    this.mesh.name = this.uniqueEntityName('mesh')
+    this.mesh.id = this.mesh.name
+    this.mesh.refreshBoundingInfo()
+    this.afterGenerate()
+  }
+
   public override async generate() {
+    this.generateDraft()
+    void this.loadContent()
+  }
+
+  private async loadContent() {
     let url: string
 
     if (this.url && isURL(this.url)) {
@@ -106,26 +139,18 @@ export default class VoxModel<Description extends VoxModelRecord | MegavoxRecord
       } else {
         console.warn(e)
       }
+      if (this.disposed || this.abortController.signal.aborted) return
       await this.onError()
       this.refreshErrorMessage()
       return
     }
 
-    // we wait until after vox import has finished before destroying the previous one to make sure
-    // that if generate gets called quickly before import has finished, we don't end up with duplicate meshes
-    if (this.mesh) {
-      this.mesh.dispose()
+    if (this.disposed || this.abortController.signal.aborted) {
+      mesh.dispose()
+      return
     }
 
-    this.mesh = mesh
-    this.mesh.isPickable = true
-
-    // this is set later by refreshCollidable()
-    this.mesh.checkCollisions = false
-
-    this.mesh.name = this.uniqueEntityName('mesh')
-    this.mesh.id = this.mesh.name
-    this.afterGenerate()
+    this.applyImportedMesh(mesh)
   }
 
   // todo - make 0 in v2 of voxel alignment
@@ -151,7 +176,7 @@ export default class VoxModel<Description extends VoxModelRecord | MegavoxRecord
   }
 
   private async onError() {
-    if (this.disposed) return
+    if (this.disposed || this.abortController.signal.aborted) return
 
     // Only show error voxel models to users with editing rights
     if (!this.parcel.canEdit) {
@@ -163,18 +188,18 @@ export default class VoxModel<Description extends VoxModelRecord | MegavoxRecord
       return
     }
 
-    const mesh = await voxImporter().import(`${process.env.ASSET_PATH}/models/vox-five-broken.vox`, { signal: this.abortController.signal })
+    try {
+      const mesh = await voxImporter().import(`${process.env.ASSET_PATH}/models/vox-five-broken.vox`, { signal: this.abortController.signal })
 
-    if (this.mesh) {
-      this.mesh.dispose()
+      if (this.disposed || this.abortController.signal.aborted) {
+        mesh.dispose()
+        return
+      }
+
+      this.applyImportedMesh(mesh)
+    } catch {
+      // aborted or failed: leave draft
     }
-
-    this.mesh = mesh
-    this.mesh.isPickable = true
-    this.mesh.name = this.uniqueEntityName('mesh')
-    this.mesh.id = this.mesh.name
-
-    this.afterGenerate()
   }
 
   private refreshCollidable() {
@@ -224,53 +249,45 @@ class Editor extends FeatureEditor<VoxModel> {
   render() {
     return (
       <section>
-        <header>
-          <h2>Edit Vox Model</h2>
-          <button onClick={this.onBackClick} class="close">
-            <span>&times;</span>
-          </button>
-        </header>
-        <div className="scrollContainer">
-          <Toolbar feature={this.props.feature} scene={this.props.scene} />
-          <EditorProps>
-            {/* keys are provided so that the getState in the component is reset after gizmo is used */}
-            <Position feature={this.props.feature} key={this.props.feature.position.toString()} />
-            <Scale feature={this.props.feature} key={this.props.feature.scale.toString()} />
-            <Rotation feature={this.props.feature} key={this.props.feature.rotation.toString()} />
-            {!!this.importError && (
-              <dd class="full">
-                <Panel type="danger">{this.importError}</Panel>
-              </dd>
-            )}
-            <UrlSourceVoxModels feature={this.props.feature} scene={this.props.scene} />
+        <Toolbar feature={this.props.feature} scene={this.props.scene} />
+        <EditorProps>
+          {/* keys are provided so that the getState in the component is reset after gizmo is used */}
+          <Position feature={this.props.feature} key={this.props.feature.position.toString()} />
+          <Scale feature={this.props.feature} key={this.props.feature.scale.toString()} />
+          <Rotation feature={this.props.feature} key={this.props.feature.rotation.toString()} />
+          {!!this.importError && (
+            <dd class="full">
+              <Panel type="danger">{this.importError}</Panel>
+            </dd>
+          )}
+          <UrlSourceVoxModels feature={this.props.feature} scene={this.props.scene} />
 
-            <Advanced>
-              <Animation feature={this.props.feature} />
+          <Advanced>
+            <Animation feature={this.props.feature} />
 
-              <FeatureID feature={this.props.feature} />
+            <FeatureID feature={this.props.feature} />
 
-              <Hyperlink feature={this.props.feature} />
+            <Hyperlink feature={this.props.feature} />
 
-              {this.state.type === 'vox-model' && (
-                <>
-                  <dt>scale to grid</dt>
-                  <dd>
-                    <input type="checkbox" name="cubescale" onChange={(e) => this.setState({ cubescale: e.currentTarget.checked })} checked={this.state.cubescale} />
-                  </dd>
-                </>
-              )}
-
+            {this.state.type === 'vox-model' && (
               <>
-                <dt>Enable Collision</dt>
+                <dt>scale to grid</dt>
                 <dd>
-                  <input type="checkbox" name="collidable" onChange={(e) => this.setState({ collidable: e.currentTarget.checked })} checked={this.state.collidable} />
+                  <input type="checkbox" name="cubescale" onChange={(e) => this.setState({ cubescale: e.currentTarget.checked })} checked={this.state.cubescale} />
                 </dd>
               </>
+            )}
 
-              <Behaviours feature={this.props.feature} />
-            </Advanced>
-          </EditorProps>
-        </div>
+            <>
+              <dt>Enable Collision</dt>
+              <dd>
+                <input type="checkbox" name="collidable" onChange={(e) => this.setState({ collidable: e.currentTarget.checked })} checked={this.state.collidable} />
+              </dd>
+            </>
+
+            <Behaviours feature={this.props.feature} />
+          </Advanced>
+        </EditorProps>
       </section>
     )
   }
@@ -454,87 +471,79 @@ Megavox.Editor = class MegavoxEditor extends Editor {
     const isMega = this.state.type === 'megavox'
     return (
       <section>
-        <header>
-          <h2>{isMega ? 'Edit Megavox' : 'Edit Vox Model'}</h2>
-          <button onClick={this.onBackClick} class="close">
-            <span>&times;</span>
-          </button>
-        </header>
-        <div className="scrollContainer">
-          <Toolbar feature={this.props.feature} scene={this.props.scene} />
-          <EditorProps>
-            <Position feature={this.props.feature} key={this.props.feature.position.toString()} />
-            <Scale feature={this.props.feature} key={this.props.feature.scale.toString()} />
-            <Rotation feature={this.props.feature} key={this.props.feature.rotation.toString()} />
-            {!!this.importError && (
-              <dd class="full">
-                <Panel type="danger">{this.importError}</Panel>
-              </dd>
-            )}
-            <UrlSourceVoxModels feature={this.props.feature} scene={this.props.scene} />
+        <Toolbar feature={this.props.feature} scene={this.props.scene} />
+        <EditorProps>
+          <Position feature={this.props.feature} key={this.props.feature.position.toString()} />
+          <Scale feature={this.props.feature} key={this.props.feature.scale.toString()} />
+          <Rotation feature={this.props.feature} key={this.props.feature.rotation.toString()} />
+          {!!this.importError && (
+            <dd class="full">
+              <Panel type="danger">{this.importError}</Panel>
+            </dd>
+          )}
+          <UrlSourceVoxModels feature={this.props.feature} scene={this.props.scene} />
 
-            <Advanced>
-              <Animation feature={this.props.feature} />
-              <FeatureID feature={this.props.feature} />
-              <Hyperlink feature={this.props.feature} />
+          <Advanced>
+            <Animation feature={this.props.feature} />
+            <FeatureID feature={this.props.feature} />
+            <Hyperlink feature={this.props.feature} />
 
-              {this.state.type === 'vox-model' && (
-                <>
-                  <dt>scale to grid</dt>
-                  <dd>
-                    <input type="checkbox" name="cubescale" onChange={(e) => this.setState({ cubescale: e.currentTarget.checked })} checked={this.state.cubescale} />
-                  </dd>
-                </>
-              )}
-
-              {isMega && (
-                <>
-                  <dt>driveable</dt>
-                  <dd>
-                    <input
-                      type="checkbox"
-                      name="driveable"
-                      checked={!!this.state.driveable}
-                      onChange={(e) => {
-                        const driveable = e.currentTarget.checked
-                        this.setState({ driveable, collidable: driveable ? true : this.state.collidable })
-                      }}
-                    />
-                    <small> anyone can hop in with E / Drive. forward is local +Z - rotate if it drives sideways.</small>
-                  </dd>
-                  {!!this.state.driveable && (
-                    <dd class="full">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          ;(this.props.feature as any).recallToPark?.()
-                        }}
-                      >
-                        bring back
-                      </button>
-                      <small> reset to the saved park spot (kicks a driver if needed).</small>
-                    </dd>
-                  )}
-                </>
-              )}
-
+            {this.state.type === 'vox-model' && (
               <>
-                <dt>Enable Collision</dt>
+                <dt>scale to grid</dt>
+                <dd>
+                  <input type="checkbox" name="cubescale" onChange={(e) => this.setState({ cubescale: e.currentTarget.checked })} checked={this.state.cubescale} />
+                </dd>
+              </>
+            )}
+
+            {isMega && (
+              <>
+                <dt>driveable</dt>
                 <dd>
                   <input
                     type="checkbox"
-                    name="collidable"
-                    disabled={isMega && !!this.state.driveable}
-                    onChange={(e) => this.setState({ collidable: e.currentTarget.checked })}
-                    checked={this.state.collidable || (isMega && !!this.state.driveable)}
+                    name="driveable"
+                    checked={!!this.state.driveable}
+                    onChange={(e) => {
+                      const driveable = e.currentTarget.checked
+                      this.setState({ driveable, collidable: driveable ? true : this.state.collidable })
+                    }}
                   />
+                  <small> anyone can hop in with E / Drive. forward is local +Z - rotate if it drives sideways.</small>
                 </dd>
+                {!!this.state.driveable && (
+                  <dd class="full">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        ;(this.props.feature as any).recallToPark?.()
+                      }}
+                    >
+                      bring back
+                    </button>
+                    <small> reset to the saved park spot (kicks a driver if needed).</small>
+                  </dd>
+                )}
               </>
+            )}
 
-              <Behaviours feature={this.props.feature} />
-            </Advanced>
-          </EditorProps>
-        </div>
+            <>
+              <dt>Enable Collision</dt>
+              <dd>
+                <input
+                  type="checkbox"
+                  name="collidable"
+                  disabled={isMega && !!this.state.driveable}
+                  onChange={(e) => this.setState({ collidable: e.currentTarget.checked })}
+                  checked={this.state.collidable || (isMega && !!this.state.driveable)}
+                />
+              </dd>
+            </>
+
+            <Behaviours feature={this.props.feature} />
+          </Advanced>
+        </EditorProps>
       </section>
     )
   }

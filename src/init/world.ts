@@ -65,6 +65,7 @@ export const createWorld = async function (scene: BABYLON.Scene, canvas: HTMLCan
 
     scene.onAfterRenderObservable.add(() => {
       controls.refreshGravity()
+      controls.refreshCrouch()
     })
 
     // start the environment load loop (which will load water on demand)
@@ -73,13 +74,11 @@ export const createWorld = async function (scene: BABYLON.Scene, canvas: HTMLCan
     })
   }
 
-  // wait 10 seconds for the first parcel to load
-  // If nothing has loaded by then we're probably out at sea, manually mark as loaded so that the loading screen goes away
+  // wait 3 seconds for the first parcel to load
+  // If nothing has loaded by then we're probably out at sea — lift the grey cover
   setTimeout(() => {
-    if (!grid.length) {
-      console.warn('No parcels loaded, marking as loaded')
-    }
-  }, 10e3)
+    window.graphic?.postProcesses?.reveal()
+  }, 3e3)
 
   createGizmos(scene)
 
@@ -153,10 +152,6 @@ function initialSpawn(scene: BABYLON.Scene, grid: Grid, controls: Controls) {
 
 // Show params as NESW coordinates
 function updateNavbarWithCoords(scene: BABYLON.Scene, connector: Connector) {
-  if (document.location.pathname.match(/scratchpad/)) {
-    return
-  }
-
   let oldUrl = '/'
   setInterval(() => {
     if (isLoaded()) {
@@ -168,7 +163,6 @@ function updateNavbarWithCoords(scene: BABYLON.Scene, connector: Connector) {
       const coords = {
         position: connector.persona.position.clone(),
         rotation: camera.rotation.clone(),
-        flying: connector.controls.flying,
       }
 
       const coordsParam = encodeCoords(coords)

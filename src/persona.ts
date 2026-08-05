@@ -149,7 +149,6 @@ export default class Persona {
     }
 
     this.teleportNoHistory(coords)
-    this.controls.setFlying(true)
   }
 
   // teleport a user with and push the previous location to the browsers history
@@ -182,6 +181,7 @@ export default class Persona {
   // out of a restricted area.
   teleportNoHistory(coords: coords) {
     console.log(`Teleporting to ${coords.position.x}, ${coords.position.y}, ${coords.position.z}`)
+    window.graphic?.postProcesses?.cover()
     this.audio?.playSound('persona.teleport')
 
     this.controls.resetWorldOffset(coords.position)
@@ -192,8 +192,6 @@ export default class Persona {
       setCameraRotation(this.scene, new BABYLON.Vector3(r.x, coords.rotation.y, r.z))
     }
 
-    this.controls.setFlying(coords.flying ?? false)
-
     // make sure we see the features of new area immediately (otherwise we have to wait up to 5 seconds)
     this.connector.refreshNearestParcels()
 
@@ -201,6 +199,15 @@ export default class Persona {
     this.controls.invalidateGroundLoaded()
 
     this.controls.idleLook?.start()
+
+    // cached dest already meshed — no MeshLoaded; lift after one frame so grey still reads
+    if (window.grid?.currentOrNearestParcel()?.voxelMesh) {
+      this.scene.onBeforeRenderObservable.addOnce(() => {
+        window.graphic?.postProcesses?.reveal()
+      })
+    }
+    // ocean / slow load escape (MeshLoaded also calls reveal; once-guard is fine)
+    setTimeout(() => window.graphic?.postProcesses?.reveal(), 3e3)
   }
 
   popState(controls: Controls) {

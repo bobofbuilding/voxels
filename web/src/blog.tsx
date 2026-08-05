@@ -5,7 +5,7 @@ import cachedFetch, { invalidateUrl } from './helpers/cached-fetch'
 import { app, AppEvent } from './state'
 import { fetchOptions } from './utils'
 
-type Post = { slug: string; title: string; body: string; author: string; created_at: string }
+type Post = { slug: string; title: string; body: string; author: string; created_at: string; replies?: number }
 
 export default function Blog(_props: { path?: string }) {
   const [posts, setPosts] = useState<Post[]>([])
@@ -72,13 +72,26 @@ export default function Blog(_props: { path?: string }) {
         </form>
       )}
 
-      <ul>
-        {posts.map((p) => (
-          <li key={p.slug}>
-            <a href={`/blog/${p.slug}`}>{p.title}</a> <span>{new Date(p.created_at).toLocaleDateString()}</span>
-          </li>
-        ))}
-      </ul>
+      <table>
+        <thead>
+          <tr>
+            <th>title</th>
+            <th>replies</th>
+            <th>date</th>
+          </tr>
+        </thead>
+        <tbody>
+          {posts.map((p) => (
+            <tr key={p.slug}>
+              <td>
+                <a href={`/blog/${p.slug}`}>{p.title}</a>
+              </td>
+              <td>{p.replies ?? 0}</td>
+              <td>{new Date(p.created_at).toLocaleDateString()}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </section>
   )
 }
