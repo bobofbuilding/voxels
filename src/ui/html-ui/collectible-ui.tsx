@@ -2,16 +2,19 @@ import { render } from 'preact'
 import { getWearableGif } from '../../../web/src/helpers/wearable-helpers'
 
 import CollectibleModel from '../../features/collectible-model'
-import { exitPointerLock } from '../../../common/helpers/ui-helpers'
+import { openDialog } from '../../../common/helpers/ui-helpers'
 import { HTMLUi } from './html-ui'
+import { NftMediaBox } from './nft-view'
 import { unmountComponentAtNode } from 'preact/compat'
 import { SUPPORTED_CHAINS_BY_ID } from '../../../common/helpers/chain-helpers'
 import { avatarName } from '../../../common/messages/avatar-ref'
+
 type Props = {
   collectible: CollectibleModel
   onClose: () => void
   status?: string
   scene: BABYLON.Scene
+  dialogEl: HTMLElement
 }
 type State = {
   collectible: CollectibleModel
@@ -19,7 +22,7 @@ type State = {
 }
 
 export class CollectibleHTMLUi extends HTMLUi<Props, State> {
-  static currentElement: HTMLDivElement
+  static currentElement: HTMLElement
 
   constructor(props: Props) {
     super()
@@ -108,31 +111,47 @@ export class CollectibleHTMLUi extends HTMLUi<Props, State> {
     this.props.onClose()
   }
 
+  get aspect() {
+    const sx = this.feature?.scale?.x || 1
+    const sy = this.feature?.scale?.y || 1
+    return sx / sy || 1
+  }
+
   render() {
     return (
-      <dialog class="nft-view">
-        <header>
-          <h3>{this.name}</h3>
-          <button className="close" onClick={() => this.close()}>
-            &times;
-          </button>
-        </header>
+      <>
+        <button class="close" onClick={() => this.close()}>
+          &times;
+        </button>
+        <h3>{this.name}</h3>
         <section className="SplitPanel">
           <div className="Panel">
             <div className="Center">
-              <img src={getWearableGif(this.asset)}></img>
-              {this.isTriable && (
-                <div className="overlay-large-button" onClick={() => (this.isWearing ? this.onTakeOffCollectible() : this.enteredParcel && this.onTryCollectible())}>
-                  <h1>{this.isWearing ? 'Remove' : 'Try it on'}</h1>
-                  <small>
-                    {!!this.isWearing
-                      ? `You're currently testing this wearable. Click to remove it`
-                      : this.enteredParcel
-                        ? `Try this wearable with the author's recommended placement`
-                        : `Enter this parcel to be able to tryOnCollectible this collectible.`}
-                  </small>
-                </div>
-              )}
+              <NftMediaBox dialogEl={this.props.dialogEl} aspect={this.aspect} onDismiss={() => this.close()}>
+                {(setAr) => (
+                  <>
+                    <img
+                      src={getWearableGif(this.asset)}
+                      onLoad={(e) => {
+                        const t = e.currentTarget
+                        if (t.naturalWidth && t.naturalHeight) setAr(t.naturalWidth / t.naturalHeight)
+                      }}
+                    />
+                    {this.isTriable && (
+                      <div className="overlay-large-button" onClick={() => (this.isWearing ? this.onTakeOffCollectible() : this.enteredParcel && this.onTryCollectible())}>
+                        <h1>{this.isWearing ? 'Remove' : 'Try it on'}</h1>
+                        <small>
+                          {!!this.isWearing
+                            ? `You're currently testing this wearable. Click to remove it`
+                            : this.enteredParcel
+                              ? `Try this wearable with the author's recommended placement`
+                              : `Enter this parcel to be able to tryOnCollectible this collectible.`}
+                        </small>
+                      </div>
+                    )}
+                  </>
+                )}
+              </NftMediaBox>
             </div>
           </div>
           <div className="Panel">
@@ -174,7 +193,7 @@ export class CollectibleHTMLUi extends HTMLUi<Props, State> {
             </div>
           </div>
         </section>
-      </dialog>
+      </>
     )
   }
 }
@@ -186,19 +205,14 @@ export default function showCollectibleHTMLUi(collectible: CollectibleModel, sce
     CollectibleHTMLUi.close()
   }
 
-  const div = document.createElement('div')
-  div.className = 'pointer-lock-close'
-  CollectibleHTMLUi.currentElement = div
-  document.body.appendChild(div)
+  const { el, close } = openDialog('pointer-lock-close nft-view', true)
+  CollectibleHTMLUi.currentElement = el
 
   const onClose = () => {
-    unmountComponentAtNode(div)
-    div.remove()
     CollectibleHTMLUi.currentElement = null!
+    close()
     HTMLUi.close()
   }
 
-  render(<CollectibleHTMLUi collectible={collectible} onClose={onClose} scene={scene} />, div)
-
-  exitPointerLock()
+  render(<CollectibleHTMLUi collectible={collectible} onClose={onClose} scene={scene} dialogEl={el} />, el)
 }

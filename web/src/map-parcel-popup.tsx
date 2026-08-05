@@ -32,38 +32,9 @@ export function mapParcelPopup(map: VoxelsMap, x: number, z: number, parcel: Map
       <strong>
         <a href={`/parcels/${parcel.id}`}>{parcel.name || parcel.address}</a>
       </strong>
-      <div>at {parcel.address}</div>
-      <div>
-        Owned by <AvatarLink avatar={parcel.owner} />
-      </div>
-      <div id="popup-buttonContainer" role="group"></div>
+      <div>{parcel.name ? parcel.address : parcel.suburb}</div>
     </article>,
   )
-
-  const buttonContainer = div.querySelector('#popup-buttonContainer')!
-
-  const button = document.createElement('button')
-  button.className = 'teleportHere'
-  button.textContent = 'Teleport here'
-  button.onclick = () => {
-    button.textContent = 'Loading..'
-    button.disabled = true
-    helper.spawnUrl().then(openSpawnUrl)
-    map.closePopup()
-  }
-
-  buttonContainer.appendChild(button)
-
-  const button2 = document.createElement('button')
-  button2.className = 'copyCoordinates'
-  button2.textContent = 'Copy Coordinates'
-  button2.onclick = () => {
-    button2.textContent = 'Loading..'
-    button2.disabled = true
-    helper.spawnUrl().then(copyToClipboard)
-    map.closePopup()
-  }
-  buttonContainer.appendChild(button2)
 
   map.openPopup(x, z, div)
 }
@@ -75,7 +46,6 @@ export function mapTeleportPopup(map: VoxelsMap, x: number, z: number, openSpawn
   const coords = {
     position: BABYLON.Vector3.FromArray([x, 2.5, z]),
     rotation: BABYLON.Vector3.Zero(),
-    flying: true,
   }
 
   const encoded = encodeCoords(coords)

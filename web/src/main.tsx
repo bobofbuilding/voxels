@@ -117,7 +117,6 @@ const Main = () => {
             {AppRoutes()}
             <RadioPopout path="/radio" />
             <Play path="/play" />
-            <Play path="/scratchpad" />
             <Play path="/spaces/:id/play" />
             <Play path="/assets/:id/play" />
             <AccountRoutes path="/account/:path*" />
@@ -143,8 +142,7 @@ function RadioPopout(_props: { path?: string }) {
 }
 
 function Play(_props: { path?: string }) {
-  // WorldSidebar owns the in-world pane on /play (uiPane || info). Returning info
-  // here stacked a second copy under the edit aside when you right-clicked a feature.
+  // WorldSidebar owns the in-world pane on /play. Don't render a second copy under the aside.
   if (getCoords()) return null
   return (
     <section>

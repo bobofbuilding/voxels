@@ -1,6 +1,7 @@
 import { IslandRecord, MultiPolygonGeometry } from '../../common/messages/api-islands'
 import { StateObservable } from '../utils/state-observable'
 import { createIslandMaterial } from '../materials'
+import { pointInPolygon } from '../utils/polygon-utils'
 
 export class Island {
   list: Islands
@@ -8,7 +9,7 @@ export class Island {
   center: BABYLON.Vector3
   radius: number
   outline: BABYLON.Vector2[]
-  texturePath = '/textures/ground.png'
+  texturePath = '/textures/00-grid.png'
   private readonly _mesh: BABYLON.Mesh
 
   constructor(list: Islands, desc: IslandRecord) {
@@ -16,12 +17,12 @@ export class Island {
     this.desc = desc
     this.outline = this.desc.geometry.coordinates[0].map((c: [x: number, y: number]) => new BABYLON.Vector2(c[0] * 100, c[1] * 100)).reverse()
 
-    if (window.config.isSpace) {
-      this.texturePath = '/textures/subgrid.png'
-    } else if (desc.texture) {
-      // texture comes from the DB
-      this.texturePath = desc.texture
-    }
+    // if (window.config.isSpace) {
+    //   this.texturePath = '/textures/subgrid.png'
+    // } else if (desc.texture) {
+    //   // texture comes from the DB
+    //   this.texturePath = desc.texture
+    // }
 
     // build mesh
     const shape = this.desc.geometry.coordinates[0].map((c) => new BABYLON.Vector2(c[0] * 100, c[1] * 100)).reverse()
@@ -190,5 +191,16 @@ export default class Islands {
 
   getIslandData(): IslandRecord[] {
     return this.islands.map((island) => island.desc)
+  }
+
+  getIsland(point: BABYLON.Vector2): Island | false {
+    for (const island of this.islands) {
+      const dx = point.x - island.center.x
+      const dz = point.y - island.center.z
+      if (dx * dx + dz * dz > island.radius * island.radius) continue
+      const polygon = island.outline.map((v) => ({ x: v.x, z: v.y }))
+      if (pointInPolygon({ x: point.x, z: point.y }, polygon)) return island
+    }
+    return false
   }
 }

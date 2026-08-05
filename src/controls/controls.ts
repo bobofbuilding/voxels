@@ -20,6 +20,9 @@ export const MIN_CAMERA_DISTANCE = 0.5
 export const MAX_CAMERA_DISTANCE = 10
 const CAMERA_EASE_OUT = 1.4
 const SWIM_LEVEL = -2
+const STAND_ELLIPSOID_Y = 0.85
+const CROUCH_ELLIPSOID_Y = 0.4
+const CROUCH_SPEED_MULT = 0.5
 
 /** Meters behind the person in front (each hop of the snake). */
 const CONGA_FOLLOW_DISTANCE = 1.35
@@ -86,13 +89,16 @@ export default abstract class Controls implements IControls {
   initialCameraPos: BABYLON.Vector3 | null = null
   facingForward = true
   hasGamepad = false
-  flying = true
+  flying = false
   jumping = false
   swimming = false
   cameraDistance = 0
   targetCameraDistance: number = CAMERA_DISTANCE
-  reticuleNormal: BABYLON.Mesh
-  reticuleHighlight: BABYLON.Mesh
+  reticuleRoot: BABYLON.TransformNode
+  reticuleChannels: BABYLON.Mesh[]
+  reticuleActive = false
+  private chromaAmount = 0
+  private reticuleSpinT = 0
   user: User
   defaultSpeed = 0.88
   runSpeed = 4.0
@@ -100,6 +106,9 @@ export default abstract class Controls implements IControls {
   movementEnabled = true
   shiftKey = false
   ctrlKey = false
+  crouching = false
+  /** Desktop Control key held — not meta/Cmd. */
+  crouchHeld = false
   firstPersonView = true
   walkRunAnimation: BABYLON.Animatable | null = null
   /** mobile dpad sets this; also used as drive steer while in a vehicle */
@@ -140,9 +149,9 @@ export default abstract class Controls implements IControls {
   audioContext: AudioContext = undefined!
   idleLook: IdleLook
   private cameraZoomed = false
-  // For gravity gating. See refreshGravity().
-  private _containingParcelsWaitState: 'ready' | 'waiting-for-parcel-list' | 'waiting-for-colliders' = 'ready'
-  private _containingParcels: number[] = []
+  // Gravity stays off until parcel colliders underfoot exist. See refreshGravity().
+  groundReady = true
+  private floorParcels: number[] | null = null // null = waiting for parcel ids
 
   constructor(
     protected scene: BABYLON.Scene,
@@ -168,18 +177,14 @@ export default abstract class Controls implements IControls {
     // Enable feature clicking
     this.scene.onPointerObservable.add(this.featureClickHandler.bind(this))
 
-    this.reticuleNormal = generateReticule(scene, false)
-    this.reticuleNormal.setEnabled(true)
-    this.reticuleNormal.parent = this.camera
-    this.reticuleHighlight = generateReticule(scene, true)
-    this.reticuleHighlight.setEnabled(false)
-    this.reticuleHighlight.parent = this.camera
+    const reticule = generateReticule(scene)
+    this.reticuleRoot = reticule.root
+    this.reticuleChannels = reticule.channels
+    this.reticuleRoot.parent = this.camera
 
     if (isDesktop()) {
-      this.scene.registerBeforeRender(() => {
-        // Show the reticule in 20% visibility in 3rd person mode.
-        this.reticuleNormal.visibility = hasPointerLock() || this.hasGamepad ? (this.firstPersonView ? 1 : 0.2) : 0
-        this.reticuleHighlight.visibility = hasPointerLock() || this.hasGamepad ? (this.firstPersonView ? 1 : 0.2) : 0
+      this.scene.onBeforeRenderObservable.add(() => {
+        this.tickReticuleSpin()
       })
     }
 
@@ -417,8 +422,9 @@ export default abstract class Controls implements IControls {
     if (this.movementEnabled) {
       const fps = 60
       const duration = 13
+      const target = this.crouching ? this.defaultSpeed * CROUCH_SPEED_MULT : this.defaultSpeed
       this.walkRunAnimation?.stop()
-      this.walkRunAnimation = BABYLON.Animation.CreateAndStartAnimation('walk-to-run', this.camera, 'speed', fps, duration, this.camera.speed, this.defaultSpeed, undefined, WALK_TO_RUN_EASE)
+      this.walkRunAnimation = BABYLON.Animation.CreateAndStartAnimation('walk-to-run', this.camera, 'speed', fps, duration, this.camera.speed, target, undefined, WALK_TO_RUN_EASE)
       this.walkRunAnimation!.loopAnimation = false
     }
   }
@@ -449,14 +455,56 @@ export default abstract class Controls implements IControls {
     return this.worldOffset.absolutePosition.add(worldPosition)
   }
 
-  setActiveReticule(highlight = false) {
-    if (highlight && this.reticuleNormal.isEnabled()) {
-      this.reticuleHighlight.setEnabled(true)
-      this.reticuleNormal.setEnabled(false)
-    } else if (!highlight && this.reticuleHighlight.isEnabled()) {
-      this.reticuleHighlight.setEnabled(false)
-      this.reticuleNormal.setEnabled(true)
+  setActiveReticule(active = false) {
+    this.reticuleActive = active
+  }
+
+  private tickReticuleSpin() {
+    const dt = this.scene.getEngine().getDeltaTime() / 1000
+    const target = this.reticuleActive ? 1 : 0
+    if (this.chromaAmount !== target) {
+      const step = dt / 0.2
+      if (this.chromaAmount < target) this.chromaAmount = Math.min(target, this.chromaAmount + step)
+      else this.chromaAmount = Math.max(target, this.chromaAmount - step)
     }
+
+    const shown = hasPointerLock() || this.hasGamepad
+    const baseVis = shown ? (this.firstPersonView ? 1 : 0.2) : 0
+    const vis = baseVis * (0.5 + 0.5 * this.chromaAmount)
+    const scale = 0.5 + 0.5 * this.chromaAmount
+
+    if (this.chromaAmount === 0 && !this.reticuleActive) {
+      for (const ch of this.reticuleChannels) {
+        ch.visibility = vis
+        ch.scaling.setAll(scale)
+        ch.rotation.z = 0
+        ch.position.x = 0
+        ch.position.y = 0
+      }
+      this.reticuleSpinT = 0
+      return
+    }
+
+    this.reticuleSpinT += dt
+    const t = this.reticuleSpinT
+    const a = this.chromaAmount
+    const orbit = 0.0009 * a
+    const [r, g, b] = this.reticuleChannels
+    r.visibility = vis
+    g.visibility = vis
+    b.visibility = vis
+    r.scaling.setAll(scale)
+    g.scaling.setAll(scale)
+    b.scaling.setAll(scale)
+    r.rotation.z = t * 2.6 * a
+    g.rotation.z = (t * 3.4 + 0.7) * a
+    b.rotation.z = (t * 1.9 - 0.7) * a
+    r.position.x = Math.cos(t * 4.1) * orbit
+    r.position.y = Math.sin(t * 4.1) * orbit
+    g.position.x = Math.cos(t * 5.2 + 2.1) * orbit
+    g.position.y = Math.sin(t * 5.2 + 2.1) * orbit
+    b.position.x = Math.cos(t * 3.3 + 4.2) * orbit
+    b.position.y = Math.sin(t * 3.3 + 4.2) * orbit
   }
 
   setFlying(value: boolean) {
@@ -473,21 +521,20 @@ export default abstract class Controls implements IControls {
       throw new Error('invalidateGroundLoaded() called before attachEnvironment()!')
     }
 
+    this.groundReady = false
     //TODO: Instead of switching on environment type here, this logic should probably be moved into methods in SpaceEnvironment and WorldEnvironment that override an abstract Environment method
     if (window.config.isSpace) {
       // Spaces always contain exactly one Parcel with ID 0
-      this._containingParcels = [0]
-      this._containingParcelsWaitState = 'waiting-for-colliders'
+      this.floorParcels = [0]
     } else {
       if (!this.grid) {
         throw new Error('invalidateGroundLoaded() called before attachEnvironment()!')
       }
 
       // The main thread doesn't keep a complete list of parcels, so we need to wait for the grid worker to tell us the definitive set of parcels containing the camera.
-      this._containingParcelsWaitState = 'waiting-for-parcel-list'
+      this.floorParcels = null
       this.grid.queryParcelsAtPosition(this.camera.position).then((parcelIds) => {
-        this._containingParcels = parcelIds
-        this._containingParcelsWaitState = 'waiting-for-colliders'
+        this.floorParcels = parcelIds
       })
     }
 
@@ -499,13 +546,54 @@ export default abstract class Controls implements IControls {
     if (this.camera instanceof PlayerCamera) {
       // To avoid falling into the abyss, or through the floor of a second-floor parcel, gravity stays off at least until:
       // 1. All islands have been meshed (this.grounded === true), and
-      // 2. Every parcel containing the camera position has a collider (this._containingParcelsWaitState === 'ready').
-      if (this._containingParcelsWaitState === 'waiting-for-colliders' && this._containingParcels.every((id) => this.grid?.getByID(id)?.isColliderEnabled())) {
-        this._containingParcels = []
-        this._containingParcelsWaitState = 'ready'
+      // 2. Every parcel containing the camera position has a collider (this.groundReady).
+      if (!this.groundReady && this.floorParcels && this.floorParcels.every((id) => this.grid?.getByID(id)?.isColliderEnabled())) {
+        this.groundReady = true
+        this.floorParcels = null
       }
-      this.camera.applyGravity = !this.flying && !this.swimming && this.grounded && isLoaded() && !this.gravityDisabledOverride && this._containingParcelsWaitState === 'ready'
+      this.camera.applyGravity = !this.flying && !this.swimming && this.grounded && isLoaded() && !this.gravityDisabledOverride && this.groundReady
     }
+  }
+
+  setCrouching(want: boolean, force = false) {
+    if (!(this.camera instanceof PlayerCamera)) return
+    if (want === this.crouching) return
+
+    const dy = STAND_ELLIPSOID_Y - CROUCH_ELLIPSOID_Y
+
+    if (want) {
+      this.camera.ellipsoid.y = CROUCH_ELLIPSOID_Y
+      this.camera.position.y -= dy
+      this.crouching = true
+      if (this.movementEnabled && !this.running) {
+        this.camera.speed = this.defaultSpeed * CROUCH_SPEED_MULT
+      }
+      return
+    }
+
+    if (!force) {
+      const origin = this.camera.globalPosition
+      const ray = new BABYLON.Ray(origin, new BABYLON.Vector3(0, 1, 0), dy + BABYLON.Epsilon)
+      const hit = this.scene.pickWithRay(ray, (e) => e.checkCollisions, true)
+      if (hit?.hit) return
+    }
+
+    this.camera.ellipsoid.y = STAND_ELLIPSOID_Y
+    this.camera.position.y += dy
+    this.crouching = false
+    if (this.movementEnabled && !this.running) {
+      this.camera.speed = this.defaultSpeed
+    }
+  }
+
+  refreshCrouch() {
+    if (!(this.camera instanceof PlayerCamera)) return
+    if (this.flying || this.swimming) {
+      if (this.crouching) this.setCrouching(false, true)
+      return
+    }
+    if (this.crouchHeld) this.setCrouching(true)
+    else if (this.crouching) this.setCrouching(false)
   }
 
   // Disables gravity until ground is detected underneath the avatar
@@ -956,86 +1044,70 @@ export default abstract class Controls implements IControls {
   }
 }
 
-function generateReticule(scene: BABYLON.Scene, highlight = false) {
-  let name = 'reticule'
-  if (highlight) {
-    name += '_highlight'
-  }
+function generateReticule(scene: BABYLON.Scene) {
   const w = 128
   const utilLayer = new BABYLON.UtilityLayerRenderer(scene)
-  const texture = new BABYLON.DynamicTexture(name, w, scene, false)
+  const utilScene = utilLayer.utilityLayerScene
+  const texture = new BABYLON.DynamicTexture('reticule', w, scene, false)
   texture.hasAlpha = true
 
   const ctx = <CanvasRenderingContext2D>texture.getContext()
+  const radius = w * 0.2
+  const centerX = w * 0.5
+  const centerY = w * 0.5
 
-  const createHexagon = () => {
-    const radius = w * 0.1
-    const centerX = w * 0.5
-    const centerY = w * 0.5
-
-    // Background
-    ctx.beginPath()
-    ctx.strokeStyle = 'rgba(0, 0, 0, 0.5)'
-    ctx.lineWidth = 2
-
-    for (let i = 0; i <= 6; i++) {
-      const angle = (Math.PI / 3) * i - Math.PI / 2
-      const x = centerX + radius * Math.cos(angle)
-      const y = centerY + radius * Math.sin(angle)
-      if (i === 0) {
-        ctx.moveTo(x + 2, y + 2)
-      } else {
-        ctx.lineTo(x + 2, y + 2)
-      }
-    }
-
-    ctx.stroke()
-
-    // Foreground
-    ctx.beginPath()
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)'
-    ctx.lineWidth = highlight ? 3 : 2
-
-    for (let i = 0; i <= 6; i++) {
-      const angle = (Math.PI / 3) * i - Math.PI / 2
-      const x = centerX + radius * Math.cos(angle)
-      const y = centerY + radius * Math.sin(angle)
-      if (i === 0) {
-        ctx.moveTo(x, y)
-      } else {
-        ctx.lineTo(x, y)
-      }
-    }
-
-    ctx.stroke()
-
-    texture.update()
+  ctx.beginPath()
+  ctx.strokeStyle = 'rgba(0, 0, 0, 0.5)'
+  ctx.lineWidth = 4
+  for (let i = 0; i <= 6; i++) {
+    const angle = (Math.PI / 3) * i - Math.PI / 2
+    const x = centerX + radius * Math.cos(angle)
+    const y = centerY + radius * Math.sin(angle)
+    if (i === 0) ctx.moveTo(x + 2, y + 2)
+    else ctx.lineTo(x + 2, y + 2)
   }
+  ctx.stroke()
 
-  createHexagon()
+  ctx.beginPath()
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)'
+  ctx.lineWidth = 4
+  for (let i = 0; i <= 6; i++) {
+    const angle = (Math.PI / 3) * i - Math.PI / 2
+    const x = centerX + radius * Math.cos(angle)
+    const y = centerY + radius * Math.sin(angle)
+    if (i === 0) ctx.moveTo(x, y)
+    else ctx.lineTo(x, y)
+  }
+  ctx.stroke()
+  texture.update()
 
-  const material = new BABYLON.StandardMaterial(name, scene)
-  material.diffuseTexture = texture
-  material.opacityTexture = texture
-  material.emissiveColor.set(1, 1, 1)
-  material.disableLighting = true
+  const root = new BABYLON.TransformNode('reticule', utilScene)
+  root.position.set(0, 0, 0.2)
 
-  const reticule = BABYLON.MeshBuilder.CreatePlane(name, { size: 0.02 }, utilLayer.utilityLayerScene)
-  reticule.material = material
-  reticule.position.set(0, 0, 0.2)
-  reticule.isPickable = false
-  // reticule.rotation.z = Math.PI / 4
-  // set invisible until render loop starts
-  reticule.visibility = 0
+  const colors: [string, BABYLON.Color3][] = [
+    ['r', new BABYLON.Color3(1, 0.15, 0.15)],
+    ['g', new BABYLON.Color3(0.15, 1, 0.15)],
+    ['b', new BABYLON.Color3(0.15, 0.4, 1)],
+  ]
 
-  // material.freeze()
-  // material.blockDirtyMechanism = true
+  const channels = colors.map(([suffix, color]) => {
+    const material = new BABYLON.StandardMaterial(`reticule_${suffix}`, utilScene)
+    material.diffuseTexture = texture
+    material.opacityTexture = texture
+    material.emissiveColor.copyFrom(color)
+    material.disableLighting = true
+    material.alphaMode = BABYLON.Engine.ALPHA_ADD
+    material.disableDepthWrite = true
 
-  // if (highlight) {
-  //   animateReticuleScale(reticule)
-  // }
+    const mesh = BABYLON.MeshBuilder.CreatePlane(`reticule_${suffix}`, { size: 0.04 }, utilScene)
+    mesh.material = material
+    mesh.parent = root
+    mesh.isPickable = false
+    mesh.visibility = 0
+    return mesh
+  })
 
-  return reticule
+  return { root, channels }
 }
 
 export function featureFromPick(pickInfo?: BABYLON.PickingInfo | null): Feature | null {

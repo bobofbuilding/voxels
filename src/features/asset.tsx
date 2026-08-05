@@ -43,20 +43,12 @@ class Editor extends FeatureEditor<Asset> {
   render() {
     return (
       <section>
-        <header>
-          <h2>Edit Asset</h2>
-          <button onClick={this.onBackClick} class="close">
-            <span>&times;</span>
-          </button>
-        </header>
-        <div className="scrollContainer">
-          <Toolbar feature={this.props.feature} scene={this.props.scene} />
-          <EditorProps>
-            <Position feature={this.props.feature} key={this.props.feature.position.toString()} />
-            <Scale feature={this.props.feature} key={this.props.feature.scale.toString()} />
-            <Rotation feature={this.props.feature} key={this.props.feature.rotation.toString()} />
-          </EditorProps>
-        </div>
+        <Toolbar feature={this.props.feature} scene={this.props.scene} />
+        <EditorProps>
+          <Position feature={this.props.feature} key={this.props.feature.position.toString()} />
+          <Scale feature={this.props.feature} key={this.props.feature.scale.toString()} />
+          <Rotation feature={this.props.feature} key={this.props.feature.rotation.toString()} />
+        </EditorProps>
       </section>
     )
   }

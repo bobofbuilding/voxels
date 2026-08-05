@@ -20,7 +20,6 @@ import { isOwner } from './lib/helpers'
 import AdminController from './controllers/admin'
 import GuestPassesController from './controllers/guest-passes'
 import { livekitService } from './controllers/livekit'
-import ScratchpadController from './controllers/scratchpad'
 import CollectiblesController from './controllers/collectibles'
 import CollectionsController from './controllers/collections'
 import FavoritesController from './controllers/favorites'
@@ -50,7 +49,6 @@ import AssetLibraryController from './controllers/assets'
 import AvatarsController from './controllers/avatars'
 import CostumesController from './controllers/costumes'
 import ExternalsController from './controllers/externals'
-import MailsController from './controllers/mails'
 import ModerationReportsController from './controllers/reports'
 import WompsController from './controllers/womps'
 import IslandBoardController from './controllers/island-board'
@@ -60,10 +58,9 @@ import createGridSocket from './grid/createGridSocket'
 import { searchAndReturn } from './handlers/search'
 import { EthereumListener } from './jobs/ethereum-listener'
 import cleanCollections from './jobs/remove-collections'
-import cleanMailBoxes from './jobs/remove-old-mails'
 import truncateMetrics from './jobs/truncate-metrics'
 import log from './lib/logger'
-import { createRequestHandlerForQuery } from './lib/query-helpers'
+import { createRequestHandlerForQuery, query } from './lib/query-helpers'
 import { getTypeOfContract } from './lib/utils'
 import preCorsController from './pre-cors'
 
@@ -344,9 +341,6 @@ GuestPassesController(db, passport, app, livekitService, gridSocket)
 // The NFTs
 NftController(db, passport, app)
 
-// Scratchpad for all users
-ScratchpadController(app)
-
 // Models (LLM utilities)
 ModelsController(app)
 
@@ -379,9 +373,6 @@ CollectionsController(db, passport, app)
 CollectiblesController(db, passport, app)
 //Events
 EventsController(db, passport, app)
-// Emoji Badges
-// Mails controller
-MailsController(db, passport, app)
 // Favorites controller
 FavoritesController(db, passport, app)
 // Asset library controller:
@@ -487,16 +478,22 @@ app.get(
 
 app.get('/api/parcels/cached.json', cache('60 seconds', true), createRequestHandlerForQuery(db, 'get-parcels-cached', 'parcels'))
 
-app.get(
-  '/api/parcels/:id.json',
-  cache('15 seconds'),
-  passport.authenticate(['jwt', 'anonymous'], { session: false }),
-  createRequestHandlerForQuery(db, 'get-parcel', 'parcel', (req) => {
-    const id = parseInt(req.params.id, 10)
-    if (isNaN(id)) return null
-    return [id, isOwner(req)]
-  }),
-)
+const parcelProxy = proxy('https://www.voxels.com', {
+  proxyReqPathResolver: (req) => req.originalUrl,
+})
+
+app.get('/api/parcels/:id.json', cache(config.isDevelopment ? false : '15 seconds'), passport.authenticate(['jwt', 'anonymous'], { session: false }), async (req, res, next) => {
+  const id = parseInt(req.params.id, 10)
+  if (isNaN(id)) return res.status(400).json({ success: false })
+
+  const result = await query(db, 'get-parcel', 'parcel', [id, isOwner(req)])
+  if (result.success) return res.status(200).json(result)
+
+  if (config.isDevelopment) return parcelProxy(req, res, next)
+
+  noCache(res)
+  res.status(400).json({ success: false })
+})
 
 app.get(
   '/api/wallet/:address/parcels.json',
@@ -570,12 +567,6 @@ const start = () => {
 
 const master = () => {
   log.info(`master() running on DYNO=${process.env.DYNO} PORT=${port}`) //TODO: Remove
-
-  // clean mail older than x months old at start up or every 3 days
-  setTimeout(() => {
-    setInterval(() => cleanMailBoxes(), 1000 * 60 * 60 * 24 * 3)
-    cleanMailBoxes()
-  }, 1000)
 
   //clean collections with no addresses every day at start up and once per day
   setTimeout(() => {

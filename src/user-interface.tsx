@@ -14,8 +14,6 @@ import Toggle from '../web/src/components/toggle'
 import { app, AppEvent } from '../web/src/state'
 import { KeyboardHandler } from './components/keyboard-handler'
 import { OnlyMobile } from './components/utils'
-import { Animations } from './avatar-animations'
-import { EmoteAnimation } from './states'
 import Connector, { messageList } from './connector'
 import DesktopControls from './controls/desktop/controls'
 import { Environment } from './enviroments/environment'
@@ -25,11 +23,8 @@ import type { FeatureTemplate } from './features/_metadata'
 import type Grid from './grid'
 import type { MinimapSettings } from './minimap'
 import Parcel from './parcel'
-import { isScratchpad } from './scene-config'
-import { onLoadPromise } from './utils/loading-done'
 import {
   selectCurrentOrNearestParcel,
-  selectCurrentParcel,
   selectNearestEditableParcel,
   selectSelectedFeature,
   selectCheckedFeatures,
@@ -59,7 +54,6 @@ import { ChatOverlay, chatSettings } from './ui/interact/chat'
 import { voiceSettings } from './voice-settings'
 import { EmoteOverlay } from './ui/interact/emote'
 import { HelpOverlay } from './ui/interact/help'
-import { ScratchpadGuide, ScratchpadGuideMini } from './ui/scratchpad-guide'
 import { FirstTimeInstructions } from '../web/src/components/first-time-instructions'
 import { BroadcastSidebarTab } from '../web/src/broadcast-sidebar-tab'
 import { ShowboxBroadcastPane } from '../web/src/showbox-broadcast-pane'
@@ -71,8 +65,6 @@ import { BuildTab } from './ui/overlay/build-tab/build-tab'
 import DebugTools from './ui/overlay/debug-tools'
 import EditPane from './ui/overlay/edit-pane'
 import CustomizeVoxels from './ui/overlay/customize-voxels'
-import ParcelInfoTab from './ui/overlay/parcel-info'
-import IslandInfoTab from './ui/overlay/island-info'
 import ToolBelt from './ui/overlay/tool-belt'
 import ParcelSnapshots from './ui/parcel-snapshots'
 import { SettingsUI } from './ui/settings'
@@ -106,7 +98,7 @@ export enum Mode {
   Avatar,
 }
 
-export type UIPanes = 'add' | 'edit' | 'voxels' | 'info' | 'debugTool' | 'nfts' | 'chat' | 'emote' | 'settings' | 'womp' | 'takeWomp' | 'help' | 'explorer' | 'login' | 'parcelSnapshots' | 'bake' | 'broadcast'
+export type UIPanes = 'add' | 'edit' | 'voxels' | 'debugTool' | 'nfts' | 'chat' | 'emote' | 'settings' | 'womp' | 'takeWomp' | 'help' | 'explorer' | 'login' | 'parcelSnapshots' | 'bake' | 'broadcast'
 
 export interface Tool {
   activate: () => void
@@ -134,7 +126,6 @@ type UserInterfaceState = {
   hover?: string
   signedIn: boolean
   wallet: string | null
-  unreadCount: number
   fullscreen: boolean
   settingsVisible?: boolean
   personaVisible?: boolean
@@ -149,10 +140,6 @@ type UserInterfaceState = {
   active: boolean
   /** Shown next to minimap expand; same source as Explore radar */
   onlineCount: number
-  scratchpadGuideOpen?: boolean
-  scratchpadGuideMini?: boolean
-  scratchpadGuideRestart?: boolean
-  scratchpadGuideKey?: number
   chatEnabled: boolean
   dragging?: boolean
   voice?: 'off' | 'live' | 'muted'
@@ -207,7 +194,6 @@ export default class UserInterface extends Component<UserInterfaceProps, UserInt
       enabled: props.enabled,
       signedIn: app?.signedIn ?? false,
       wallet: app?.state.wallet ?? null,
-      unreadCount: app?.state.unreadMailCount ?? 0,
       fullscreen: false,
       currentOrNearestParcel: null,
       active: false,
@@ -228,7 +214,6 @@ export default class UserInterface extends Component<UserInterfaceProps, UserInt
       signedIn,
       userName: window.user.name,
       wallet: state.wallet,
-      unreadCount: state.unreadMailCount,
     })
 
     if (signedIn && this.state.pane === 'login') {
@@ -281,18 +266,6 @@ export default class UserInterface extends Component<UserInterfaceProps, UserInt
   closePublishAsset = () => {
     this.setState({ publishAsset: undefined })
     uiAsideTick.value++
-  }
-
-  clearAllExplore() {
-    // panes you opened on purpose (info/explorer/settings/help) stay up while you walk around;
-    // deactivateTools() clears uiPane too, so capture and restore it after.
-    const keep = isPersistentPane(uiPane.value) ? uiPane.value : undefined
-    setCheckedFeatures([])
-    selectedFeature.value = undefined
-    this.featureTool.unHighlight()
-    this.deactivateTools()
-    uiPane.value = keep
-    this.setState({ pane: keep as UIPanes | undefined, active: !!keep, feature: undefined, editor: undefined })
   }
 
   editShiftSelect(feature: Feature) {
@@ -357,11 +330,6 @@ export default class UserInterface extends Component<UserInterfaceProps, UserInt
       }
     }
 
-    onLoadPromise.then(() => {
-      if (!isScratchpad() || isMobileMedia()) return
-      this.setState({ scratchpadGuideOpen: true, scratchpadGuideMini: false, scratchpadGuideRestart: false })
-    })
-
     chatSettings.addEventListener('changed', this.onChatSettingsChange)
     voiceSettings.addEventListener('changed', this.onVoiceSettingsChange)
 
@@ -391,42 +359,6 @@ export default class UserInterface extends Component<UserInterfaceProps, UserInt
       return
     }
     this.setState({ voiceEnabled: true })
-  }
-
-  enterScratchpadGuideMini = () => {
-    exitPointerLock()
-    uiPane.value = 'add'
-    this.setState({ pane: 'add', active: true, scratchpadGuideMini: true })
-  }
-
-  celebrateScratchpadGuideComplete = () => {
-    exitPointerLock()
-    this.connector.emote('🔥')
-    this.connector.persona.popState(this.connector.controls)
-    this.connector.persona.setState({ state: new EmoteAnimation(Animations.Dance) }, this.connector.controls)
-    this.setState({ scratchpadGuideOpen: false, scratchpadGuideMini: false, scratchpadGuideRestart: true })
-  }
-
-  restartScratchpadGuide = () => {
-    uiPane.value = undefined
-    this.setState({
-      scratchpadGuideMini: false,
-      scratchpadGuideKey: (this.state.scratchpadGuideKey || 0) + 1,
-      pane: undefined,
-      active: false,
-    })
-  }
-
-  openScratchpadGuide = () => {
-    uiPane.value = undefined
-    this.setState({
-      scratchpadGuideOpen: true,
-      scratchpadGuideMini: false,
-      scratchpadGuideRestart: false,
-      scratchpadGuideKey: (this.state.scratchpadGuideKey || 0) + 1,
-      pane: undefined,
-      active: false,
-    })
   }
 
   updateCanEdit = () => {}
@@ -490,6 +422,7 @@ export default class UserInterface extends Component<UserInterfaceProps, UserInt
         { key: '!', handleEvent: () => {} },
         { code: 'KeyE', handleEvent: () => this.editFeatureIfHasLock() },
         { code: 'KeyX', handleEvent: () => this.deleteFeature() },
+        { code: 'Backspace', handleEvent: () => this.deleteFeature() },
         { code: 'KeyM', handleEvent: () => this.editFeatureThenMove() },
         { code: 'KeyR', handleEvent: () => this.toggleRealism() },
         { code: 'KeyP', handleEvent: () => this.takeWomp(this.props.scene) },
@@ -503,13 +436,7 @@ export default class UserInterface extends Component<UserInterfaceProps, UserInt
         { code: 'Escape', handleEvent: () => this.onEscape() },
         {
           code: 'Tab',
-          handleEvent: (e) => {
-            if (isScratchpad() && this.state.scratchpadGuideOpen) {
-              e.preventDefault()
-              this.setPane('add')
-              return
-            }
-
+          handleEvent: () => {
             if (this.state.pane) return
 
             if (!this.state.active) {
@@ -532,17 +459,21 @@ export default class UserInterface extends Component<UserInterfaceProps, UserInt
     NUMBER_KEYS.forEach((key, index) => {
       this.keyboardHandler.addKeyDown({
         key,
-        handleEvent: () => this.activateVoxelTool(SelectionMode.Add, { texture: index }),
+        handleEvent: () => this.openVoxelCustomize(index),
       })
     })
   }
 
-  setPane(pane: UIPanes) {
-    if (isScratchpad() && this.state.scratchpadGuideOpen && pane === 'add') {
-      this.enterScratchpadGuideMini()
-      return
+  openVoxelCustomize(textureIndex: number) {
+    if (!this.grid.nearestEditableParcel()) return
+    this.voxelTool.setMode(SelectionMode.Add, { texture: textureIndex })
+    this.setTool(this.voxelTool)
+    if (this.state.pane !== 'voxels') {
+      this.setPane('voxels')
     }
+  }
 
+  setPane(pane: UIPanes) {
     // opening a pane always reveals the sidebar; if it was collapsed, reveal instead of toggling shut
     const wasCollapsed = sidebarClosed.value
     sidebarClosed.value = false
@@ -559,8 +490,6 @@ export default class UserInterface extends Component<UserInterfaceProps, UserInt
 
     uiPane.value = pane
     this.setState({ pane: pane, active: true })
-
-    exitPointerLock()
   }
 
   activateVoxelTool(mode?: SelectionMode, options?: SelectionModeOptions) {
@@ -629,9 +558,6 @@ export default class UserInterface extends Component<UserInterfaceProps, UserInt
   }
 
   setTool(tool: Tool | null) {
-    uiPane.value = undefined
-    this.setState({ pane: undefined, active: false })
-
     if ((this.activeTool && !this.activeTool.enabled.value) || this.activeTool !== tool) {
       if (this.activeTool) {
         this.activeTool.deactivate()
@@ -691,7 +617,7 @@ export default class UserInterface extends Component<UserInterfaceProps, UserInt
 
     feature.delete()
     this.featureTool.unHighlight()
-    this.hide()
+    this.closeWithPointerLock()
   }
 
   editFeatureIfHasLock(): void {
@@ -821,13 +747,6 @@ export default class UserInterface extends Component<UserInterfaceProps, UserInt
         return <ParcelSnapshots parcel={nearestEditableParcel || undefined} scene={this.props.scene} />
       case 'login':
         return <Login />
-      case 'info': {
-        // standing on a parcel: THAT parcel's details. in the void: island context (map, events, parcels).
-        // display the same parcel the gate tested - currentOrNearestParcel swaps an uneditable shell
-        // for the nearest inner parcel, which drifted the pane to a neighbor's info while walking.
-        const standingIn = selectCurrentParcel()
-        return standingIn ? <ParcelInfoTab parcel={standingIn} scene={this.props.scene} /> : <IslandInfoTab scene={this.props.scene} />
-      }
       case 'debugTool':
         return <DebugTools parcel={currentOrNearestParcel} scene={this.props.scene} environment={this.props.environment} />
       case 'chat':
@@ -844,7 +763,7 @@ export default class UserInterface extends Component<UserInterfaceProps, UserInt
         return <TakeWomp coords={w.coords} parcel={w.parcel} image={w.image} scene={this.props.scene} onClose={closeTakeWomp} />
       }
       case 'help':
-        return <HelpOverlay scene={this.props.scene} onShowScratchpadGuide={isScratchpad() ? this.openScratchpadGuide : undefined} />
+        return <HelpOverlay scene={this.props.scene} />
       case 'explorer':
         return <ExplorerUI scene={this.props.scene} initialTab={this.explorerPaneInitialTab.current!} />
       case 'bake':
@@ -865,6 +784,16 @@ export default class UserInterface extends Component<UserInterfaceProps, UserInt
     this.setState({ enabled: true })
   }
 
+  enterFullScreen = () => {
+    document.querySelector('canvas')?.requestFullscreen()
+    requestPointerLock()
+    // this.engine.enterFullscreen(true)
+  }
+
+  enterTheatre = () => {
+    // this.engine.enterTheatre()
+  }
+
   render() {
     if (!this.state.enabled) {
       return <Fragment />
@@ -873,6 +802,7 @@ export default class UserInterface extends Component<UserInterfaceProps, UserInt
     const onClick = (p: UIPanes) => (e: any) => {
       e.preventDefault()
       this.setPane(p)
+      exitPointerLock()
     }
 
     const nearestEditableParcel = selectNearestEditableParcel() ?? null
@@ -903,31 +833,20 @@ export default class UserInterface extends Component<UserInterfaceProps, UserInt
         <div class={classes}>
           <Snackbar />
 
+          <div class="top-right">
+            <button onClick={this.enterFullScreen}>⌞ ⌝</button>
+
+            <button onClick={this.enterTheatre}>⛶</button>
+          </div>
+
           <aside data-active={this.state.active}>
             <ul class="ui-sidebar" onMouseLeave={onBlur}>
               {this.state.voiceEnabled && (
                 <li title="Microphone">
                   <div class="voice-toggle">
-                    <span class={this.state.voice !== 'live' ? 'active' : ''}>off</span>
+                    Voice
                     <Toggle checked={this.state.voice === 'live'} onChange={() => this.toggleVoice()} />
-                    <span class={this.state.voice === 'live' ? 'active' : ''}>on</span>
                   </div>
-                </li>
-              )}
-              {!isMobileMedia() && (
-                /**
-                 * Fullscreen toggle; no point showing "fullscreen on mobile" as most devices are always fullscreen
-                 */
-                <li title={this.state.fullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}>
-                  <a
-                    onClick={(e) => {
-                      e.preventDefault()
-                      this.engine.enterFullscreen(!this.state.fullscreen)
-                    }}
-                    href="#"
-                  >
-                    {this.state.fullscreen ? `Exit Fullscreen` : `Fullscreen`}
-                  </a>
                 </li>
               )}
 
@@ -945,11 +864,6 @@ export default class UserInterface extends Component<UserInterfaceProps, UserInt
               <li class={active('emote')}>
                 <a href="#dance" onMouseOver={onHover('emote')} onClick={onClick('emote')}>
                   Dance
-                </a>
-              </li>
-              <li class={active('info')}>
-                <a href="#info" onMouseOver={onHover('info')} onClick={onClick('info')}>
-                  Info
                 </a>
               </li>
               <li class={active('add', !canEdit)}>
@@ -1001,16 +915,6 @@ export default class UserInterface extends Component<UserInterfaceProps, UserInt
 
             {this.state.chatEnabled && !location.pathname.startsWith('/chat') && <ChatOverlay scene={this.props.scene} />}
           </aside>
-
-          {this.state.scratchpadGuideOpen && !this.state.scratchpadGuideMini && <ScratchpadGuide key={this.state.scratchpadGuideKey || 0} voxelTool={this.voxelTool} onComplete={this.celebrateScratchpadGuideComplete} />}
-
-          {this.state.scratchpadGuideOpen && this.state.scratchpadGuideMini && <ScratchpadGuideMini onGotIt={this.celebrateScratchpadGuideComplete} onStartOver={this.restartScratchpadGuide} />}
-
-          {!this.state.scratchpadGuideOpen && this.state.scratchpadGuideRestart && isScratchpad() && (
-            <button type="button" class="scratchpad-guide-restart linkish" onClick={this.openScratchpadGuide}>
-              start over
-            </button>
-          )}
 
           {nearestEditableParcel && <ToolBelt parcel={nearestEditableParcel} scene={this.props.scene} />}
 

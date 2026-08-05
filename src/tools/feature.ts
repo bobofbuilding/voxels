@@ -134,6 +134,7 @@ export default class FeatureTool implements Tool {
     selectorMaterial.alpha = 0
 
     this.selector.material = selectorMaterial
+    this.selector.visibility = 0
 
     this.createFeatureLoadingMesh()
 
@@ -411,7 +412,6 @@ export default class FeatureTool implements Tool {
 
     const featureUuid = (conserveUuid && featureTemplate.uuid) || uuid()
     const feature: MeshedFeature = this.createFeature(this.scene, this.selection.parcel!, featureUuid, featureTemplate as any)
-    feature.recentlySpawned = true
     this._prematureFeature = feature
     // We disable animations on the premature feature to avoid animations breaking the premature feature preview
     feature.animationDisabled = true
@@ -474,13 +474,13 @@ export default class FeatureTool implements Tool {
     const featureUuid = (conserveUuid && featureTemplate.uuid) || uuid()
 
     const feature: MeshedFeature = this.createFeature(this.scene, this.selection.parcel, featureUuid, featureTemplate as any)
-    feature.recentlySpawned = true
 
     // Wait for mesh generation before continuing
     await feature.generate()
     this.selection.parcel.featuresList.push(feature)
     this.selection.parcel.budget.consume(feature)
     feature.sendToServer()
+    if (feature.type === 'lantern') this.selection.parcel.relight()
 
     if (feature instanceof Group && featureTemplate.children) {
       await Promise.all(

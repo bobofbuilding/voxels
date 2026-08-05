@@ -135,7 +135,6 @@ export const CAMERA_HEIGHT = 2.5
 export interface coords {
   position: BABYLON.Vector3
   rotation?: BABYLON.Vector3
-  flying?: boolean
 }
 
 const headings = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW', 'N']
@@ -143,7 +142,7 @@ const headings = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW', 'N']
 /**
  * Converts encoded coordinates such as 45W,253N, to a position object
  * @param {string} coords the coordinates, eg: 45W,253N,
- * @returns {coords} Position object {position:{x,y,z},rotation:{x,y,z},flying:{boolean}}
+ * @returns {coords} Position object {position:{x,y,z},rotation:{x,y,z}}
  */
 export const decodeCoords = (coords: string | null): coords => {
   const result = new BABYLON.Vector3(0, CAMERA_HEIGHT, 0)
@@ -153,9 +152,8 @@ export const decodeCoords = (coords: string | null): coords => {
     const terms = coords.split(/[,@]/)
 
     terms.forEach((t) => {
-      if (t.match(/\dU$/)) {
-        result.y = parseFloat(t) + CAMERA_HEIGHT
-      } else if (t.match(/\F$/)) {
+      if (t.match(/\dU$/) || t.match(/\dF$/)) {
+        // F is legacy; treat as height only
         result.y = parseFloat(t) + CAMERA_HEIGHT
       } else if (t.match(/\dN$/)) {
         result.z = parseFloat(t)
@@ -181,8 +179,7 @@ export const decodeCoords = (coords: string | null): coords => {
 export const encodeCoords = (coords: coords): string => {
   let { x, z } = coords.position.floor()
 
-  // include 0.5 in
-  let y = Math.round((coords.position.y - CAMERA_HEIGHT) * 2) / 2
+  let y = Math.round(coords.position.y - CAMERA_HEIGHT)
 
   const result = []
 
@@ -201,8 +198,7 @@ export const encodeCoords = (coords: coords): string => {
   if (y === 0) {
     y = null!
   } else {
-    // append F if we are flying instead of U
-    result.push(y + (coords.flying ? 'F' : 'U'))
+    result.push(y + 'U')
   }
 
   let heading
