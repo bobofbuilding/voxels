@@ -79,14 +79,10 @@ export class Client extends Component<FrameProps, FrameState> {
     if (this.watch) clearInterval(this.watch)
     this.watch = setInterval(() => {
       if (!getCoords()) return
-      if (location.pathname === '/parcels') return
       const m = location.pathname.match(/^\/parcels\/(\d+)$/)
       if (!m) return
-      const urlId = parseInt(m[1], 10)
       const id = window.grid?.currentParcel()?.id
-      if (id && id !== urlId) {
-        syncParcelUrl(id)
-      }
+      if (id && id !== parseInt(m[1], 10)) syncParcelUrl(id)
     }, 200)
   }
 
@@ -105,8 +101,10 @@ export class Client extends Component<FrameProps, FrameState> {
     const root = this.root.current
     if (!root) return
 
-    // full: fill .client-world push slot; embed: fill .client-slot on the page
-    const slot = document.querySelector(this.props.mode === 'full' ? '.client-world' : '.client-slot') as HTMLElement | null
+    // full: .client-world; embed: .client-slot; else #mini-client in the nav
+    const preferred = this.props.mode === 'full' ? '.client-world' : '.client-slot'
+
+    const slot = (document.querySelector(preferred) as HTMLElement | null) || (document.querySelector('#mini-client') as HTMLElement | null)
 
     if (!slot) {
       if (this.props.mode === 'full') {
@@ -132,6 +130,13 @@ export class Client extends Component<FrameProps, FrameState> {
       root.style.height = `${Math.max(0, r.height)}px`
       root.style.right = 'auto'
       root.style.bottom = 'auto'
+
+      if (slot.id.match(/mini/)) {
+        root.classList.add('mini')
+      } else {
+        root.classList.remove('mini')
+      }
+
       window.engine?.resize()
     }
 

@@ -7,7 +7,7 @@ import { mapParcelPopup, mapTeleportPopup } from './map-parcel-popup'
 import { app, AppEvent } from './state'
 
 const priceLabel = (n: number) => `${parseFloat(n.toFixed(2))}Ξ`
-const SHOP_LIST_ORTHO = 2500
+const SHOP_LIST_ORTHO = 9000
 const DETAIL_ORTHO = 200
 const PAGE_ORTHO = 2000
 
@@ -115,7 +115,6 @@ export default class WorldMap extends Component<Props, State> {
       mapParcelPopup(this.map, x, z, parcel, go)
       return
     }
-    mapTeleportPopup(this.map, x, z, go)
   }
 
   updateForSalePinLabels = () => {
@@ -210,15 +209,14 @@ export default class WorldMap extends Component<Props, State> {
     if (!this.map || !id) return
     const marker = this.forSaleMarkers[id]
     if (!marker) return
-    this.map.setView(marker.x, marker.z, ortho)
+    this.map.flyTo(marker.x, marker.z, ortho)
     this.highlightParcel(id)
   }
 
   resetShopListView = () => {
     if (!this.map || !this.props.onForSaleSelect) return
     this.highlightParcel(null)
-    this.map.setView(0, 0, SHOP_LIST_ORTHO)
-    this.notifyForSaleViewport()
+    this.map.flyTo(0, 0, SHOP_LIST_ORTHO)
   }
 
   highlightParcel = (id: number | null) => {
@@ -228,10 +226,8 @@ export default class WorldMap extends Component<Props, State> {
   }
 
   render() {
-    const style = this.state.embed ? { height: '100vh', width: '100vw' } : { height: '95%', width: '100%' }
-
     return (
-      <section class="worldmap" style={style}>
+      <section class="worldmap">
         {this.props.path === '/map' && (
           <a class="map-for-sale-cta buttonish primary" href="/shop">
             land for sale

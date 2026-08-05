@@ -1,16 +1,13 @@
 import { ethers } from 'ethers'
 import { Express, Request, Response } from 'express'
 import proxy from 'express-http-proxy'
-import { chunk } from 'lodash'
 import { PassportStatic } from 'passport'
-import querystring from 'querystring'
-import { fetchJSON, OpenseaListingsV2Configs } from '../../common/helpers/apis'
+import { fetchJSON } from '../../common/helpers/apis'
 import config from '../../common/config'
 import { isStringHex } from '../../common/helpers/utils'
 import { AlchemyNFTAPIWithMetadata, AlchemyNFTWithMetadata } from '../../common/messages/api-alchemy'
-import { OpenseaListingsResponseV2, OpenSeaNftModelV2, OpenSeaNFTV2Extended, OrderRecordV2 } from '../../common/messages/api-opensea'
+import { OpenSeaNftModelV2, OpenSeaNFTV2Extended } from '../../common/messages/api-opensea'
 import cache from '../cache'
-import { encryptPoapEditCode, redeemPoapForWallet } from '../handlers/poap-handler'
 import { requireAdmin } from '../lib/helpers'
 import log from '../lib/logger'
 import { parseQueryInt } from '../lib/query-parsing-helpers'
@@ -56,6 +53,92 @@ export default function ExternalsController(db: Db, passport: PassportStatic, ap
     const nfts = await fetchMore()
     res.setHeader('Cache-Control', 'private, max-age=60')
     res.send({ success: true, nfts })
+  })
+
+  // Single NFT by contract/token — Postgres hit, else one OpenSea call (first write wins).
+  app.get('/api/externals/opensea/nft.json', cache('60 seconds'), async (req, res) => {
+    const contractRaw = typeof req.query.contract === 'string' ? req.query.contract : ''
+    const token = typeof req.query.token === 'string' ? req.query.token : ''
+    const chain_id = typeof req.query.chain_id === 'string' ? parseInt(req.query.chain_id, 10) : 1
+    if (!ethers.isAddress(contractRaw) || !token || !Number.isFinite(chain_id)) {
+      return res.status(400).json({ success: false })
+    }
+    const contract = contractRaw.toLowerCase()
+    const chainSlug = chain_id === 137 ? 'matic' : chain_id === 8453 ? 'base' : 'ethereum'
+
+    const respond = (immutable: any, mutable: any) => {
+      res.json({ success: true, ...immutable, ...mutable, chain: chainSlug })
+    }
+
+    try {
+      const hit = await db.query('sql/nfts/get', `select immutable, mutable from nfts where chain_id = $1 and contract = $2 and token_id = $3`, [chain_id, contract, token])
+      if (hit.rows[0]) {
+        return respond(hit.rows[0].immutable, hit.rows[0].mutable || {})
+      }
+
+      const apiKey = process.env.OPENSEA_APIKEY
+      if (!apiKey) {
+        return res.status(503).json({ success: false })
+      }
+
+      const url = `https://api.opensea.io/api/v2/chain/${chainSlug}/contract/${contract}/nfts/${encodeURIComponent(token)}`
+      const r = await fetch(url, { method: 'GET', headers: { 'X-API-KEY': apiKey } })
+      if (!r.ok) {
+        log.info('opensea nft fetch failed', { status: r.status, contract, token, chain_id })
+        return res.status(502).json({ success: false })
+      }
+      const body: any = await r.json().catch(() => null)
+      const nft = body?.nft || body
+      if (!nft?.identifier || !nft?.contract) {
+        return res.status(502).json({ success: false })
+      }
+
+      const total_supply = nft.rarity?.total_supply
+      const immutable: any = {
+        identifier: nft.identifier,
+        collection: nft.collection,
+        contract: nft.contract,
+        token_standard: nft.token_standard,
+        name: nft.name,
+        description: nft.description,
+        image_url: nft.image_url,
+        display_image_url: nft.display_image_url,
+        animation_url: nft.animation_url,
+        display_animation_url: nft.display_animation_url,
+        metadata_url: nft.metadata_url,
+        traits: nft.traits,
+        creator: nft.creator,
+        opensea_url: nft.opensea_url,
+        created_at: nft.created_at,
+      }
+      if (total_supply != null) immutable.total_supply = total_supply
+
+      const mutable: any = {
+        owners: nft.owners,
+        updated_at: nft.updated_at,
+        is_disabled: nft.is_disabled,
+        is_nsfw: nft.is_nsfw,
+        is_suspicious: nft.is_suspicious,
+        rarity: nft.rarity,
+        estimated_value_usd: nft.estimated_value_usd,
+      }
+
+      await db.query(
+        'sql/nfts/insert',
+        `insert into nfts (chain_id, contract, token_id, immutable, mutable)
+         values ($1, $2, $3, $4::jsonb, $5::jsonb)
+         on conflict (chain_id, contract, token_id) do nothing`,
+        [chain_id, contract, token, JSON.stringify(immutable), JSON.stringify(mutable)],
+      )
+
+      // re-read so concurrent first-writes all return the same winner
+      const again = await db.query('sql/nfts/get-after-insert', `select immutable, mutable from nfts where chain_id = $1 and contract = $2 and token_id = $3`, [chain_id, contract, token])
+      const row = again.rows[0]
+      return respond(row?.immutable || immutable, row?.mutable || mutable)
+    } catch (e) {
+      log.error('opensea nft endpoint failed', { e: String(e) })
+      return res.status(502).json({ success: false })
+    }
   })
 
   app.get('/api/externals/alchemy/nfts.json', cache('60 seconds'), passport.authenticate('jwt', { session: false }), async (req, res) => {
@@ -165,10 +248,6 @@ export default function ExternalsController(db: Db, passport: PassportStatic, ap
     res.json({ success: true, ...r })
   })
 
-  // Poap
-  app.post('/api/poap/encrypt', passport.authenticate('jwt', { session: false }), encryptPoapEditCode)
-  app.post('/api/poap/redeem', passport.authenticate('jwt', { session: false }), redeemPoapForWallet)
-
   // Floor + 30d volume + the suggested "just above floor" price and the fees the
   // client must bake into the Seaport consideration for OpenSea to accept the listing.
   app.get('/api/admin/opensea/stats', cache('5 minutes'), passport.authenticate('jwt', { session: false }), requireAdmin, async (_req, res) => {
@@ -225,26 +304,6 @@ export default function ExternalsController(db: Db, passport: PassportStatic, ap
       }
     })
   }
-
-  app.post('/api/externals/opensea/listings', cache('30 seconds'), async (req: Request, res: Response) => {
-    const config = req.body as OpenseaListingsV2Configs
-    const result = await fetchOpenseaListingsV2(config)
-    switch (result.type) {
-      case 'success':
-        res.json({ success: true, orders: result.orders })
-        break
-      case 'serverError':
-        res.sendStatus(500)
-        break
-      case 'possibleClientErrorNotSureLol':
-        res.sendStatus(400)
-        break
-      default:
-        const n: never = result
-        log.error('Unhandled result', { result: n })
-        res.sendStatus(500)
-    }
-  })
 }
 
 // Resolve the parcel contract to its OpenSea collection slug (cached for the process).
@@ -341,77 +400,4 @@ const validateMetadataQueryAndReturn = async (req: Request) => {
   // }
 
   return { contractAddress, tokenId: String(tokenId), chain, tokenType } as { contractAddress: string; tokenId: string; chain: number; tokenType?: string }
-}
-
-type FetchOpenseaListingsResult =
-  | {
-      type: 'serverError'
-    }
-  | {
-      type: 'possibleClientErrorNotSureLol'
-    }
-  | {
-      type: 'success'
-      orders: OrderRecordV2[]
-    }
-
-const fetchOpenseaListingsV2 = async (config: OpenseaListingsV2Configs): Promise<FetchOpenseaListingsResult> => {
-  if (!config.token_ids?.length) {
-    return {
-      type: 'success',
-      orders: [],
-    }
-  }
-
-  const c = Object.assign({}, config)
-
-  if (!process.env.OPENSEA_APIKEY) {
-    return {
-      type: 'serverError',
-    }
-  }
-
-  const headers = { 'X-API-KEY': process.env.OPENSEA_APIKEY! }
-  const apiURL = new URL('https://api.opensea.io/v2/orders/ethereum/seaport/listings')
-  const orders: OrderRecordV2[] = []
-  const fetchOrders = async () => {
-    try {
-      const data = await fetchJSON(apiURL.toString(), { method: 'GET', headers: headers })
-      const r = data as OpenseaListingsResponseV2
-      if (r.orders) {
-        const os = r.orders
-          .map((o) => {
-            ;(o as any).asset = {}
-            ;(o as any).asset.token_id = o.protocol_data.parameters.offer[0]?.identifierOrCriteria
-            return o
-          })
-          .filter((o: any) => !!o.asset?.token_id && o.order_type != 'basic') // no fixed-price
-        orders.push(...os)
-      }
-    } catch (err) {
-      log.error(err)
-      return {
-        kind: 'possibleClientErrorNotSureLol',
-      }
-    }
-  }
-
-  if (config.token_ids.length <= 30) {
-    apiURL.search = querystring.stringify(c)
-    await fetchOrders()
-  } else if (config.token_ids?.length > 30) {
-    // Only 50 tokens at a time
-    const chunked = chunk(config.token_ids, 30)
-
-    for (const tempIds of chunked) {
-      apiURL.search = querystring.stringify(Object.assign(c, { token_ids: tempIds }))
-
-      await fetchOrders()
-    }
-  }
-
-  return {
-    type: 'success',
-    orders,
-  }
 }

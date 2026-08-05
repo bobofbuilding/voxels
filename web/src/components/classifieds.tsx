@@ -7,7 +7,7 @@ type Data = { fresh: Item[]; secondary: Item[] }
 type Tab = 'fresh' | 'secondary'
 type Sort = 'name' | 'address' | 'price'
 
-const LABELS: Record<Tab, string> = { fresh: 'freshly minted', secondary: 'secondary' }
+const LABELS: Record<Tab, string> = { fresh: 'new', secondary: 'used' }
 const URL = '/api/classifieds.json'
 const eth = (n: number) => parseFloat(n.toFixed(3))
 const name = (i: Item) => i.name || i.address || `#${i.id}`
@@ -16,7 +16,7 @@ type Props = { limit?: number }
 
 export default function Classifieds({ limit }: Props) {
   const [data, setData] = useState<Data | null>(null)
-  const [tab, setTab] = useState<Tab>('secondary')
+  const [tab, setTab] = useState<Tab>('fresh')
   const [sort, setSort] = useState<Sort>('price')
   const [asc, setAsc] = useState(true)
   const [usd, setUsd] = useState(false)
@@ -75,20 +75,11 @@ export default function Classifieds({ limit }: Props) {
     return `$${parseFloat((price * rate).toFixed(2))}`
   }
 
-  const th = (field: Sort, label: string) => (
-    <th scope="col" class={`-sortable${sort === field ? ' -sorted' : ''}`} onClick={() => toggleSort(field)}>
-      {label}
-    </th>
-  )
-
   return (
     <div class="classifieds">
       <br />
       <br />
       <div class="classifieds-head">
-        <h3>
-          <a href="/shop">Shop</a>
-        </h3>
         {!limit && (
           <div class="classifieds-currency">
             <span class={!usd ? 'active' : ''}>eth</span>
@@ -107,13 +98,6 @@ export default function Classifieds({ limit }: Props) {
         </nav>
       )}
       <table class="clipped">
-        <thead>
-          <tr>
-            {th('name', 'name')}
-            {th('address', 'address')}
-            {th('price', 'price')}
-          </tr>
-        </thead>
         <tbody>
           {items.length === 0 ? (
             <tr>
@@ -125,7 +109,6 @@ export default function Classifieds({ limit }: Props) {
                 <td>
                   <a href={`/shop?parcel=${i.id}`}>{name(i)}</a>
                 </td>
-                <td>{i.address}</td>
                 <td>{fmt(i.price)}</td>
               </tr>
             ))

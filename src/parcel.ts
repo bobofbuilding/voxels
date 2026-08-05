@@ -13,7 +13,8 @@ import { FeatureRecord } from '../common/messages/feature'
 import type { ParcelGeometry, ParcelKind, ParcelPatch, ParcelRecord, ParcelRef, ParcelSettings } from '../common/messages/parcel'
 import { getBufferFromVoxels, getFieldShape, getVoxelsFromBuffer } from '../common/voxels/helpers'
 import { VoxelSize } from '../common/voxels/mesher'
-import { buildCleanMesh } from './clean-mesher'
+import { applyCleanPalette, buildCleanMesh } from './clean-mesher'
+import { createWhiteTexture } from './textures/textures'
 import type { LanternRecord } from '../common/messages/feature'
 import { app } from '../web/src/state'
 import { mintParcel } from '../web/src/helpers/mint-parcel'
@@ -118,6 +119,10 @@ export default class Parcel extends TypedEventTarget<ParcelEventMap> {
   tilesetTexture: BABYLON.Texture | null = null
 
   lightmap_url: string | null = null
+
+  get areFeaturesLoaded() {
+    return this.featuresLoaded
+  }
 
   constructor(
     scene: BABYLON.Scene,
@@ -373,7 +378,7 @@ export default class Parcel extends TypedEventTarget<ParcelEventMap> {
   }
 
   get sandbox() {
-    return this.kind == 'scratchpad' || this.settings.sandbox === true
+    return this.settings.sandbox === true
   }
 
   get hostedScripts() {
@@ -852,12 +857,16 @@ export default class Parcel extends TypedEventTarget<ParcelEventMap> {
   }
 
   setPalette(colors: Array<string> | undefined) {
-    this.palette = colors
-    Object.assign(this.content, { palette: colors })
-
-    this.refreshPalette()
+    this.applyPaletteLive(colors)
     this.sendPalette()
     this.onTileSetUpdate.notifyObservers()
+  }
+
+  // instant local tint update (no network) - used while dragging the color wheel
+  applyPaletteLive(colors: Array<string> | undefined) {
+    this.palette = colors
+    Object.assign(this.content, { palette: colors })
+    this.refreshPalette()
   }
 
   setTileset(tileset: any) {
@@ -1364,14 +1373,18 @@ export default class Parcel extends TypedEventTarget<ParcelEventMap> {
       return
     }
 
-    const material = this.voxelMesh.material as BABYLON.ShaderMaterial
+    const material = this.voxelMesh.material
+    if (!material) return
 
     // regenerate if we are still using greedy blocks so that we don't change the pallet of surrounding parcels
     if (isShared(material)) return this.refreshVoxels()
 
     const palette = this.paletteColors
 
-    if (palette && palette[1]) {
+    // realistic lighting (clean mesh): rewrite vertex colors from stored lighting * palette
+    if (applyCleanPalette(this.voxelMesh, palette)) return
+
+    if (palette && palette[1] && material instanceof BABYLON.ShaderMaterial) {
       material.setColor3Array('palette', palette)
     }
   }
@@ -1507,10 +1520,20 @@ export default class Parcel extends TypedEventTarget<ParcelEventMap> {
     const gen = ++this.voxelFieldGen
 
     if (window.graphic?.realisticLighting && this.field) {
-      const lanterns = this.features.filter((f) => f.type === 'lantern') as LanternRecord[]
+      const live = this.featuresList?.filter((f) => f.type === 'lantern').map((f) => f.description) ?? []
+      const lanterns = (live.length ? live : this.features.filter((f) => f?.type === 'lantern')) as LanternRecord[]
+
       // Y matches setVoxelMesh so voxel.ts pick/place math is correct
       const off: [number, number, number] = [-this.width / 4 + 0.25, -0.75 + this.ZFightingNudge, -this.depth / 4 + 0.25]
-      const { opaque, glass } = await buildCleanMesh(this.field, lanterns, this.scene, off, this.id, this.paletteColors, this.tilesetTexture ?? undefined)
+      const pending = !!(this.tileset && !this.tilesetTexture)
+      const { opaque, glass } = await buildCleanMesh(this.field, lanterns, this.scene, off, this.id, this.paletteColors, this.tilesetTexture ?? (pending ? createWhiteTexture(this.scene) : undefined))
+      if (pending) {
+        const mat = opaque.material as BABYLON.StandardMaterial
+        const tex = new BABYLON.Texture(process.env.IMG_HOST + '/' + this.tileset!.slice(1), this.scene, false, false, BABYLON.Texture.TRILINEAR_SAMPLINGMODE, () => {
+          this.tilesetTexture = tex
+          if (opaque.material === mat) mat.diffuseTexture = tex
+        })
+      }
       if (gen !== this.voxelFieldGen) {
         this.disposeGeneratedMeshes(opaque, glass)
         return

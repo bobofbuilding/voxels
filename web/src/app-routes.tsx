@@ -25,7 +25,6 @@ import Explore from './explore'
 import Logout from './logout'
 import Island from './island'
 import Islands from './islands'
-import Mail from './mail'
 import WorldMap from './map'
 import Parcel from './parcel'
 import ParcelEdit from './parcel-edit'
@@ -46,7 +45,6 @@ import IslandsAdmin from './admin/islands'
 import Admin from './admin/admin'
 import NotFound from './not-found'
 import { ChatPage } from './chat-page'
-import Menu from './menu'
 import { routes } from './routes'
 
 const components: Record<string, ComponentType<any>> = {
@@ -54,14 +52,12 @@ const components: Record<string, ComponentType<any>> = {
   blog: Blog,
   post: PostPage,
   chat: ChatPage,
-  menu: Menu,
   terms: Terms,
   privacy: Privacy,
   conduct: Conduct,
   behaviours: BehavioursDoc,
   logout: Logout,
   notFound: NotFound,
-  mail: Mail,
   search: Search,
   assets: Assets,
   assetsNew: AssetsNew,
