@@ -1,6 +1,4 @@
-# Runs the two gates AGENTS.md already asks you to run before committing.
-# Tests are not here yet: 7 files under test/src (terrain, ocean, pump,
-# enviroments) fail on a clean checkout, so a test job would be red on arrival.
+# Runs the gates AGENTS.md asks you to run before committing.
 name: check
 
 on:
@@ -12,6 +10,8 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
+      - run: echo "t0=$(date +%s)" >> "$GITHUB_ENV"
+
       - uses: actions/checkout@v7
 
       - uses: pnpm/action-setup@v6
@@ -24,6 +24,20 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      - run: npx tsc --noEmit --project tsconfig.precommit.json
+      # None of these three needs the others, so run them at once and pay for
+      # the slowest instead of the sum. Buffered so the logs read one at a time.
+      - run: |
+          npx tsc --noEmit --project tsconfig.precommit.json >/tmp/tsc.log 2>&1 & a=$!
+          npx prettier --check . >/tmp/fmt.log 2>&1 & b=$!
+          pnpm test >/tmp/test.log 2>&1 & c=$!
+          wait $a; ra=$?; wait $b; rb=$?; wait $c; rc=$?
+          cat /tmp/tsc.log /tmp/fmt.log /tmp/test.log
+          exit $(( ra | rb | rc ))
 
-      - run: npx prettier --check .
+      # AGENTS.md: CI must stay under 60s or it may get deleted
+      - if: always()
+        run: |
+          s=$(( $(date +%s) - t0 ))
+          if [ "$s" -gt 60 ]; then
+            echo "::warning::Warning, CI test took $((s / 60)):$(printf '%02d' $((s % 60))), ben may arbitrarily delete CI (see agents.md)"
+          fi
