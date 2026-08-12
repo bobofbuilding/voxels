@@ -1,6 +1,4 @@
-# Runs the two gates AGENTS.md already asks you to run before committing.
-# Tests are not here yet: 7 files under test/src (terrain, ocean, pump,
-# enviroments) fail on a clean checkout, so a test job would be red on arrival.
+# Runs the gates AGENTS.md asks you to run before committing.
 name: check
 
 on:
@@ -12,6 +10,8 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
+      - run: echo "t0=$(date +%s)" >> "$GITHUB_ENV"
+
       - uses: actions/checkout@v7
 
       - uses: pnpm/action-setup@v6
@@ -24,6 +24,43 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      - run: npx tsc --noEmit --project tsconfig.precommit.json
+      # None of these three needs the others, so run them at once and pay for
+      # the slowest instead of the sum. Buffered so the logs read one at a time.
+      - run: |
+          npx tsc --noEmit --project tsconfig.precommit.json >/tmp/tsc.log 2>&1 & a=$!
+          npx prettier --check . >/tmp/fmt.log 2>&1 & b=$!
+          pnpm test >/tmp/test.log 2>&1 & c=$!
 
-      - run: npx prettier --check .
+          # The step runs under bash -e, so a bare `wait` on a failed gate ends
+          # the step right there and the logs below never print. Keep the code.
+          ra=0; wait $a || ra=$?
+          rb=0; wait $b || rb=$?
+          rc=0; wait $c || rc=$?
+
+          # A gate that passed folds away. One that failed prints open, names
+          # itself in the run summary, and annotates the pull request.
+          report() {
+            if [ "$2" = 0 ]; then
+              echo "::group::$1 passed"
+              cat "$3"
+              echo "::endgroup::"
+              echo "- $1 passed" >> "$GITHUB_STEP_SUMMARY"
+            else
+              echo "::error::$1 failed (exit $2)"
+              cat "$3"
+              echo "- $1 FAILED (exit $2), see the $1 output in the check job" >> "$GITHUB_STEP_SUMMARY"
+            fi
+          }
+          report tsc "$ra" /tmp/tsc.log
+          report prettier "$rb" /tmp/fmt.log
+          report test "$rc" /tmp/test.log
+
+          exit $(( ra | rb | rc ))
+
+      # AGENTS.md: CI must stay under 60s or it may get deleted
+      - if: always()
+        run: |
+          s=$(( $(date +%s) - t0 ))
+          if [ "$s" -gt 60 ]; then
+            echo "::warning::Warning, CI test took $((s / 60)):$(printf '%02d' $((s % 60))), ben may arbitrarily delete CI (see agents.md)"
+          fi
