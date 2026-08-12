@@ -390,10 +390,11 @@ paths:
       tags: [parcels]
       summary: Re-read every parcel a wallet owns
       description: |
-        Broken upstream, documented so nobody spends an afternoon on it. The
-        handler parses `req.params.id`, which this route does not declare, so the
-        parse is always NaN and every call answers 404 `{"success": false}`
-        before it reaches the subgraph. Verified against production.
+        Reads the subgraph for every parcel the wallet owns, then re-queries the
+        contract for each one as a just-to-make-sure step. Answers
+        `{"success": false}` when the subgraph is unreachable or returns nothing,
+        on the theory that an owner seeing no parcels is worse than an owner
+        seeing a stale list.
       parameters:
         - name: wallet
           in: path
@@ -600,11 +601,18 @@ paths:
       tags: [womps]
       summary: The newest womps across the world
       description: |
-        A womp is a photograph somebody took in world. Note that the handler
-        reads a `kind` query parameter and then never passes it to the query, so
-        `?kind=broadcast` does nothing.
+        A womp is a photograph somebody took in world. The feed carries the
+        `public` and `broadcast` kinds; `profile` womps, which their author kept
+        off the public feed, and `report` womps are not listed here.
       parameters:
         - $ref: '#/components/parameters/WompLimit'
+        - name: kind
+          in: query
+          description: The only accepted value is `broadcast`, which narrows the
+            feed to broadcasts. Anything else is ignored and you get both kinds.
+          schema:
+            type: string
+            enum: [broadcast]
       responses:
         '200':
           description: ok
@@ -1153,11 +1161,10 @@ paths:
       tags: [collectibles]
       summary: A collectible's MagicaVoxel model
       description: |
-        This is the one way to get a wearable's geometry from the wid on an
-        avatar attachment. The name behind that wid is not resolvable: the
-        attachment carries only the opaque uuid and the shop API is closed. The
-        model is, so a costume can be rebuilt without ever knowing what the
-        pieces are called.
+        The geometry behind the wid on an avatar attachment, which is all an
+        attachment carries besides its bone and transform. For what the piece
+        is called, who made it and which collection it belongs to, put the same
+        wid through `/api/collectibles/wearable/{uuid}.json`.
       parameters:
         - name: uuid
           in: path
@@ -2326,6 +2333,12 @@ components:
           type: [string, 'null']
         moderator:
           type: boolean
+        type:
+          type: [string, 'null']
+          description: |
+            Which body the citizen wears. Everything but `woody` is deprecated
+            and you are unlikely to meet one.
+          enum: [woody, vidda, zuck, bnolan, null]
         settings:
           type: [object, 'null']
         costume_id:
@@ -2357,6 +2370,18 @@ components:
           type: array
           items:
             type: object
+        wallet:
+          type: [string, 'null']
+          description: Whose costume it is.
+        skin:
+          type: [string, 'null']
+          description: |
+            The body texture as an SVG document, inline, not a url. Runs to
+            tens of kilobytes, so a caller that only wants the attachments
+            pays for this too.
+        default_color:
+          type: [string, 'null']
+          description: Hex, the colour worn where nothing covers the body.
 
     Wearable:
       description: A wearable collectible.
