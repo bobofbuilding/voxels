@@ -50,7 +50,7 @@ Generated from `server/openapi.yaml` by `npm run docs:api`. Edit the spec, not t
 
 List parcels, or fetch a batch by id
 
-Without `parcel_ids` this lists minted parcels and each row carries `parcel_users`, `owner`, `suburb` and `hash`. With `parcel_ids` it runs a different query whose rows are narrower (no owner avatar, no suburb, no hash) and whose `y2` is the height, not the top of the box. Ids that are not numbers are dropped rather than rejected.
+Without `parcel_ids` this lists minted parcels and each row carries `parcel_users`, `owner`, `suburb` and `hash`. With `parcel_ids` it runs a different query whose rows are narrower (no owner avatar, no suburb, no hash) and whose `y2` is the height, not the top of the box. Ids that are not integers are dropped rather than rejected.
 
 **parameters**
 
@@ -205,6 +205,7 @@ The parcel's tile off the map renderer
 
 - `200` `image/png`, bytes
 - `404` The lookup did not land. Some handlers send this with status 200.
+- `502` The lookup did not land. Some handlers send this with status 200.
 
 ### GET /api/parcels/{id}/query
 
