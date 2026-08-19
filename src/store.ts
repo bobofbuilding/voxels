@@ -150,41 +150,26 @@ export const uiPane = signal<string | undefined>(undefined)
 // tapping back into the world); contextual build/edit panes dismiss on canvas re-engage.
 // broadcast: the host's dock must stay up for the whole show - only its own close/stop ends it.
 // open on purpose, survive canvas re-engage, closed via the sidebar X
-export const PERSISTENT_PANES = new Set(['explorer', 'settings', 'help', 'dance', 'emote', 'broadcast'])
+export const PERSISTENT_PANES = new Set(['settings', 'help', 'dance', 'emote', 'yeet', 'broadcast'])
 export const isPersistentPane = (p?: string) => !!p && PERSISTENT_PANES.has(p)
 
-export const uiAsideTick = signal(0)
-export const sidebarClosed = signal(typeof window !== 'undefined' && typeof window.matchMedia === 'function' && window.matchMedia('(max-width: 50em)').matches)
+export const yeetCollectionId = signal<string | undefined>(undefined)
 
-// site nav (hamburger menu) state
-const SITE_NAV_KEY = 'siteNavOpen'
-const siteNavNarrow = () => typeof window !== 'undefined' && window.matchMedia('(max-width: 50em)').matches
-function loadDesktopSiteNav(): boolean {
-  try {
-    const v = localStorage.getItem(SITE_NAV_KEY)
-    if (v !== null) return v === '1'
-  } catch {}
-  return true
-}
-export const siteNavOpen = signal(!siteNavNarrow() && loadDesktopSiteNav())
+export const uiAsideTick = signal(0)
+export const sidebarClosed = signal(false)
+
+// phone: closed overlay. desktop ignores this (left column stays).
+export const siteNavOpen = signal(false)
 
 effect(() => {
-  const open = siteNavOpen.value
-  document.body.classList.toggle('site-nav-open', open)
-  if (!siteNavNarrow()) {
-    try {
-      localStorage.setItem(SITE_NAV_KEY, open ? '1' : '0')
-    } catch {}
-  }
+  document.body.classList.toggle('site-nav-open', siteNavOpen.value)
   window.engine?.resize()
 })
 
 if (typeof window !== 'undefined' && typeof window.matchMedia === 'function') {
-  const mq = window.matchMedia('(max-width: 50em)')
-  const onNavWidth = () => {
-    siteNavOpen.value = mq.matches ? false : loadDesktopSiteNav()
-  }
-  mq.addEventListener('change', onNavWidth)
+  window.matchMedia('(max-width: 50em)').addEventListener('change', (e) => {
+    if (e.matches) siteNavOpen.value = false
+  })
 }
 
 export function toggleSiteNav() {

@@ -629,68 +629,58 @@ a.buttonish {
   }
 }
 
-// Site nav is a hamburger drawer everywhere - desktop matches play / phone
+// Site nav is a sticky left column in the main grid
 header:has(nav) {
-  position: fixed;
+  position: sticky;
   top: 0;
-  left: 0;
-  bottom: 0;
-  width: min(16rem, 85vw);
+  z-index: 100;
   height: 100vh;
-  z-index: 1000;
-  background: var(--bg);
-  transform: translateX(-100%);
-  transition: transform 150ms ease-out;
-  pointer-events: none;
   overflow-y: auto;
   box-sizing: border-box;
-
-  &.nav-open {
-    transform: none;
-    pointer-events: auto;
-  }
-
-  nav {
-    pointer-events: auto;
-  }
 }
 
-// desktop: nav is a push pane (world / page shrinks). phone: overlay.
-body.site-nav-open {
+// phone: left nav is a closed hamburger overlay (desktop keeps the column)
+@media @narrow {
   header:has(nav) {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: min(16rem, 85vw);
+    z-index: 1000;
+    background: var(--bg);
+    transform: translateX(-100%);
+    transition: transform 150ms ease-out;
+    pointer-events: none;
+  }
+
+  body.site-nav-open header:has(nav),
+  header:has(nav).nav-open {
     transform: none;
     pointer-events: auto;
   }
+
+  main {
+    padding: 2.5rem 1rem 1rem;
+  }
 }
 
-@media (min-width: 50.01em) {
-  body.site-nav-open {
-    main {
-      margin-left: min(16rem, 85vw);
-    }
-    &.in-world {
-      --play-gutter: calc(min(16rem, 85vw) + max(1rem, env(safe-area-inset-left, 0px)));
-    }
-  }
+main > button.site-nav-toggle {
+  display: none;
 }
 
 @media @narrow {
-  body.site-nav-open main {
-    margin-left: 0;
+  main > button.site-nav-toggle {
+    display: block;
+    position: fixed;
+    left: max(1rem, env(safe-area-inset-left, 0px));
+    top: max(0.5rem, env(safe-area-inset-top, 0px));
+    z-index: 1001;
+    pointer-events: auto;
+    background: var(--bg);
+    color: var(--fg);
+    box-shadow: 1px 1px 3px rgba(0, 0, 0, 0.4);
   }
-}
-
-// floating menu button (sibling of header - never clipped by drawer transform).
-// button.site-nav-toggle: outrank button.hamburger's background:none, we're over the canvas
-main > button.site-nav-toggle {
-  position: fixed;
-  left: max(1rem, env(safe-area-inset-left, 0px));
-  top: max(0.5rem, env(safe-area-inset-top, 0px));
-  z-index: 1001;
-  pointer-events: auto;
-  background: var(--bg);
-  color: var(--fg);
-  box-shadow: 1px 1px 3px rgba(0, 0, 0, 0.4);
 }
 
 header nav {
@@ -807,9 +797,16 @@ header nav img.logo {
 main {
   max-width: 2000px;
   margin: 0 auto;
-  // clear the fixed menu button; side padding was lost when the left nav
-  // column became a hamburger drawer - without it every page jams the edge
-  padding: 2.5rem 1rem 1rem;
+  display: grid;
+  grid-template-columns: auto 1fr;
+
+  > header {
+    grid-column: 1;
+  }
+
+  > :not(header) {
+    grid-column: 2;
+  }
 }
 
 // blog list + posts: a readable column, not text jammed against the viewport edge
@@ -884,7 +881,8 @@ button.hamburger {
 // (full-bleed sizing comes from the push-panel grid rules below)
 .columns.home,
 .columns.parcel-page,
-.columns.space-page {
+.columns.space-page,
+.columns.build-page {
   gap: 0;
 
   > article {
@@ -1156,11 +1154,11 @@ body.gateway {
   }
 }
 
-// Push panel: world | sidebar. Site nav is a hamburger drawer (same as phone).
+// Push panel: header | world | sidebar. Client tracks .client-world.
 // One aside (the WorldSidebar host) swaps page content and panes. Home / parcel are
 // push-panel worlds too; the grid applies before the world boots so the page sidebar
 // doesn't flash away while coords resolve.
-@world-hosts: ~':has(> .client-world), :has(> .columns.home), :has(> .columns.parcel-page), :has(> .columns.space-page)';
+@world-hosts: ~':has(> .client-world), :has(> .columns.home), :has(> .columns.parcel-page), :has(> .columns.space-page), :has(> .columns.build-page)';
 
 // main sits above .client so sidebar gets clicks; punch through the world
 // cell or the empty grid slot eats pointer lock / WASD
@@ -1171,18 +1169,28 @@ main:is(@{world-hosts}) {
   padding: 0;
   height: 100vh;
   display: grid;
-  grid-template-columns: 1fr 23rem;
+  grid-template-columns: auto 1fr 23rem;
   grid-template-rows: 1fr;
-  grid-template-areas: 'world sidebar';
+  grid-template-areas: 'header world sidebar';
   overflow: hidden;
   pointer-events: none;
+}
+
+main:is(@{world-hosts}) > header {
+  grid-area: header;
+  grid-column: unset;
+  position: relative;
+  z-index: 5;
+  pointer-events: auto;
 }
 
 .client-world,
 main > .columns.home,
 main > .columns.parcel-page,
-main > .columns.space-page {
+main > .columns.space-page,
+main > .columns.build-page {
   grid-area: world;
+  grid-column: unset;
   min-width: 0;
   min-height: 0;
 }
@@ -1190,14 +1198,47 @@ main > .columns.space-page {
 // the page section is just the world box now - its aside lives in the WorldSidebar host
 main > .columns.home > article,
 main > .columns.parcel-page > article,
-main > .columns.space-page > article {
+main > .columns.space-page > article,
+main > .columns.build-page > article {
   flex: 1;
   min-width: 0;
   height: 100%;
 }
 
+// home explore lives in the page <aside> (not WorldAside). Span world+sidebar until a
+// pane mounts as main > aside, then world-only and hide the page aside.
+main > .columns.home {
+  grid-column: 2 / 4;
+  grid-row: 1;
+  display: flex;
+  align-items: stretch;
+  height: 100%;
+  min-height: 0;
+}
+
+main > .columns.home > aside {
+  flex: 0 0 23rem;
+  width: 23rem;
+  overflow-y: auto;
+  min-height: 0;
+  padding: 1rem;
+  padding-top: 2rem;
+  background: var(--bg);
+  box-sizing: border-box;
+  pointer-events: auto;
+}
+
+main:has(> aside) > .columns.home {
+  grid-column: 2 / 3;
+}
+
+main:has(> aside) > .columns.home > aside {
+  display: none;
+}
+
 main:is(@{world-hosts}) > aside {
   grid-area: sidebar;
+  grid-column: unset;
   position: relative;
   z-index: 4;
   overflow-y: auto;
@@ -1227,41 +1268,22 @@ main:is(@{world-hosts}) > aside {
 
 body.in-world {
   overflow: hidden;
-  // one left edge for ☰, Explore stack, and chat
+  // one left edge for Explore stack and chat
   --play-gutter: max(1rem, env(safe-area-inset-left, 0px));
   --play-top: max(0.5rem, env(safe-area-inset-top, 0px));
 
-  // same left edge as Explore / chat
-  main:is(@{world-hosts}) > .site-nav-toggle {
-    left: var(--play-gutter);
-    top: var(--play-top);
+  @media @narrow {
+    main:is(@{world-hosts}) > .site-nav-toggle {
+      left: var(--play-gutter);
+      top: var(--play-top);
+    }
   }
 }
 
 body.sidebar-closed main:is(@{world-hosts}),
 main:is(@{world-hosts}):not(:has(> aside)) {
-  grid-template-columns: 1fr;
-  grid-template-areas: 'world';
-}
-
-@media @narrow {
-  main:is(@{world-hosts}) {
-    grid-template-columns: 1fr;
-    grid-template-areas: 'world';
-  }
-
-  // .-closed is display:none but still matches :has(> aside) - skip it so the
-  // world is full-bleed from the first paint on phones
-  main:is(@{world-hosts}):has(> aside:not(.-closed)) {
-    grid-template-columns: 1fr min(23rem, 100%);
-    grid-template-areas: 'world sidebar';
-  }
-
-  body.sidebar-closed main:is(@{world-hosts}),
-  main:is(@{world-hosts}):not(:has(> aside)) {
-    grid-template-columns: 1fr;
-    grid-template-areas: 'world';
-  }
+  grid-template-columns: auto 1fr;
+  grid-template-areas: 'header world';
 }
 
 aside.-closed {
@@ -4747,28 +4769,6 @@ div.mobile-buttons {
   }
 }
 
-.mobile-pad {
-  position: fixed;
-  bottom: calc(var(--chatbar) + 1rem);
-  left: 1rem;
-  width: 40vw;
-  aspect-ratio: 1 / 1;
-  background: rgba(128, 128, 128, 0.3);
-  touch-action: none;
-  z-index: 2000;
-}
-
-.mobile-pad-nub {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  width: 33%;
-  aspect-ratio: 1 / 1;
-  background: rgba(128, 128, 128, 0.6);
-  transform: translate(-50%, -50%);
-  pointer-events: none;
-}
-
 /* Overlay windows (admin / nft / take-womp etc) */
 dialog {
   background: var(--surface);
@@ -5420,7 +5420,7 @@ body.in-world.mini-world {
   border-radius: 0.5rem;
 }
 
-.scratchpad-guide {
+.sandbox-guide {
   position: fixed;
   left: 12rem;
   bottom: 7rem;
@@ -5430,7 +5430,7 @@ body.in-world.mini-world {
   background: var(--surface);
   color: var(--fg);
 
-  .scratchpad-guide-head {
+  .sandbox-guide-head {
     display: flex;
     justify-content: space-between;
     align-items: baseline;
@@ -5479,7 +5479,7 @@ body.in-world.mini-world {
     }
   }
 
-  &.scratchpad-guide-mini {
+  &.sandbox-guide-mini {
     left: 50%;
     transform: translateX(-50%);
     max-width: none;
@@ -5495,7 +5495,7 @@ body.in-world.mini-world {
   }
 }
 
-.scratchpad-guide-restart {
+.sandbox-guide-restart {
   position: fixed;
   left: 12rem;
   bottom: 7rem;

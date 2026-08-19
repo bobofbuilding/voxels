@@ -36,8 +36,7 @@ function showHint(text: string) {
   if (!el) {
     el = document.createElement('div')
     el.id = 'gatewayHint'
-    el.style.cssText =
-      'position:fixed;left:1rem;right:1rem;bottom:2rem;text-align:center;z-index:9999;pointer-events:none;color:var(--bg);font-size:1rem;'
+    el.style.cssText = 'position:fixed;left:1rem;right:1rem;bottom:2rem;text-align:center;z-index:9999;pointer-events:none;color:var(--bg);font-size:1rem;'
     document.body.appendChild(el)
   }
   el.textContent = text
@@ -79,18 +78,19 @@ export function startPhoneVideo() {
 }
 
 function enableRoomLook(camera: BABYLON.DeviceOrientationCamera) {
+  const cam = camera as any
   const DOE = window.DeviceOrientationEvent as any
   if (DOE && typeof DOE.requestPermission === 'function') {
     const once = () => {
       DOE.requestPermission()
         .then((s: string) => {
-          if (s === 'granted' && typeof camera.enableDeviceOrientation === 'function') camera.enableDeviceOrientation()
+          if (s === 'granted' && typeof cam.enableDeviceOrientation === 'function') cam.enableDeviceOrientation()
         })
         .catch(() => {})
     }
     window.addEventListener('pointerdown', once, { capture: true, once: true })
-  } else if (typeof camera.enableDeviceOrientation === 'function') {
-    camera.enableDeviceOrientation()
+  } else if (typeof cam.enableDeviceOrientation === 'function') {
+    cam.enableDeviceOrientation()
   }
 }
 
@@ -105,9 +105,10 @@ function muteCamera(cam: BABYLON.Camera) {
 
 function hidePlayChrome() {
   const hide = () => {
-    document.querySelectorAll('.mobile-pad, .mobile-controls-container').forEach((el) => {
+    document.querySelectorAll('.mobile-controls-container').forEach((el) => {
       ;(el as HTMLElement).style.display = 'none'
     })
+    ;(window.connector?.controls as { dpad?: { setVisible(v: boolean): void } } | undefined)?.dpad?.setVisible(false)
   }
   hide()
   setTimeout(hide, 400)
@@ -127,7 +128,7 @@ function setupStencilPortal(scene: BABYLON.Scene) {
   scene.setRenderingAutoClearDepthStencil(1, false, true, false)
   scene.setRenderingAutoClearDepthStencil(2, false, false, false)
 
-  const engine = scene.getEngine()
+  const engine = scene.getEngine() as any
   scene.onBeforeRenderingGroupObservable.add((info) => {
     if (info.renderingGroupId === 0) {
       engine.setStencilBuffer(true)
@@ -195,7 +196,7 @@ function revealParcelThroughHole(scene: BABYLON.Scene, cam: BABYLON.Camera) {
 function openDoorInFront(scene: BABYLON.Scene, roomCam: BABYLON.Camera, worldOffset: BABYLON.TransformNode | null, meshObs: BABYLON.Nullable<BABYLON.Observer<BABYLON.AbstractMesh>>) {
   if (holeMesh) return
   forward = lookDir(roomCam)
-  roomCam.setParent(null)
+  ;(roomCam as any).setParent(null)
   if (meshObs) scene.onNewMeshAddedObservable.remove(meshObs)
   if (worldOffset) worldOffset.position.addInPlace(forward.scale(WALL_DISTANCE))
 
@@ -260,7 +261,7 @@ async function tryGatewayAR(scene: BABYLON.Scene, controls: Controls, spawnCam: 
       const normal = BABYLON.Vector3.TransformNormal(BABYLON.Vector3.Up(), mat)
       const cam = scene.activeCamera
       if (cam && BABYLON.Vector3.Dot(normal, cam.globalPosition.subtract(pos)) < 0) normal.scaleInPlace(-1)
-      if (worldOffset) worldOffset.position.addInPlace(pos.subtract(spawnCam.getAbsolutePosition()))
+      if (worldOffset) worldOffset.position.addInPlace(pos.subtract(spawnCam.globalPosition))
       const { hole, frame } = placeHole(scene, pos, 0)
       hole.lookAt(pos.add(normal))
       frame.lookAt(pos.add(normal))
@@ -367,7 +368,7 @@ export function startGateway(scene: BABYLON.Scene, controls: Controls) {
   scene.autoClearDepthAndStencil = true
   scene.clearColor = new BABYLON.Color4(0, 0, 0, 0)
   scene.imageProcessingConfiguration.applyByPostProcess = false
-  controls.gravityDisabledOverride = true
+  controls.setNoclip(true)
 
   const canvas = scene.getEngine().getRenderingCanvas()
   if (canvas) canvas.style.zIndex = '1'

@@ -1,16 +1,18 @@
-import { ParcelAuthResult } from '../common/messages/parcel'
 import Avatar from './avatar'
-import { getERC20Balance } from './lib/ethereum-helpers'
 import ParcelUserRight from './parcel-user-right'
-import { isCampusParcels, isCommonParcel, isCVTeam, isTestIsland } from './lib/helpers'
-import { countOwnedTokens_ERC721Contract, getBalanceOfToken_ERC1155Contract, getOwnerOfToken_ERC721Contract, TokenAddress } from './lib/utils'
+import { isCommonParcel, isCVTeam, isTestIsland } from './lib/helpers'
 import db from './pg'
 import Parcel, { ParcelAuthRef, ParcelRef } from './parcel'
 import { ethers } from 'ethers'
 import { VoxelsUser } from './user'
 import { FeatureRecord } from '../common/messages/feature'
+import { ParcelAuthResult } from '../common/messages/parcel'
 
 export default async function authParcel(parcel: ParcelAuthRef, user: VoxelsUser | null): Promise<ParcelAuthResult> {
+  if (parcel.sandbox === true) {
+    if (!user) return 'Sandbox'
+  }
+
   const isOwnerSuspended = await Avatar.getSuspended(parcel.owner)
 
   let wallet: string | null = null
@@ -35,8 +37,6 @@ export default async function authParcel(parcel: ParcelAuthRef, user: VoxelsUser
     parcelUser = await ParcelUserRight.loadRoleFromParcelIdAndWallet(parcel.id, wallet)
   }
 
-  const isSandbox = parcel.settings?.sandbox === true
-
   if (parcelUser?.role == 'owner') {
     return 'Owner'
   } else if (isCVTeam(wallet ?? undefined)) {
@@ -53,25 +53,7 @@ export default async function authParcel(parcel: ParcelAuthRef, user: VoxelsUser
     return canEdit ? 'Suburb' : false
   } else if (user.moderator) {
     return 'Moderator'
-  } else if (isSandbox) {
-    return 'Sandbox'
-  } else {
-    return false
-  }
-}
-
-export async function authSpace(space: ParcelAuthRef, user: VoxelsUser | null): Promise<ParcelAuthResult> {
-  let wallet: string | null = null
-  if (user && typeof user.wallet === 'string' && user.wallet.length === 42) {
-    wallet = user.wallet.toLowerCase()
-  }
-
-  if (space.owner.toLowerCase() == wallet) {
-    return 'Owner'
-  } else if (!!user?.moderator) {
-    return 'Moderator'
-  } else if (space.settings.sandbox === true) {
-    // anons are now able to edit sandbox
+  } else if (parcel.sandbox === true) {
     return 'Sandbox'
   } else {
     return false
@@ -89,12 +71,17 @@ export type AuthFeatureResult = AuthFeatureResultSuccess | false
 
 export async function authFeature(parcelId: number, featureUuid: string, currentParcelId: number, user: VoxelsUser | null): Promise<AuthFeatureResult> {
   const parcel = await Parcel.load(parcelId)
-  if (!parcel || !user) {
+  if (!parcel) {
     return false
   }
   const feature = parcel?.getFeatureByUuid(featureUuid)
 
   if (!feature) return false
+
+  if (!user) {
+    if (parcel.sandbox) return { moderator: false, parcel, feature }
+    return false
+  }
   if (user.moderator) {
     return { moderator: true, parcel, feature }
   }
@@ -210,71 +197,4 @@ export function featureAbsolutePosition(parcel: Parcel, feature: any) {
 
 function roundHalf(value: number) {
   return Math.round(value * 2) / 2
-}
-
-export async function authParcelByNFT(parcel: Parcel | ParcelRef, user: VoxelsUser | null): Promise<boolean> {
-  const p = parcel
-
-  if (!p.settings.tokensToEnter?.length) {
-    // no token is needed to enter the parcel, return true
-    return true
-  }
-
-  // token is needed to enter the parcel and the user is not logged in
-  if (!user || !user.wallet) {
-    return false
-  }
-
-  let pass = false
-
-  for (const token of p.settings.tokensToEnter) {
-    if (token.type == 'erc20') {
-      let erc20TokenBalance = { balance: 0 }
-      try {
-        erc20TokenBalance = await getERC20Balance(user.wallet, token.address as TokenAddress, token.chain)
-      } catch {}
-      if (erc20TokenBalance.balance) {
-        // user has balance;
-        pass = true
-        break
-      }
-      continue
-    }
-
-    if (token.type == 'erc721') {
-      // token is an ERC721 NFT COntract and we don't have a token_id specified (any owned is fine)
-      if (!token.tokenId) {
-        const r = await countOwnedTokens_ERC721Contract(user.wallet, token.address, token.chain)
-
-        if (r) {
-          pass = true
-          break
-        }
-
-        continue
-      } else {
-        // token is an ERC721 NFT COntract and we have a token_id specified
-        const r = await getOwnerOfToken_ERC721Contract(token.tokenId, token.address, token.chain)
-        if (r?.toLowerCase() == user.wallet.toLowerCase()) {
-          pass = true
-          break
-        }
-        continue
-      }
-    } else if (token.type == 'erc1155') {
-      if (!token.tokenId) {
-        // for erc1155 we have to have a token ID or it won't work.
-        continue
-      }
-      // token is an ERC155 NFT COntract and we have a token_id specified (mandatory)
-      const r = await getBalanceOfToken_ERC1155Contract(user.wallet, token.address, token.tokenId, token.chain)
-
-      if (!!r) {
-        pass = true
-        break
-      }
-      continue
-    }
-  } //end of loop
-  return pass
 }

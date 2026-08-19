@@ -1,6 +1,6 @@
 import type { Signal } from '@preact/signals'
 import { effect } from '@preact/signals'
-import { Component, createRef, Fragment } from 'preact'
+import { Component, Fragment } from 'preact'
 import { route } from 'preact-router'
 import { getCoords, withCoords } from '../web/src/helpers/coords-nav'
 import { isMobileMedia } from '../common/helpers/detector'
@@ -23,9 +23,7 @@ import type { FeatureTemplate } from './features/_metadata'
 import type Grid from './grid'
 import type { MinimapSettings } from './minimap'
 import Parcel from './parcel'
-import { isScratchpad } from './scene-config'
 import { Animations } from './avatar-animations'
-import { EmoteAnimation } from './states'
 import {
   selectCurrentOrNearestParcel,
   selectNearestEditableParcel,
@@ -52,15 +50,16 @@ import { CongaJoinHintOverlay, CongaStatusOverlay } from './ui/conga-status'
 import { MaterialDebugTab } from './ui/debug/material-debug-tab'
 import { OceanDebugTab } from './ui/debug/ocean-debug-tab'
 import { PumpDebugTab } from './ui/debug/pump-debug-tab'
-import { ExplorerUI, Tab } from './ui/explorer'
 import { FeatureEditor } from './ui/features/misc'
+import { openExplore } from '../web/src/helpers/open-explore'
 import HomeButton from './ui/home-button'
 import { ChatOverlay, chatSettings } from './ui/interact/chat'
 import { voiceSettings } from './voice-settings'
 import { DancePane } from './ui/interact/dance-pane'
 import { EmotePane } from './ui/interact/emote-pane'
+import { YeetPane } from './ui/interact/yeet-pane'
 import { HelpOverlay } from './ui/interact/help'
-import { ScratchpadGuide, ScratchpadGuideMini } from './ui/scratchpad-guide'
+import { SandboxGuide, SandboxGuideMini } from './ui/sandbox-guide'
 import { FirstTimeInstructions } from '../web/src/components/first-time-instructions'
 import { BroadcastSidebarTab } from '../web/src/broadcast-sidebar-tab'
 import { ShowboxBroadcastPane } from '../web/src/showbox-broadcast-pane'
@@ -79,6 +78,15 @@ import TakeWomp from './ui/take-womp'
 import WompButton from './ui/womp-button'
 
 const NUMBER_KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'] as const
+
+const wantsLearnQuery = () => typeof location !== 'undefined' && new URLSearchParams(location.search).get('learn') === 'true'
+
+const isOnSandboxParcel = () => {
+  const p = selectNearestEditableParcel() ?? (typeof window !== 'undefined' ? window.grid?.nearestEditableParcel?.() : null)
+  return !!(p as any)?.sandbox
+}
+
+const wantsSandboxGuide = () => wantsLearnQuery() || isOnSandboxParcel()
 
 const Location = (props: { scene: BABYLON.Scene; signedIn: any }) => {
   const currentOrNearestParcel = selectCurrentOrNearestParcel()
@@ -105,7 +113,7 @@ export enum Mode {
   Avatar,
 }
 
-export type UIPanes = 'add' | 'edit' | 'voxels' | 'debugTool' | 'nfts' | 'chat' | 'dance' | 'emote' | 'settings' | 'womp' | 'takeWomp' | 'help' | 'explorer' | 'login' | 'parcelSnapshots' | 'bake' | 'broadcast'
+export type UIPanes = 'add' | 'edit' | 'voxels' | 'debugTool' | 'nfts' | 'chat' | 'dance' | 'emote' | 'yeet' | 'settings' | 'womp' | 'takeWomp' | 'help' | 'login' | 'parcelSnapshots' | 'bake' | 'broadcast'
 
 export interface Tool {
   activate: () => void
@@ -143,13 +151,12 @@ type UserInterfaceState = {
   editor?: FeatureEditor
   feature?: Feature
   publishAsset?: FeatureTemplate | string
-  active: boolean
   /** Shown next to minimap expand; same source as Explore radar */
   onlineCount: number
-  scratchpadGuideOpen?: boolean
-  scratchpadGuideMini?: boolean
-  scratchpadGuideRestart?: boolean
-  scratchpadGuideKey?: number
+  sandboxGuideOpen?: boolean
+  sandboxGuideMini?: boolean
+  sandboxGuideRestart?: boolean
+  sandboxGuideKey?: number
   chatEnabled: boolean
   dragging?: boolean
   voice?: 'off' | 'live' | 'muted'
@@ -173,18 +180,16 @@ export default class UserInterface extends Component<UserInterfaceProps, UserInt
   defaultTool: Tool | null
   keyboardHandler: KeyboardHandler = undefined!
 
-  /**
-   * Only used for setting initial tab of the explorer; default undefined
-   * We use a ref here to avoid re-renders
-   */
-  explorerPaneInitialTab = createRef<Tab | undefined>()
   presenceEs: EventSource | null = null
   presenceUuids = new Set<string>()
   chatLastReadAt = Date.now()
   chatListDispose?: () => void
   parcelEditDispose?: () => void
+  sandboxGuideParcelDispose?: () => void
+  sandboxLookDispose?: () => void
   wompPollTimer: ReturnType<typeof setInterval> | null = null
   latestWompId = 0
+  sandboxRollingBack = false
 
   constructor(props: UserInterfaceProps) {
     super(props)
@@ -210,7 +215,6 @@ export default class UserInterface extends Component<UserInterfaceProps, UserInt
       signedIn: app?.signedIn ?? false,
       wallet: app?.state.wallet ?? null,
       currentOrNearestParcel: null,
-      active: false,
       onlineCount: 0,
       chatEnabled: chatSettings.enabled,
       voiceEnabled: voiceSettings.enabled,
@@ -232,7 +236,7 @@ export default class UserInterface extends Component<UserInterfaceProps, UserInt
     })
 
     if (signedIn && this.state.pane === 'login') {
-      this.setState({ pane: undefined, active: false })
+      this.setState({ pane: undefined })
     }
   }
 
@@ -263,7 +267,7 @@ export default class UserInterface extends Component<UserInterfaceProps, UserInt
     setSelectedFeature(feature)
     enterAuthoring(feature.parcel.id)
     uiPane.value = 'edit'
-    this.setState({ feature, editor: editor, currentOrNearestParcel: feature?.parcel, pane: 'edit', active: true, publishAsset: undefined })
+    this.setState({ feature, editor: editor, currentOrNearestParcel: feature?.parcel, pane: 'edit', publishAsset: undefined })
     exitPointerLock()
     // off-object drags look around while editing
     ;(this.connector.controls as any).attachDragLook?.()
@@ -271,7 +275,7 @@ export default class UserInterface extends Component<UserInterfaceProps, UserInt
 
   openPublishAsset(asset: FeatureTemplate | string) {
     uiPane.value = 'edit'
-    this.setState({ publishAsset: asset, pane: 'edit', active: true })
+    this.setState({ publishAsset: asset, pane: 'edit' })
     uiAsideTick.value++
     exitPointerLock()
   }
@@ -297,7 +301,6 @@ export default class UserInterface extends Component<UserInterfaceProps, UserInt
       editor: multi ? undefined : this.state.editor,
       feature: multi ? undefined : this.state.feature,
       pane: 'edit',
-      active: true,
     })
     uiAsideTick.value++
   }
@@ -307,7 +310,7 @@ export default class UserInterface extends Component<UserInterfaceProps, UserInt
     selectedFeature.value = undefined
     uiPane.value = 'edit'
     this.featureTool.unHighlight()
-    this.setState({ editor: undefined, feature: undefined, pane: 'edit', active: true })
+    this.setState({ editor: undefined, feature: undefined, pane: 'edit' })
     uiAsideTick.value++
   }
 
@@ -323,7 +326,7 @@ export default class UserInterface extends Component<UserInterfaceProps, UserInt
 
     // setInterval(this.updateCanEdit.bind(this), 1000)
 
-    if (this.props.minimapSettings.enabled && !window.config.isSpace) {
+    if (this.props.minimapSettings.enabled) {
       this.presenceEs = new EventSource('/api/users/live')
       this.presenceEs.onmessage = (e) => {
         try {
@@ -360,9 +363,25 @@ export default class UserInterface extends Component<UserInterfaceProps, UserInt
     void this.pollNewWomp()
     this.wompPollTimer = setInterval(() => void this.pollNewWomp(), 45_000)
 
-    if (isScratchpad() && !isMobileMedia()) {
-      this.setState({ scratchpadGuideOpen: true, scratchpadGuideMini: false, scratchpadGuideRestart: false })
+    if ((wantsLearnQuery() || isOnSandboxParcel()) && !isMobileMedia()) {
+      this.setState({ sandboxGuideOpen: true, sandboxGuideMini: false, sandboxGuideRestart: false })
     }
+
+    this.sandboxGuideParcelDispose = effect(() => {
+      nearestEditableParcel.value
+      if (isMobileMedia()) return
+      if (!isOnSandboxParcel()) return
+      if (this.state.sandboxGuideOpen || this.state.sandboxGuideRestart) return
+      this.setState({ sandboxGuideOpen: true, sandboxGuideMini: false, sandboxGuideRestart: false })
+    })
+
+    this.sandboxLookDispose = effect(() => {
+      nearestEditableParcel.value
+      const on = isOnSandboxParcel()
+      try {
+        window._color?.setSandboxLook?.(on)
+      } catch {}
+    })
   }
 
   private static WOMP_SEEN_KEY = 'voxels-explore-last-womp'
@@ -407,51 +426,68 @@ export default class UserInterface extends Component<UserInterfaceProps, UserInt
     if (this.state.newWomp) this.setState({ newWomp: false })
   }
 
-  enterScratchpadGuideMini = () => {
+  enterSandboxGuideMini = () => {
     exitPointerLock()
     uiPane.value = 'add'
-    this.setState({ pane: 'add', active: true, scratchpadGuideMini: true })
+    this.setState({ pane: 'add', sandboxGuideMini: true })
   }
 
-  celebrateScratchpadGuideComplete = () => {
+  celebrateSandboxGuideComplete = () => {
     exitPointerLock()
     this.connector.emote('🔥')
-    this.connector.persona.popState(this.connector.controls)
-    this.connector.persona.setState({ state: new EmoteAnimation(Animations.Dance) }, this.connector.controls)
-    this.setState({ scratchpadGuideOpen: false, scratchpadGuideMini: false, scratchpadGuideRestart: true })
+    this.connector.persona.playEmote(Animations.Dance)
+    this.setState({ sandboxGuideOpen: false, sandboxGuideMini: false, sandboxGuideRestart: true })
   }
 
-  restartScratchpadGuide = () => {
+  restartSandboxGuide = () => {
     uiPane.value = undefined
     this.setState({
-      scratchpadGuideMini: false,
-      scratchpadGuideKey: (this.state.scratchpadGuideKey || 0) + 1,
+      sandboxGuideMini: false,
+      sandboxGuideKey: (this.state.sandboxGuideKey || 0) + 1,
       pane: undefined,
-      active: false,
     })
   }
 
-  openScratchpadGuide = () => {
+  openSandboxGuide = () => {
     uiPane.value = undefined
     this.setState({
-      scratchpadGuideOpen: true,
-      scratchpadGuideMini: false,
-      scratchpadGuideRestart: false,
-      scratchpadGuideKey: (this.state.scratchpadGuideKey || 0) + 1,
+      sandboxGuideOpen: true,
+      sandboxGuideMini: false,
+      sandboxGuideRestart: false,
+      sandboxGuideKey: (this.state.sandboxGuideKey || 0) + 1,
       pane: undefined,
-      active: false,
     })
+  }
+
+  rollBackSandbox = async () => {
+    const p = selectNearestEditableParcel()
+    if (!p?.sandbox || this.sandboxRollingBack) return
+    if (!confirm('Roll back this sandbox to how it looked when you started editing?')) return
+    this.sandboxRollingBack = true
+    try {
+      const r = await fetch(`/api/parcels/${p.id}/sandbox-rollback`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: '{}',
+      })
+      const d = await r.json().catch(() => ({}))
+      if (!d?.success) {
+        app.showSnackbar(d?.error || 'Nothing to roll back yet', PanelType.Warning)
+      }
+    } catch {
+      app.showSnackbar('Roll back failed', PanelType.Danger)
+    } finally {
+      this.sandboxRollingBack = false
+    }
   }
 
   componentDidUpdate(_prevProps: UserInterfaceProps, prevState: UserInterfaceState) {
-    if (!prevState.active && this.state.active) {
+    if (!prevState.pane && this.state.pane) {
       this.chatLastReadAt = Date.now()
     }
     if (prevState.pane !== this.state.pane || prevState.feature?.uuid !== this.state.feature?.uuid) {
       uiAsideTick.value++
-    }
-    if (this.state.pane === 'explorer' && prevState.pane !== 'explorer') {
-      this.markWompsSeen()
     }
   }
 
@@ -483,6 +519,11 @@ export default class UserInterface extends Component<UserInterfaceProps, UserInt
     voiceSettings.removeEventListener('changed', this.onVoiceSettingsChange)
     this.chatListDispose?.()
     this.parcelEditDispose?.()
+    this.sandboxGuideParcelDispose?.()
+    this.sandboxLookDispose?.()
+    try {
+      window._color?.setSandboxLook?.(false)
+    } catch {}
     // dispose the keyboard handler too - it attaches keydown/keyup on `document` in addKeyboardHandlers,
     // and without this each unmount (e.g. womp preview -> /play, every page hop) leaks a live handler.
     // They accumulate and re-fire shortcuts N times, so camera toggles (C perspective, F fly) cancel out.
@@ -507,7 +548,7 @@ export default class UserInterface extends Component<UserInterfaceProps, UserInt
     uiPane.value = undefined
     if (parcelId != null) exitAuthoring(parcelId)
     uiAsideTick.value++
-    this.setState({ editor: undefined, feature: undefined, pane: undefined, active: false, publishAsset: undefined })
+    this.setState({ editor: undefined, feature: undefined, pane: undefined, publishAsset: undefined })
     // controls path avoids focus-before-lock (steals the gesture) and eats the post-unlock cooldown rejection
     const controls = this.connector.controls as any
     controls?.requestPointerLock ? controls.requestPointerLock()?.catch?.(() => {}) : requestPointerLock()
@@ -521,7 +562,7 @@ export default class UserInterface extends Component<UserInterfaceProps, UserInt
     requestPointerLock()
 
     uiPane.value = undefined
-    this.setState({ active: false, pane: undefined })
+    this.setState({ pane: undefined })
   }
 
   disable() {
@@ -555,7 +596,14 @@ export default class UserInterface extends Component<UserInterfaceProps, UserInt
             this.editFeatureIfHasLock()
           },
         },
-        { code: 'KeyX', handleEvent: () => this.deleteFeature() },
+        {
+          code: 'KeyX',
+          handleEvent: () => {
+            this.markWompsSeen()
+            openExplore()
+            exitPointerLock()
+          },
+        },
         { code: 'Backspace', handleEvent: () => this.deleteFeature() },
         { code: 'KeyM', handleEvent: () => this.editFeatureThenMove() },
         { code: 'KeyR', handleEvent: () => this.toggleRealism() },
@@ -566,13 +614,14 @@ export default class UserInterface extends Component<UserInterfaceProps, UserInt
         { code: 'KeyB', handleEvent: () => this.toggleVoxelTool() },
         { code: 'KeyG', handleEvent: () => this.setPane('dance') },
         { code: 'KeyT', handleEvent: () => this.setPane('emote') },
+        { code: 'KeyY', handleEvent: () => this.setPane('yeet') },
         { code: 'KeyZ', handleEvent: () => this.connector.controls.toggleZoom() },
         { code: 'Enter', handleEvent: this.focusChat },
         { code: 'Escape', handleEvent: () => this.onEscape() },
         {
           code: 'Tab',
           handleEvent: (e: KeyboardEvent) => {
-            if (isScratchpad() && this.state.scratchpadGuideOpen) {
+            if (wantsSandboxGuide() && this.state.sandboxGuideOpen) {
               e.preventDefault()
               this.setPane('add')
               return
@@ -580,17 +629,8 @@ export default class UserInterface extends Component<UserInterfaceProps, UserInt
 
             if (this.state.pane) return
 
-            if (!this.state.active) {
-              this.setPane('add')
-              return
-            }
-
-            if (document.activeElement instanceof HTMLInputElement) {
-              return
-            } else if (document.activeElement?.closest('.UserInterface')) {
-              // ignore tab if inside the nav
-              return
-            }
+            this.setPane('add')
+            return
           },
         },
       ],
@@ -632,8 +672,8 @@ export default class UserInterface extends Component<UserInterfaceProps, UserInt
   }
 
   setPane(pane: UIPanes) {
-    if (isScratchpad() && this.state.scratchpadGuideOpen && pane === 'add') {
-      this.enterScratchpadGuideMini()
+    if (wantsSandboxGuide() && this.state.sandboxGuideOpen && pane === 'add') {
+      this.enterSandboxGuideMini()
       return
     }
 
@@ -654,21 +694,21 @@ export default class UserInterface extends Component<UserInterfaceProps, UserInt
     uiPane.value = pane
     // stale editor/feature poisons the add flow (tool taps early-return, click-away misfires)
     if (pane !== 'edit') {
-      this.setState({ pane: pane, active: true, editor: undefined, feature: undefined })
+      this.setState({ pane: pane, editor: undefined, feature: undefined })
     } else {
-      this.setState({ pane: pane, active: true })
+      this.setState({ pane: pane })
     }
   }
 
   openBuildToolbelt() {
-    if (!this.grid.nearestEditableParcel() && !(isScratchpad() && this.grid.fastbootParcel?.canEdit)) return
+    if (!this.grid.nearestEditableParcel()) return
     this.voxelTool.setMode(SelectionMode.Add)
     this.setTool(this.voxelTool)
     this.forceUpdate()
   }
 
   activateVoxelTool(mode?: SelectionMode, options?: SelectionModeOptions) {
-    if (!this.grid.nearestEditableParcel() && !(isScratchpad() && this.grid.fastbootParcel?.canEdit)) return
+    if (!this.grid.nearestEditableParcel()) return
     this.setFirstPersonPerspective()
     if (this.connector.controls instanceof DesktopControls && !hasPointerLock()) {
       this.connector.controls.requestPointerLock()
@@ -680,7 +720,7 @@ export default class UserInterface extends Component<UserInterfaceProps, UserInt
 
   toggleVoxelTool() {
     if (this.activeTool !== this.voxelTool) {
-      if (!this.grid.nearestEditableParcel() && !(isScratchpad() && this.grid.fastbootParcel?.canEdit)) return
+      if (!this.grid.nearestEditableParcel()) return
       this.setFirstPersonPerspective()
       this.activateVoxelTool()
     } else {
@@ -697,7 +737,7 @@ export default class UserInterface extends Component<UserInterfaceProps, UserInt
   closeInteractOverlay() {
     uiPane.value = undefined
     // ghost editor/feature keeps click-away + drag-look + feature tool in edit limbo
-    this.setState({ pane: undefined, active: false, editor: undefined, feature: undefined })
+    this.setState({ pane: undefined, editor: undefined, feature: undefined })
   }
 
   // the one ESC: leave fullscreen. two-step -- a locked pointer eats the
@@ -780,7 +820,7 @@ export default class UserInterface extends Component<UserInterfaceProps, UserInt
 
   hide() {
     uiPane.value = undefined
-    this.setState({ pane: undefined, active: false })
+    this.setState({ pane: undefined })
   }
 
   highlightFeature(feature: Feature) {
@@ -873,24 +913,6 @@ export default class UserInterface extends Component<UserInterfaceProps, UserInt
     this.hide()
   }
 
-  showExplorerMap() {
-    this.explorerPaneInitialTab.current = 'map'
-    uiPane.value = 'explorer'
-    this.setState({ pane: 'explorer', active: true })
-    setTimeout(() => {
-      this.explorerPaneInitialTab.current = undefined
-    })
-  }
-
-  showExplorerOnline() {
-    this.explorerPaneInitialTab.current = 'users'
-    uiPane.value = 'explorer'
-    this.setState({ pane: 'explorer', active: true })
-    setTimeout(() => {
-      this.explorerPaneInitialTab.current = undefined
-    })
-  }
-
   openLink(url: string) {
     if (this.visible) {
       // suppress
@@ -903,10 +925,9 @@ export default class UserInterface extends Component<UserInterfaceProps, UserInt
       return
     }
 
-    if (url.startsWith('/spaces') && url.match('/play') && url.match('coords')) {
-      const params = new URLSearchParams(url.split('?')[1])
+    if (url.startsWith('/spaces') && url.match('/play')) {
       const spaceId = url.split('/')[2]
-      window.location.href = `/spaces/${spaceId}/play?coords=${params.get('coords')}`
+      window.location.href = `/spaces/${spaceId}`
       return
     }
 
@@ -917,7 +938,7 @@ export default class UserInterface extends Component<UserInterfaceProps, UserInt
   }
 
   paneContent(paneId: UIPanes) {
-    const nearestEditableParcel = selectNearestEditableParcel() ?? (isScratchpad() ? this.grid.fastbootParcel : undefined) ?? null
+    const nearestEditableParcel = selectNearestEditableParcel() ?? null
     const currentOrNearestParcel = selectCurrentOrNearestParcel() ?? null
 
     switch (paneId) {
@@ -939,6 +960,8 @@ export default class UserInterface extends Component<UserInterfaceProps, UserInt
         return <DancePane />
       case 'emote':
         return <EmotePane />
+      case 'yeet':
+        return <YeetPane />
       case 'settings':
         return <SettingsUI scene={this.props.scene} minimapSettings={this.props.minimapSettings} />
       case 'womp':
@@ -949,9 +972,7 @@ export default class UserInterface extends Component<UserInterfaceProps, UserInt
         return <TakeWomp coords={w.coords} parcel={w.parcel} image={w.image} scene={this.props.scene} onClose={closeTakeWomp} />
       }
       case 'help':
-        return <HelpOverlay scene={this.props.scene} onShowScratchpadGuide={isScratchpad() ? this.openScratchpadGuide : undefined} />
-      case 'explorer':
-        return <ExplorerUI scene={this.props.scene} initialTab={this.explorerPaneInitialTab.current!} />
+        return <HelpOverlay scene={this.props.scene} onShowSandboxGuide={wantsSandboxGuide() ? this.openSandboxGuide : undefined} />
       case 'bake':
         return <Baking parcel={nearestEditableParcel!} />
       case 'broadcast':
@@ -1001,7 +1022,7 @@ export default class UserInterface extends Component<UserInterfaceProps, UserInt
     const currentPane = this.state.pane
     const active = (pane: string, disabled?: boolean) => (currentPane === pane ? 'active' : disabled ? 'disabled' : '')
 
-    const unreadChat = this.state.chatEnabled && !this.state.active ? messageList.value.some((m) => m.timestamp > this.chatLastReadAt) : false
+    const unreadChat = this.state.chatEnabled && !this.state.pane ? messageList.value.some((m) => m.timestamp > this.chatLastReadAt) : false
 
     return (
       <>
@@ -1016,17 +1037,19 @@ export default class UserInterface extends Component<UserInterfaceProps, UserInt
           )}
           {isMobileMedia() && <WompButton onClick={() => this.takeWomp(this.props.scene)} />}
 
-          <aside data-active={this.state.active}>
+          <aside data-active={!!this.state.pane}>
             <ul class="ui-sidebar" onMouseLeave={onBlur}>
-              {!this.state.signedIn && (
-                <li class={active('login')}>
-                  <a href="#login" onMouseOver={onHover('login')} onClick={onClick('login')}>
-                    Login
-                  </a>
-                </li>
-              )}
-              <li class={active('explorer')}>
-                <a href="#explorer" onMouseOver={onHover('explorer')} onClick={onClick('explorer')} title={this.state.newWomp ? 'new womp - open Explore' : 'Explore'}>
+              <li>
+                <a
+                  href="/"
+                  onClick={(e) => {
+                    e.preventDefault()
+                    this.markWompsSeen()
+                    openExplore()
+                    exitPointerLock()
+                  }}
+                  title={this.state.newWomp ? 'new womp - open Explore' : 'Explore'}
+                >
                   Explore{this.state.newWomp ? <span class="explore-new-dot" aria-label="new womp" /> : null}
                 </a>
               </li>
@@ -1046,7 +1069,12 @@ export default class UserInterface extends Component<UserInterfaceProps, UserInt
                   Emote
                 </a>
               </li>
-              {(this.state.signedIn || isScratchpad()) && canEdit && (
+              <li class={active('yeet')}>
+                <a href="#yeet" onMouseOver={onHover('yeet')} onClick={onClick('yeet')}>
+                  Yeet
+                </a>
+              </li>
+              {(this.state.signedIn || wantsSandboxGuide()) && canEdit && (
                 <>
                   <li class={this.voxelTool.enabled.value ? 'active' : ''}>
                     <a
@@ -1124,14 +1152,22 @@ export default class UserInterface extends Component<UserInterfaceProps, UserInt
 
           {nearestEditableParcel && nearestEditableParcel.canEdit && <VoxelToolBelt parcel={nearestEditableParcel} />}
 
-          {this.state.scratchpadGuideOpen && !this.state.scratchpadGuideMini && <ScratchpadGuide key={this.state.scratchpadGuideKey || 0} voxelTool={this.voxelTool} onComplete={this.celebrateScratchpadGuideComplete} />}
+          {nearestEditableParcel?.sandbox && nearestEditableParcel.canEdit && (
+            <div class="sandbox-rollback">
+              <button type="button" class="linkish" onClick={this.rollBackSandbox}>
+                roll back
+              </button>
+            </div>
+          )}
 
-          {this.state.scratchpadGuideOpen && this.state.scratchpadGuideMini && <ScratchpadGuideMini onGotIt={this.celebrateScratchpadGuideComplete} onStartOver={this.restartScratchpadGuide} />}
+          {this.state.sandboxGuideOpen && !this.state.sandboxGuideMini && <SandboxGuide key={this.state.sandboxGuideKey || 0} voxelTool={this.voxelTool} onComplete={this.celebrateSandboxGuideComplete} />}
 
-          {!this.state.scratchpadGuideOpen && this.state.scratchpadGuideRestart && isScratchpad() && (
-            <div class="scratchpad-guide-restart">
+          {this.state.sandboxGuideOpen && this.state.sandboxGuideMini && <SandboxGuideMini onGotIt={this.celebrateSandboxGuideComplete} onStartOver={this.restartSandboxGuide} />}
+
+          {!this.state.sandboxGuideOpen && this.state.sandboxGuideRestart && wantsSandboxGuide() && (
+            <div class="sandbox-guide-restart">
               <a href="/shop">get a parcel in the shop</a>
-              <button type="button" class="linkish" onClick={this.openScratchpadGuide}>
+              <button type="button" class="linkish" onClick={this.openSandboxGuide}>
                 start over
               </button>
             </div>

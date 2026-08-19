@@ -1,12 +1,12 @@
 import Controls, { CAMERA_DISTANCE } from '../controls'
-import DpadControls, { toggleDpadControls } from '../../ui/mobile/dpad'
+import Dpad from './dpad'
 import PlayerCamera from '../utils/player-camera'
 import { decodeCoords } from '../../../common/helpers/utils'
 import { getCoordsFromURL } from '../../utils/helpers'
 import { createFirstPersonCamera } from '../utils/fps-camera'
 export default class MobileControls extends Controls {
   shiftKey = false
-  dpad: DpadControls | null = null
+  dpad: Dpad | null = null
   btnCameraView: HTMLElement | null = null
   btnToggleFly: HTMLElement | null = null
   btnDrive: HTMLButtonElement | null = null
@@ -31,25 +31,18 @@ export default class MobileControls extends Controls {
     return camera
   }
 
-  addControls(camera: PlayerCamera | BABYLON.ArcRotateCamera) {
+  addControls(camera: PlayerCamera) {
     camera.attachControl(this.canvas, true)
 
-    // Mobile overlays
-    toggleDpadControls(this).then((dpad) => {
-      this.dpad = dpad
-    })
+    // base Controls assigns this.camera after addControls; dpad needs it now
+    this.camera = camera
+    this.dpad = new Dpad(this, this.canvas)
+    this.dpad.mount()
 
     // Hide / show reticule
     this.scene.registerBeforeRender(() => {
       for (const ch of this.reticuleChannels) ch.visibility = 0
       this.walking()
-    })
-
-    this.scene.onPointerObservable.add((info) => {
-      if (!this.idleLook.active) return
-      if (info.type !== BABYLON.PointerEventTypes.POINTERMOVE) return
-      const e = info.event as PointerEvent
-      if (e.movementX || e.movementY) this.idleLook.stop()
     })
 
     // by now the UX buttons for the mobile should be in the DOM so we can grab them
@@ -108,7 +101,6 @@ export default class MobileControls extends Controls {
     }
 
     if (this.direction) {
-      if (this.direction.lengthSquared() > 1e-6) this.idleLook.stop()
       camera._localDirection.copyFrom(this.direction)
     }
 
