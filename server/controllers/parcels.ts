@@ -1,10 +1,10 @@
 import { createRequestHandlerForQuery, queryAndCallback } from '../lib/query-helpers'
 
-import cache from '../cache'
+import cache, { noCache } from '../cache'
 import config from '../../common/config'
 import proxy from 'express-http-proxy'
 import Parcel, { ParcelRef } from '../parcel'
-import { revertParcel } from '../handlers/update-parcel'
+import { revertParcel, sandboxRollback } from '../handlers/update-parcel'
 import voxExport from '../handlers/vox-export'
 import { numberOfQuarterOfDaySinceGenesis } from '../lib/utils'
 import authParcel from '../auth-parcel'
@@ -17,18 +17,22 @@ import { isAddress } from 'ethers'
 const HEADINGS = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'] as const
 
 export default function (db: Db, passport: PassportStatic, app: Express) {
+  app.get('/api/sandboxes.json', cache('60 seconds'), createRequestHandlerForQuery(db, 'get-sandbox-parcels', 'sandboxes'))
+
   // Parcels
   // This API route supports a `parcels_ids` flag which can be repeated multiple times.
   app.get('/api/parcels.json', cache('5 minutes'), async (req, res) => {
-    let parcel_ids = req.query.parcel_ids ? (req.query.parcel_ids instanceof Array ? req.query.parcel_ids : [req.query.parcel_ids]) : null
+    const parcel_ids = req.query.parcel_ids ? (req.query.parcel_ids instanceof Array ? req.query.parcel_ids : [req.query.parcel_ids]) : null
     if (!parcel_ids) {
       queryAndCallback(db, 'get-parcels', 'parcels', [req.query.limit], (response) => {
         res.status(200).send(response)
       })
       return
     }
-    parcel_ids = parcel_ids.filter((id: any) => !isNaN(Number(id)))
-    let batch_queries = `select p.id,
+    // Number('') and Number('Infinity') are not NaN, so an empty or non-finite id
+    // used to reach the query as a literal and make it invalid.
+    const ids = parcel_ids.map((id: any) => Number(id)).filter((id: number) => Number.isInteger(id))
+    const batch_queries = `select p.id,
       y2 - y1 as height,
       p.island,
       p.address,
@@ -46,12 +50,10 @@ export default function (db: Db, passport: PassportStatic, app: Express) {
       from
       properties p
       where
-      id in (
+      p.id = any($1::int[])
     `
 
-    const ids = parcel_ids.join(',')
-    batch_queries += ids + ')'
-    const r = await db.query('embedded/get-parcels-batched', batch_queries)
+    const r = await db.query('embedded/get-parcels-batched', batch_queries, [ids])
     res.status(200).send({ success: !!r.rows[0], parcels: r.rows })
   })
 
@@ -351,7 +353,8 @@ export default function (db: Db, passport: PassportStatic, app: Express) {
     cache('5 second'),
     createRequestHandlerForQuery(db, 'parcels/get-users-rights-by-parcel', 'users', (req) => [req.params.id]),
   )
-  app.post('/api/parcels/:id/revert', passport.authenticate('jwt', { session: false }), revertParcel)
+  app.post('/api/parcels/:id/revert', passport.authenticate(['jwt', 'anonymous'], { session: false }), revertParcel)
+  app.post('/api/parcels/:id/sandbox-rollback', passport.authenticate(['jwt', 'anonymous'], { session: false }), sandboxRollback)
 
   app.get('/api/parcels/:id.vox', cache('15 seconds'), async (req, res) => {
     const parcel_id = parseInt(req.params.id, 10)
@@ -438,12 +441,16 @@ export default function (db: Db, passport: PassportStatic, app: Express) {
 
     // const mapParams = '?x=' + ((parcel.x2 + parcel.x1) / 200).toFixed(2) + '&y=' + (parcel.z2 + parcel.z1) / 200
     const identifier = parcel.id + '-' + parcel.address.toLowerCase().replace(/\s+/g, '_')
-    fetch(`${process.env.MAP_URL}/parcel/${identifier}.png`)
-      .then((r) => r.arrayBuffer())
-      .then((arrayBuffer) => {
-        res.set('Content-Type', 'image/png')
-        res.end(Buffer.from(arrayBuffer))
-      })
+    const r = await fetch(`${process.env.MAP_URL}/parcel/${identifier}.png`).catch(() => null)
+    if (!r || !r.ok) {
+      // The map renderer sends an HTML error page. Do not label it image/png, and
+      // do not let the 30 minute header cache it.
+      noCache(res)
+      res.status(502).send({ success: false, message: 'Parcel image is unavailable' })
+      return
+    }
+    res.set('Content-Type', 'image/png')
+    res.end(Buffer.from(await r.arrayBuffer()))
   })
 
   app.get(

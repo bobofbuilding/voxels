@@ -81,6 +81,7 @@ export default abstract class Feature<Description extends FeatureRecord = Featur
   static proximityToTrigger = 1.77 //distance from feature centre to trigger animation
   static timerLength = 100 //how long (milliseconds) to be close to feature to trigger animation
   static Editor: any // todo type this
+  static isRenderable = false
   static layer: BABYLON.HighlightLayer
   static draftMaterial: BABYLON.StandardMaterial | null = null
   private static draftPulseObs: BABYLON.Nullable<BABYLON.Observer<BABYLON.Scene>> = null
@@ -547,7 +548,7 @@ export default abstract class Feature<Description extends FeatureRecord = Featur
 
   onClickLink(url: string) {
     // We have a time flag in the world link
-    if (this.isWorldLink && this.linkHasTimeFlag && !window.config.isSpace) {
+    if (this.isWorldLink && this.linkHasTimeFlag) {
       const time = this.linkHasTimeFlag
       if (window.environment && window.environment.timeOfDay !== time) {
         window.environment.timeOfDay = time
@@ -559,7 +560,7 @@ export default abstract class Feature<Description extends FeatureRecord = Featur
       return
     }
 
-    if (this.isWorldLink && this.linkHasCoords && !window.config.isSpace) {
+    if (this.isWorldLink && this.linkHasCoords) {
       window.persona.teleport(url)
       return
     }

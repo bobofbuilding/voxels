@@ -44,6 +44,7 @@ const blankSpace: ParcelRecord = {
   description: null,
   label: null,
   is_common: false,
+  sandbox: false,
   tileset: null,
   brightness: null,
   palette: null,
@@ -51,8 +52,6 @@ const blankSpace: ParcelRecord = {
   visible: true,
   features: [],
   settings: {
-    tokensToEnter: [],
-    sandbox: false,
     hosted_scripts: false,
     script_host_url: undefined,
   },

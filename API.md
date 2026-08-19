@@ -12,17 +12,18 @@ Generated from `server/openapi.yaml` by `npm run docs:api`. Edit the spec, not t
 
 ## what is in here
 
-- [parcels](#parcels), 19 routes
+- [parcels](#parcels), 20 routes
 - [womps](#womps), 6 routes
 - [avatars](#avatars), 13 routes
 - [collectibles](#collectibles), 3 routes
 - [collections](#collections), 6 routes
 - [wearables](#wearables), 7 routes
 - [islands](#islands), 3 routes
-- [spaces](#spaces), 3 routes
+- [spaces](#spaces), 2 routes
 - [events](#events), 6 routes
 - [search](#search), 1 route
-- [schemas](#schemas), 22 shapes
+- [ghosts](#ghosts), 1 route
+- [schemas](#schemas), 23 shapes
 
 ## parcels
 
@@ -45,12 +46,13 @@ Generated from `server/openapi.yaml` by `npm run docs:api`. Edit the spec, not t
 - [`/api/suburbs/{suburb_id}/popular.json`](#get-apisuburbssuburb_idpopularjson) The busiest parcels in a suburb
 - [`/api/wallet/{address}/parcels.json`](#get-apiwalletaddressparcelsjson) Parcels a wallet owns
 - [`/api/wallet/{address}/contributing-parcels.json`](#get-apiwalletaddresscontributing-parcelsjson) Parcels a wallet can build on but does not own
+- [`/api/sandboxes.json`](#get-apisandboxesjson) All sandbox parcels for learning to build
 
 ### GET /api/parcels.json
 
 List parcels, or fetch a batch by id
 
-Without `parcel_ids` this lists minted parcels and each row carries `parcel_users`, `owner`, `suburb` and `hash`. With `parcel_ids` it runs a different query whose rows are narrower (no owner avatar, no suburb, no hash) and whose `y2` is the height, not the top of the box. Ids that are not numbers are dropped rather than rejected.
+Without `parcel_ids` this lists minted parcels and each row carries `parcel_users`, `owner`, `suburb` and `hash`. With `parcel_ids` it runs a different query whose rows are narrower (no owner avatar, no suburb, no hash) and whose `y2` is the height, not the top of the box. Ids that are not integers are dropped rather than rejected.
 
 **parameters**
 
@@ -205,6 +207,7 @@ The parcel's tile off the map renderer
 
 - `200` `image/png`, bytes
 - `404` The lookup did not land. Some handlers send this with status 200.
+- `502` The lookup did not land. Some handlers send this with status 200.
 
 ### GET /api/parcels/{id}/query
 
@@ -342,6 +345,18 @@ Parcels a wallet can build on but does not own
 - `200` object
   - `success` boolean
   - `parcels` array of object
+
+### GET /api/sandboxes.json
+
+All sandbox parcels for learning to build
+
+Parcels with properties.sandbox = true. Used by /build.
+
+**answers**
+
+- `200` object
+  - `success` boolean
+  - `sandboxes` array of object
 
 ## womps
 
@@ -1006,31 +1021,14 @@ The slug is the island name lowercased with runs of whitespace turned into singl
 
 ## spaces
 
-- [`/api/spaces.json`](#get-apispacesjson) Browsable spaces
-- [`/api/spaces/{id}.json`](#get-apispacesidjson) One space with its content
-- [`/api/wallet/{address}/spaces.json`](#get-apiwalletaddressspacesjson) Spaces a wallet owns
-
-### GET /api/spaces.json
-
-Browsable spaces
-
-A space is a build that is not pinned to a parcel. Womps can be taken in one.
-
-**parameters**
-
-- `page` (query) integer, defaults to `1`: One-based.
-
-**answers**
-
-- `200` object
-  - `success` boolean
-  - `spaces` array of object
+- [`/api/spaces/{id}.json`](#get-apispacesidjson) Archived space JSON download
+- [`/api/wallet/{address}/spaces.json`](#get-apiwalletaddressspacesjson) Archived spaces a wallet owns
 
 ### GET /api/spaces/{id}.json
 
-One space with its content
+Archived space JSON download
 
-A malformed uuid throws inside the handler and comes back as a 400.
+Spaces are deprecated. This returns the archived content for download. A malformed uuid throws inside the handler and comes back as a 400.
 
 **parameters**
 
@@ -1045,7 +1043,9 @@ A malformed uuid throws inside the handler and comes back as a 400.
 
 ### GET /api/wallet/{address}/spaces.json
 
-Spaces a wallet owns
+Archived spaces a wallet owns
+
+Spaces are deprecated. List is for archive download links only.
 
 **parameters**
 
@@ -1161,6 +1161,27 @@ Reads a materialised view that mixes parcels, wearables and the rest, so `type` 
 - `200` object
   - `success` boolean
   - `results` array of [`SearchResult`](#searchresult)
+
+## ghosts
+
+- [`/api/ghosts`](#get-apighosts) Random path fragments that touched a parcel
+
+### GET /api/ghosts
+
+Random path fragments that touched a parcel
+
+Returns up to 10 anonymous movement fragments whose start or end parcel matches. Each `path` is base64 of a little-endian Float32Array packed as `t,x,y,z` per sample (`t` seconds from the fragment start). `type` is 0 walk, 1 conga, 2 fly, 3 drive. No identity and no created_at.
+
+**parameters**
+
+- `parcel` (query, required) integer
+
+**answers**
+
+- `200` object
+  - `success` boolean
+  - `ghosts` array of [`Ghost`](#ghost)
+- `400` The lookup did not land. Some handlers send this with status 200.
 
 ## schemas
 
@@ -1469,6 +1490,13 @@ A wearable collection.
 - `description` string or null
 - `created_at` string or null
 - `rank` number
+
+### Ghost
+
+- `start_parcel` integer
+- `end_parcel` integer
+- `type` integer: 0 walk, 1 conga, 2 fly, 3 drive
+- `path` string: Base64 of Float32Array samples packed as t,x,y,z
 
 ### EventList
 

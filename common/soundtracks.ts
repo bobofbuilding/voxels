@@ -51,7 +51,7 @@ export const tracks: Track[] = [
 // "drohneburg.webm" -> "Drohneburg"
 export function trackTitle(t: Track): string {
   return t.fileName
-    .replace(/\.(webm|m4a)$/i, '')
+    .replace(/\.(webm|m4a|mp3|wav|ogg|aac)$/i, '')
     .replace(/-/g, ' ')
     .replace(/\b\w/g, (c) => c.toUpperCase())
 }

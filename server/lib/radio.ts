@@ -59,6 +59,20 @@ function rng(seed: number) {
   }
 }
 
+export function buildSpots(day: number): Spot[] {
+  const r = rng(day + 7)
+  const spots: Spot[] = []
+  let off = MIN_GAP + r() * (MAX_GAP - MIN_GAP)
+  let idx = 0
+  while (off < DAY) {
+    const kind: SpotKind = r() < 0.25 ? 'ar' : 'en'
+    spots.push({ id: `${day}-${idx}`, atOffset: Math.round(off), kind })
+    off += MIN_GAP + r() * (MAX_GAP - MIN_GAP)
+    idx++
+  }
+  return spots
+}
+
 // Deterministic per UTC day: same station for everyone, regenerates at midnight.
 export function buildSchedule(day: number): Schedule {
   const order = seededShuffle(tracks.slice(), day + 1)
@@ -73,19 +87,7 @@ export function buildSchedule(day: number): Schedule {
     i++
   }
 
-  // one rng sequence drives both spacing and language so the schedule is stable
-  const r = rng(day + 7)
-  const spots: Spot[] = []
-  let off = MIN_GAP + r() * (MAX_GAP - MIN_GAP)
-  let idx = 0
-  while (off < DAY) {
-    const kind: SpotKind = r() < 0.25 ? 'ar' : 'en'
-    spots.push({ id: `${day}-${idx}`, atOffset: Math.round(off), kind })
-    off += MIN_GAP + r() * (MAX_GAP - MIN_GAP)
-    idx++
-  }
-
-  return { utcDay: day, daySeconds: DAY, musicUri: MUSIC_URI, segments, spots }
+  return { utcDay: day, daySeconds: DAY, musicUri: MUSIC_URI, segments, spots: buildSpots(day) }
 }
 
 // generate text + speech, upload wav to S3, return the url + raw text.
@@ -105,7 +107,7 @@ async function chat(prompt: string, temperature: number): Promise<string> {
       Authorization: `Bearer ${process.env.GROQ_API_KEY}`,
     },
     body: JSON.stringify({
-      model: 'llama-3.1-8b-instant',
+      model: 'openai/gpt-oss-20b',
       temperature,
       messages: [{ role: 'user', content: prompt }],
     }),
@@ -115,13 +117,21 @@ async function chat(prompt: string, temperature: number): Promise<string> {
     throw new Error(`chat failed: ${r.status} ${body}`)
   }
   const data = await r.json()
-  const text = data.choices?.[0]?.message?.content?.trim()
+  let text = data.choices?.[0]?.message?.content?.trim()
   if (!text) throw new Error('no script')
+  // models sometimes wrap the line in quotes or echo instructions - peel to the spoken bit
+  text =
+    text
+      .replace(/^["'`]+|["'`]+$/g, '')
+      .split('\n')
+      .map((l: string) => l.trim())
+      .find((l: string) => l && !/^you are |^using the |^output |^say one /i.test(l)) || text
+  text = text.replace(/^["'`]+|["'`]+$/g, '').trim()
   return text
 }
 
 async function script(db: Db, redis: any, kind: SpotKind): Promise<{ text: string; parcelId?: number }> {
-  const [pop, live] = await Promise.all([popular(db), presence(redis)])
+  const [pop, live, blog, chatter] = await Promise.all([popular(db), presence(redis), blogBits(db), chatBits(db)])
 
   const ids = [...new Set(live.map((u) => u.parcel).filter((p): p is number => !!p))]
   const names = ids.length ? await parcelNames(db, ids) : {}
@@ -149,12 +159,14 @@ async function script(db: Db, redis: any, kind: SpotKind): Promise<{ text: strin
         .map((h) => `- ${h}`)
         .join('\n')
     : '- nobody around right now'
-  const brief = `Hot parcels right now:\n${hot}\n\nWho's online and where:\n${onln}`
+  const posts = blog.length ? blog.map((b) => `- ${b}`).join('\n') : '- no posts'
+  const chats = chatter.length ? chatter.map((c) => `- ${c}`).join('\n') : '- chat is quiet'
+  const brief = `Hot parcels right now:\n${hot}\n\nWho's online and where:\n${onln}\n\nRecent blog:\n${posts}\n\nRecent chat:\n${chats}`
 
   const prompt =
     kind === 'ar'
-      ? `You are the late-night DJ on Voxels Radio, a 3D virtual world. Using the data below, say ONE short casual hype line in Arabic (Saudi dialect), UNDER 120 CHARACTERS. You may name a place or who's around. Arabic script only, no transliteration, no emojis, no quotes.\n\n${brief}`
-      : `You are the late-night DJ on Voxels Radio, a 3D virtual world. Using the data below, say ONE short, casual, lowercase on-air shout-out, UNDER 120 CHARACTERS. Name a place, and who's there if it fits. Vibe like: "sit back and relapse at 2 harriot terrace", "join pierceone at gallery", "anons at flashmint". No emojis, no quotes, no hashtags, no stage directions.\n\n${brief}`
+      ? `Late-night DJ on Voxels Radio. Reply with ONLY the spoken line in Arabic (Saudi dialect), under 120 characters. Name a place or who's around if it fits. Arabic script only. No transliteration, quotes, emojis, or instructions.\n\n${brief}`
+      : `Late-night DJ on Voxels Radio. Reply with ONLY the spoken line: one short casual lowercase shout-out under 120 characters. Weird and cool. Name a place and who's there if it fits. Vibe: sit back and relapse at 2 harriot terrace / join pierceone at gallery / anons at flashmint. No quotes, emojis, hashtags, stage directions, or repeating these instructions.\n\n${brief}`
 
   // link the spot to wherever the brief is mostly about
   let parcelId: number | undefined
@@ -174,6 +186,24 @@ async function script(db: Db, redis: any, kind: SpotKind): Promise<{ text: strin
 
   const text = await chat(prompt, kind === 'ar' ? 0.9 : 0.8)
   return { text, parcelId }
+}
+
+async function blogBits(db: Db): Promise<string[]> {
+  try {
+    const { rows } = await db.query('sql/radio/blog', `select title, left(body, 80) as body from posts order by created_at desc limit 5`)
+    return (rows as any[]).map((r) => clip(`${r.title}${r.body ? ': ' + r.body : ''}`, 100))
+  } catch {
+    return []
+  }
+}
+
+async function chatBits(db: Db): Promise<string[]> {
+  try {
+    const { rows } = await db.query('sql/radio/chat', `select text from chat_messages where created_at > now() - interval '24 hours' order by created_at desc limit 8`)
+    return (rows as any[]).map((r) => clip(String(r.text || ''), 80)).filter(Boolean)
+  } catch {
+    return []
+  }
 }
 
 // live users straight from redis (same data /api/users/live streams)

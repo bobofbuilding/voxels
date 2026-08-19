@@ -16,8 +16,8 @@ import { ConnectionState } from './utils/socket-client'
 import { Transform } from './utils/transform'
 import { signal } from '@preact/signals'
 import { decodeCoords } from '../common/helpers/utils'
-import { EmoteAnimation } from './states'
 import { danceBySlug } from './ui/interact/dances'
+import { disposeYeetsForUuid, onRemoteYeet, onRemoteYeetState } from './object-vox'
 
 const UPDATE_AVATAR_INTERVAL_MS = 200
 
@@ -197,20 +197,13 @@ export default class Connector extends TypedEventTarget<{ avatar_joined: string 
 
   get websocketUrl() {
     if (process.env.NODE_ENV === 'development') {
-      let url = `ws://${window.location.hostname}:3780/socket?client_uuid=${Connector.clientUUID}`
-      if (window.config.spaceId) {
-        url += `&space_id=${window.config.spaceId}`
-      }
-      return url
+      return `ws://${window.location.hostname}:3780/socket?client_uuid=${Connector.clientUUID}`
     }
 
     const url = new URL(window.location.href)
     url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:'
     url.pathname = '/mp/socket'
     url.search = `?client_uuid=${Connector.clientUUID}`
-    if (window.config.spaceId) {
-      url.search += `&space_id=${window.config.spaceId}`
-    }
     url.hash = ''
     return url.toString()
   }
@@ -492,6 +485,25 @@ export default class Connector extends TypedEventTarget<{ avatar_joined: string 
     this.lazyAvatarDisposer.cancelDisposal(message.uuid)
 
     this.disposeAvatar(message.uuid)
+    disposeYeetsForUuid(message.uuid)
+  }
+
+  sendYeet(payload: { id: string; wid: string; position: [number, number, number]; orientation: [number, number, number, number] }) {
+    if (this.connectionState.status !== 'connected') return
+    this.send({
+      type: MessageType.yeet,
+      uuid: Connector.clientUUID,
+      ...payload,
+    })
+  }
+
+  sendYeetState(objects: any[]) {
+    if (this.connectionState.status !== 'connected') return
+    this.send({
+      type: MessageType.yeetState,
+      uuid: Connector.clientUUID,
+      objects,
+    })
   }
 
   onWorldState(message: messages.WorldStateMessage) {
@@ -715,6 +727,12 @@ export default class Connector extends TypedEventTarget<{ avatar_joined: string 
       case messages.MessageType.behaviourSignal:
         this.onBehaviourSignal(msg)
         break
+      case messages.MessageType.yeet:
+        onRemoteYeet(msg)
+        break
+      case messages.MessageType.yeetState:
+        onRemoteYeetState(msg)
+        break
       case messages.MessageType.loginComplete:
       case messages.MessageType.point:
         break
@@ -912,10 +930,7 @@ export default class Connector extends TypedEventTarget<{ avatar_joined: string 
       app.showSnackbar(`unknown emote "${slug}"`, PanelType.Warning)
       return
     }
-    this.persona.popState(this.controls)
-    if (dance.animation) {
-      this.persona.setState({ state: new EmoteAnimation(dance.animation) }, this.controls)
-    }
+    this.persona.playEmote(dance.animation)
   }
 
   private handleConga(text: string) {

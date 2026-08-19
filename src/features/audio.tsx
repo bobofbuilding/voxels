@@ -212,7 +212,7 @@ export default class Audio extends Feature2D<AudioRecord> implements AudioFeatur
   }
 
   onPlaying(offset: number) {
-    duckRadio(this)
+    duckRadio(this, this.radioTitle())
 
     if (this.interval) {
       clearInterval(this.interval)
@@ -255,7 +255,7 @@ export default class Audio extends Feature2D<AudioRecord> implements AudioFeatur
 
     if (this.sound) {
       // pause the soundtrack while audio is active
-      duckRadio(this)
+      duckRadio(this, this.radioTitle())
       this.playFrom(this.targetPlayOffset || 0, this.autoplay)
     } else {
       this.updatePlayStatus('Loading...')
@@ -397,10 +397,22 @@ export default class Audio extends Feature2D<AudioRecord> implements AudioFeatur
     if (this.streaming) {
       return this.url
     } else if (this.isOpenseaNFT) {
-      const url = await this.getAssetMp3()
-      return url ? `${process.env.IMG_URL}/audio?url=${encodeURIComponent(url)}&mode=audio` : undefined
+      return (await this.getAssetMp3()) || undefined
     } else if (this.url) {
-      return `${process.env.IMG_URL}/audio?url=${encodeURIComponent(this.url)}&mode=audio`
+      return this.url
+    }
+  }
+
+  radioTitle() {
+    const u = this.url
+    if (!u) return 'audio'
+    try {
+      const base = decodeURIComponent((u.split('?')[0].split('/').pop() || '').replace(/\.[^.]+$/, ''))
+        .replace(/[-_]+/g, ' ')
+        .trim()
+      return base || 'audio'
+    } catch {
+      return 'audio'
     }
   }
 
