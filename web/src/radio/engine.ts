@@ -153,6 +153,7 @@ export class VoxelRadioEngine {
   spotDucked = false
 
   muted = false
+  duckTitle: string | null = null
   onAir = false
   onChange: (() => void) | null = null
 
@@ -412,6 +413,8 @@ export class VoxelRadioEngine {
   private loadSettings() {
     this.setTrackVolume(num('radio.track', 1))
     this.setSpotVolume(num('radio.spot', 1))
+    this.muted = num('radio.muted', 0) === 1
+    this.master.gain.value = this.muted ? 0 : 1
     this.chain = loadChain()
     this.fx = { eq: 0, wob: 0, dly: 0, chp: 0 }
     for (const id of PEDALS) this.applyPedal(id, 0)
@@ -509,6 +512,7 @@ export class VoxelRadioEngine {
   }
 
   get title() {
+    if (this.userDucked && this.duckTitle) return this.duckTitle
     return this.track ? trackTitle(this.track) : ''
   }
 
@@ -708,18 +712,23 @@ export class VoxelRadioEngine {
     this.duckGain.gain.setTargetAtTime(target, this.ctx.currentTime, 0.2)
   }
 
-  duck() {
+  duck(title?: string | null) {
     this.userDucked = true
+    this.duckTitle = title || null
     this.applyDuck()
+    this.onChange?.()
   }
 
   unduck() {
     this.userDucked = false
+    this.duckTitle = null
     this.applyDuck()
+    this.onChange?.()
   }
 
   toggle() {
     this.muted = !this.muted
+    save('radio.muted', this.muted ? 1 : 0)
     this.master.gain.setTargetAtTime(this.muted ? 0 : 1, this.ctx.currentTime, 0.05)
     if (!this.muted) this.wake()
     this.onChange?.()

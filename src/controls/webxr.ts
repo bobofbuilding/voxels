@@ -1,6 +1,5 @@
 import { Environment } from '../enviroments/environment'
 import Controls from './controls'
-import { SpacesEnvironment } from '../enviroments/space-environment'
 import { WorldEnvironment } from '../enviroments/world-environment'
 import { wantsGateway } from '../../common/helpers/detector'
 
@@ -90,14 +89,10 @@ export default class XROverlay {
 
   onGroundLoaded = () => {
     // add the world colliders to the teleportation
-    if (window.environment instanceof SpacesEnvironment) {
-      if (window.environment.ground) this.addTeleportMesh(window.environment.ground)
-    } else if (window.environment instanceof WorldEnvironment) {
+    if (window.environment instanceof WorldEnvironment) {
       if (window.environment.terrain) {
         window.environment.terrain.groundMeshes.forEach((mesh) => this.addTeleportMesh(mesh))
       }
-    } else {
-      throw new Error('Unknown environment type')
     }
   }
 
@@ -108,7 +103,7 @@ export default class XROverlay {
 
     const camera = this.webXR.baseExperience.camera
 
-    const pickResult = this.scene.pickWithRay(new BABYLON.Ray(positionInWorld.add(this.controls.worldOffset.position), new BABYLON.Vector3(0, -1, 0), 5), (e) => e.checkCollisions)
+    const pickResult = this.scene.pickWithRay(new BABYLON.Ray(positionInWorld.add(this.controls.worldOffset.position), new BABYLON.Vector3(0, -1, 0), 5), (e) => this.teleportableMeshes.has(e))
     if (!pickResult?.hit || !pickResult.pickedPoint) {
       return
     }
@@ -118,8 +113,6 @@ export default class XROverlay {
   }
 
   addTeleportMesh(mesh: BABYLON.AbstractMesh) {
-    if (!mesh.checkCollisions) return
-
     this.teleportableMeshes.add(mesh)
     if (this.xrTeleportation) {
       this.xrTeleportation.addFloorMesh(mesh)
@@ -127,8 +120,6 @@ export default class XROverlay {
   }
 
   removeTeleportMesh(mesh: BABYLON.AbstractMesh) {
-    if (!mesh.checkCollisions) return
-
     this.teleportableMeshes.delete(mesh)
     if (this.xrTeleportation) {
       this.xrTeleportation.removeFloorMesh(mesh)
