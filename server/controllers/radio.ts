@@ -1,7 +1,7 @@
 import { createClient } from 'redis'
 import type { Express } from 'express'
 import { Db } from '../pg'
-import { buildSchedule, clip, generateSpot, Schedule, utcDay } from '../lib/radio'
+import { buildSchedule, buildSpots, clip, generateSpot, Schedule, utcDay } from '../lib/radio'
 
 const CHANNEL = 'radio:updates'
 const DAY = 86400
@@ -64,7 +64,7 @@ export default function RadioController(db: Db, app: Express) {
     try {
       const day = utcDay()
       const now = Date.now() / 1000
-      for (const spot of buildSchedule(day).spots) {
+      for (const spot of buildSpots(day)) {
         const until = day * DAY + spot.atOffset - now
         if (until > WINDOW || until < -PAST) continue // next 5 min + last hour only
         if (await pub.hExists(HASH(day), spot.id)) continue

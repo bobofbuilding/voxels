@@ -88,8 +88,6 @@ export default function Classifieds({ limit }: Props) {
 
   return (
     <div class="classifieds">
-      <br />
-      <br />
       <h3>Shop</h3>
       <div class="classifieds-head">
         {!limit && (

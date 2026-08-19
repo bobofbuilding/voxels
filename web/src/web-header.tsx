@@ -11,7 +11,6 @@ import { route } from 'preact-router'
 import cachedFetch from './helpers/cached-fetch'
 import { messageList } from '../../src/connector'
 import { siteNavOpen, toggleSiteNav } from '../../src/store'
-
 type Props = {
   path: string
   coords?: string
@@ -49,6 +48,15 @@ function markChatSeen() {
   try {
     localStorage.setItem(CHAT_LAST_SEEN, String(Date.now()))
   } catch {}
+}
+
+function SiteNavToggle() {
+  const open = siteNavOpen.value
+  return (
+    <button class="hamburger site-nav-toggle" type="button" aria-label={open ? 'Close menu' : 'Open menu'} aria-expanded={open} onClick={toggleSiteNav}>
+      {open ? 'x' : '='}
+    </button>
+  )
 }
 
 export default class WebHeader extends Component<Props, State> {
@@ -89,9 +97,12 @@ export default class WebHeader extends Component<Props, State> {
   }
 
   componentDidUpdate(prevProps: Props) {
-    if (prevProps.path !== this.props.path && this.navPath() === '/chat') {
-      markChatSeen()
-      this.setState({ chatN: 0 })
+    if (prevProps.path !== this.props.path) {
+      if (typeof window !== 'undefined' && window.matchMedia('(max-width: 50em)').matches) siteNavOpen.value = false
+      if (this.navPath() === '/chat') {
+        markChatSeen()
+        this.setState({ chatN: 0 })
+      }
     }
   }
 
@@ -185,10 +196,8 @@ export default class WebHeader extends Component<Props, State> {
 
     return (
       <>
-        <button class="hamburger site-nav-toggle" type="button" aria-label={siteNavOpen.value ? 'Close menu' : 'Open menu'} aria-expanded={siteNavOpen.value} onClick={toggleSiteNav}>
-          {siteNavOpen.value ? 'x' : '='}
-        </button>
-        <header class={siteNavOpen.value ? 'nav-open' : undefined}>
+        <SiteNavToggle />
+        <header>
           <nav>
             <ul>
               <li class="logo">
@@ -203,15 +212,10 @@ export default class WebHeader extends Component<Props, State> {
               </A>
               <A to="/account">{signedIn ? 'Profile' : 'Login'}</A>
               {signedIn && <A to="/logout">Log out</A>}
-              <li>
-                <a class={here === '/scratchpad' ? 'active' : undefined} href="https://www.voxels.com/scratchpad">
-                  Scratchpad
-                </a>
-              </li>
+              <A to="/build">Build</A>
               <A to="/map">Map</A>
               <A to="/islands">Islands</A>
               <A to="/parcels">Parcels</A>
-              <A to="/spaces">Spaces</A>
               <A to="/womps">Womps</A>
               <A to="/events">
                 Events
