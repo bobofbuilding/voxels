@@ -1,10 +1,10 @@
-// ABOUTME: Wearable + parcel thumb renderer - GET holds until webp ready, then 302 to CDN (or 503 Retry-After).
+// ABOUTME: Wearable + parcel thumb renderer - GET holds until webp/png ready, then 302 to CDN (or 503 Retry-After).
 
 import './bootstrap'
 import express from 'express'
 import path from 'path'
 import { fileURLToPath } from 'url'
-import { loadParcelRecord, loadWearableVox } from './db'
+import { loadIslands, loadLots, loadParcelRecord, loadWearableVox } from './db'
 import { embedUrls, parcelPreviewUrls } from './embed'
 import { hasParcelThumb, hasWearableThumb, parcelCdnUrl, ugcConfigured, uploadParcelThumb, uploadWearableThumb, wearableCdnUrl } from './s3'
 import { closeBrowser, renderParcel, renderWearable, setPageBase, warmBrowser } from './browser'
@@ -75,26 +75,27 @@ function mountRoutes(r: express.Router | express.Express) {
         res.status(404).end('not found')
         return
       }
-      const embeds = await embedUrls(parcelPreviewUrls(record))
-      res.json({ record, embeds })
+      const [embeds, lots, islands] = await Promise.all([embedUrls(parcelPreviewUrls(record)), loadLots(record), loadIslands()])
+      res.json({ record, embeds, world: { lots, islands } })
     } catch (e) {
       console.error('[renderer] parcel json', id, e)
       res.status(500).end('db failed')
     }
   })
 
-  r.get('/v1/parcel/:id.webp', async (req, res) => {
+  async function serveParcelThumb(req: express.Request, res: express.Response, ext: 'webp' | 'png') {
     const id = Number(req.params.id)
     if (!Number.isInteger(id) || id <= 0) {
       res.status(400).end('bad id')
       return
     }
 
-    const cdn = parcelCdnUrl(id)
+    const mime = ext === 'png' ? 'image/png' : 'image/webp'
+    const cdn = parcelCdnUrl(id, ext)
     const ugc = ugcConfigured()
 
     try {
-      if (ugc && (await hasParcelThumb(id))) {
+      if (ugc && (await hasParcelThumb(id, ext))) {
         res.redirect(302, cdn)
         return
       }
@@ -105,12 +106,12 @@ function mountRoutes(r: express.Router | express.Express) {
         return
       }
 
-      const webp = await renderParcel(id, record)
+      const bytes = await renderParcel(id, record, mime)
       if (!ugc) {
-        res.type('image/webp').status(200).send(webp)
+        res.type(mime).status(200).send(bytes)
         return
       }
-      await uploadParcelThumb(id, webp)
+      await uploadParcelThumb(id, bytes, ext)
       res.redirect(302, cdn)
     } catch (e: any) {
       const code = e?.code
@@ -122,6 +123,51 @@ function mountRoutes(r: express.Router | express.Express) {
       console.error('[renderer] parcel', id, e)
       res.status(500).end('render failed')
     }
+  }
+
+  r.get('/v1/parcel/:id.webp', (req, res) => serveParcelThumb(req, res, 'webp'))
+  r.get('/v1/parcel/:id.png', (req, res) => serveParcelThumb(req, res, 'png'))
+
+  r.get('/v1/parcel/:id.html', async (req, res) => {
+    const id = Number(req.params.id)
+    if (!Number.isInteger(id) || id <= 0) {
+      res.status(400).end('bad id')
+      return
+    }
+    try {
+      const record = await loadParcelRecord(id)
+      if (!record) {
+        res.status(404).end('not found')
+        return
+      }
+    } catch (e) {
+      console.error('[renderer] parcel html', id, e)
+      res.status(500).end('db failed')
+      return
+    }
+    // Ingress strips /renderer before Express sees the path; assets still live under /renderer.
+    res.type('html').status(200).send(`<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>html,body,#c{margin:0;width:100%;height:100%;overflow:hidden;display:block}</style>
+    <script src="/renderer/vendor/library-6.11.2.min.js"></script>
+  </head>
+  <body>
+    <canvas id="c"></canvas>
+    <script src="/renderer/page/parcel-bundle.js"></script>
+    <script>
+      fetch(location.pathname.replace(/\\.html$/, '.json'))
+        .then((r) => {
+          if (!r.ok) throw new Error('json ' + r.status)
+          return r.json()
+        })
+        .then((data) => window.orbitParcelPreview(data.record, data.embeds, data.world))
+        .catch((e) => console.error('[orbit]', e))
+    </script>
+  </body>
+</html>`)
   })
 
   r.get('/', (_req, res) => {
@@ -158,6 +204,8 @@ app.use('/renderer/textures', proxyTextures)
 
 app.use('/page', express.static(path.join(__dirname, '../page')))
 app.use('/renderer/page', express.static(path.join(__dirname, '../page')))
+app.use('/vendor', express.static(path.join(__dirname, '../../dist/vendor')))
+app.use('/renderer/vendor', express.static(path.join(__dirname, '../../dist/vendor')))
 
 const server = app.listen(port, () => {
   setPageBase(`http://127.0.0.1:${port}`)
