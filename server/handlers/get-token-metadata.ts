@@ -1,28 +1,16 @@
+import { parcelOrbitUrl, parcelRendererUrl } from '../../common/renderable/thumb-url'
 import { noCache } from '../cache'
 import Parcel from '../parcel'
 import { queryAndCallback } from '../lib/query-helpers'
 import db from '../pg'
 import ParcelHelper from '../../common/helpers/parcel-helper'
 import { Request, Response } from 'express'
-function getLocation(parcel: Parcel) {
-  const x = Math.round((parcel.x1 + parcel.x2) / 2)
-  const z = Math.round((parcel.z1 + parcel.z2) / 2)
-
-  const e = x < 0 ? `${Math.abs(x)}W` : `${x}E`
-  const n = z < 0 ? `${Math.abs(z)}S` : `${z}N`
-  const u = parcel.y1 > 0 ? `${parcel.y1}U` : ''
-
-  return [e, n, u].join(',')
-}
 
 export default function getTokenMetadata(req: Request, res: Response) {
   const construct = (parcel: Parcel) => {
     const external_url = `https://www.voxels.com/parcels/${parcel.id}`
 
     // const companyParcel = parcel.owner.toLowerCase() == '0x2D891ED45C4C3EAB978513DF4B92a35Cf131d2e2'.toLowerCase()
-
-    const loc = getLocation(parcel)
-    const animationUrl = `https://www.voxels.com/play?coords=${loc}&embedded=true&isolate=true`
 
     const helper = new ParcelHelper(parcel)
     const isWaterfront = helper.isWaterFront
@@ -54,18 +42,12 @@ export default function getTokenMetadata(req: Request, res: Response) {
       }
     }
 
-    const getMapUrl = (parcel: Parcel): string => {
-      // const mapParams = '?x=' + ((parcel.x2 + parcel.x1) / 200).toFixed(2) + '&y=' + (parcel.z2 + parcel.z1) / 200
-      const slug = parcel.address.toLowerCase().replace(/ /g, '-')
-      return `https://map.voxels.com/parcel/${parcel.id}-${slug}.png`
-    }
-
-    const image = getMapUrl(parcel)
+    const image = parcelRendererUrl(parcel.id)
 
     return {
       name: parcel.address,
       image,
-      animation_url: animationUrl,
+      animation_url: parcelOrbitUrl(parcel.id),
       description: parcelDescription(),
       attributes: {
         width: parcel.x2 - parcel.x1,
