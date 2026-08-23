@@ -58,7 +58,6 @@ import { ingestReleaseNotes } from './blog-ingest'
 import createGridSocket from './grid/createGridSocket'
 import { searchAndReturn } from './handlers/search'
 import { EthereumListener } from './jobs/ethereum-listener'
-import cleanCollections from './jobs/remove-collections'
 import truncateMetrics from './jobs/truncate-metrics'
 import log from './lib/logger'
 import { createRequestHandlerForQuery, query } from './lib/query-helpers'
@@ -528,7 +527,10 @@ const parcelProxy = proxy('https://www.voxels.com', {
 
 app.get('/api/parcels/:id.json', cache(config.isDevelopment ? false : '15 seconds'), passport.authenticate(['jwt', 'anonymous'], { session: false }), async (req, res, next) => {
   const id = parseInt(req.params.id, 10)
-  if (isNaN(id)) return res.status(400).json({ success: false })
+  // Parcel ids are int4, so one past that range makes the statement invalid.
+  // Express does not catch the rejection, so nothing ends the response and the
+  // request sits until the gateway gives up 25 seconds later.
+  if (isNaN(id) || id < 1 || id > 2147483647) return res.status(400).json({ success: false })
 
   const result = await query(db, 'get-parcel', 'parcel', [id, isOwner(req)])
   if (result.success) return res.status(200).json(result)
@@ -615,12 +617,6 @@ const start = () => {
 
 const master = () => {
   log.info(`master() running on DYNO=${process.env.DYNO} PORT=${port}`) //TODO: Remove
-
-  //clean collections with no addresses every day at start up and once per day
-  setTimeout(() => {
-    setInterval(() => cleanCollections(), 1000 * 60 * 60 * 24)
-    cleanCollections()
-  }, 1000)
 
   // truncate the next-to-be-reused metrics table once per day
   setTimeout(() => {
