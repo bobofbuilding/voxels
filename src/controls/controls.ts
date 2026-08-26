@@ -191,16 +191,18 @@ export default abstract class Controls implements IControls {
 
     this.scene.onBeforeRenderObservable.add(() => {
       const dt = this.scene.getEngine().getDeltaTime() / 1000 || 1 / 60
+
       // stock babylon gamepad writes cameraDirection as stick * dt; fold into unitless move
       if (this.camera.cameraDirection.lengthSquared() > 0) {
         this.move.addInPlace(this.camera.cameraDirection.scaleInPlace(1 / dt))
         this.camera.cameraDirection.setAll(0)
       }
+
+      this.body.flying = this.flying
       this.body.step(this.move, dt)
       this.move.setAll(0)
       this.updateConga()
       this.updateVehicle()
-      this.cancelFly()
       // let persona update its position from the body
       this.persona.update(cameraPosition(this.scene), cameraRotation(this.scene), this)
       this.swimming = this.persona.isSwimming(SWIM_LEVEL) ?? this.swimming
@@ -315,8 +317,7 @@ export default abstract class Controls implements IControls {
     if (!pickInfo) return
 
     const picked = featureFromPick(pickInfo)
-    const feature = picked?.mostParent
-    if (feature?.onContextClick()) return
+    if (picked?.onContextClick()) return
 
     if (pickInfo.pickedMesh && pickInfo.pickedMesh.metadata?.avatar instanceof Avatar) {
       const avatar: Avatar = pickInfo.pickedMesh.metadata.avatar
@@ -329,19 +330,6 @@ export default abstract class Controls implements IControls {
       // fallback to currentParcel if no nearby parcels (used for spaces and when editing before fully loaded)
       const parcel = this.grid.getNearest(6, pickInfo.pickedPoint)[0] || this.grid.currentOrNearestParcel()
       if (parcel && parcel.onContextClick()) return
-    }
-  }
-
-  cancelFly() {
-    const grounded = this.body.motion.grounded
-    if (!this.flying) {
-      this.wasAirborne = false
-      return
-    }
-    if (!grounded) this.wasAirborne = true
-    else if (this.wasAirborne) {
-      this.setFlying(false)
-      this.wasAirborne = false
     }
   }
 
@@ -457,9 +445,8 @@ export default abstract class Controls implements IControls {
   }
 
   setFlying(value: boolean) {
-    if (!value) this.floorReady = true
-    if (value && !this.flying) this.body.hop()
     this.flying = value
+    console.log('setFlying', value)
   }
 
   toggleFlying() {
@@ -484,18 +471,6 @@ export default abstract class Controls implements IControls {
     })
 
     window.environment.invalidateGroundLoaded()
-  }
-
-  // this is called by the render loop in index.ts
-  refreshGravity() {
-    // To avoid falling into the abyss, or through the floor of a second-floor parcel, gravity stays off at least until:
-    // 1. All islands have been meshed (this.islandsReady === true), and
-    // 2. Every parcel containing the camera position has a collider (this.floorReady).
-    if (!this.floorReady && this.floorParcels && this.floorParcels.every((id) => this.grid?.getByID(id)?.isColliderEnabled())) {
-      this.floorReady = true
-      this.floorParcels = null
-    }
-    this.body.gravity = !this.flying && !this.swimming && this.islandsReady && this.floorReady && isLoaded()
   }
 
   setNoclip(on: boolean) {
