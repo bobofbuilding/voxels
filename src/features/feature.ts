@@ -12,7 +12,7 @@ import { inspectFeature } from '../ui/inspect-feature'
 import { enterAuthoring } from '../store'
 import { createEvent, TypedEventTarget } from '../utils/EventEmitter'
 import { getTransformVectorsRelativeToNode } from '../utils/feature'
-import { axisNames2D, axisNames3D, bboxCompletelyWithin, tidyURL, tidyVec3, XYZ } from '../utils/helpers'
+import { axisNames2D, axisNames3D, bboxCompletelyWithin, resolveUgc, tidyURL, tidyVec3, XYZ } from '../utils/helpers'
 import { TimeOfDay } from '../utils/time-of-day'
 import Group from './group'
 import { boundingBoxOfMesh } from './utils/bounding-box'
@@ -144,7 +144,13 @@ export default abstract class Feature<Description extends FeatureRecord = Featur
   }
 
   get mostParent(): Feature {
-    return this.group ? this.group.mostParent : this
+    const seen = new Set<string>()
+    let f: Feature = this
+    while (f.group && !seen.has(f.uuid)) {
+      seen.add(f.uuid)
+      f = f.group
+    }
+    return f
   }
 
   get isInCurrentParcel() {
@@ -275,7 +281,7 @@ export default abstract class Feature<Description extends FeatureRecord = Featur
   }
 
   get url() {
-    return tidyURL(this.description.url)
+    return resolveUgc(tidyURL(this.description.url))
   }
 
   get tidyPosition(): [number, number, number] {
@@ -508,7 +514,6 @@ export default abstract class Feature<Description extends FeatureRecord = Featur
       ui.setFirstPersonPerspective()
       ui.featureTool.setMode('edit')
       ui.setTool(ui.featureTool)
-      ui.featureTool.nextMode = null
       ui.openEditor((this.constructor as any).Editor, this)
       ui.featureTool.highlightFeature(this)
     }
@@ -1054,6 +1059,7 @@ export default abstract class Feature<Description extends FeatureRecord = Featur
       // In Babylon 5.5.6, a fix to computeWorldMatrix introduced something that broke the way we deal with nudges and z-fighting;
       // So now we have to always mark the mesh as dirty :/
       this.mesh.markAsDirty()
+
       // Behaviour of nudging before 8.10.0, where the nudge is impacted by the scale. This affects placements and parcels have been designed on the assumption
       // that it exists. In a bugfix to 8.10.0, we've restored the legacy behaviour for 3D artifacts but not 2D.
       if (this.legacyNudge() !== null) {
@@ -1167,7 +1173,7 @@ export abstract class Feature2D<Description extends MeshedFeatureRecord> extends
   }
 
   nudge(): number | null {
-    return -0.002
+    return -0.005
   }
 
   legacyNudge(): number | null {

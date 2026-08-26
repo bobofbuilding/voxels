@@ -13,7 +13,8 @@ export function inspectFeature(feature: Feature) {
 
   const { el, close: baseClose } = openDialog('inspect-feature pointer-lock-close overlay')
 
-  ui.activeTool = ui.featureTool // needed to make it unHighlight once closed
+  ui.featureTool.setMode('inspect')
+  ui.setTool(ui.featureTool)
   ui.featureTool.highlightFeature(feature, feature.mesh as BABYLON.AbstractMesh | undefined)
 
   const isModerator = window.user.moderator
@@ -103,10 +104,6 @@ export function inspectFeature(feature: Feature) {
 
   const boundsState = feature.withinParcel ? '✅ Feature inside parcel' : feature.withinBounds ? '🌐 Within parcel extension tolerance' : '⚠️ Outside parcel bounds'
 
-  const collidableMesh: BABYLON.AbstractMesh | undefined = feature.mesh as BABYLON.AbstractMesh
-  // This as check a bit messy, bur works - on features that aren't of that type ".collidable" will return undefined and fail the check
-  const collidableState = collidableMesh && collidableMesh.checkCollisions ? 'yes' : (feature.description as any).collidable ? 'disabled' : 'no'
-
   let instanceState: string
   if (feature.isAnInstance) {
     instanceState = `yes (${feature.getOtherInstances().length + 1} meshes)`
@@ -137,10 +134,6 @@ export function inspectFeature(feature: Feature) {
             <tr>
               <th>UUID</th>
               <td>{feature.uuid}</td>
-            </tr>
-            <tr>
-              <th>Collidable</th>
-              <td>{collidableState}</td>
             </tr>
             <tr>
               <th>Instance</th>
