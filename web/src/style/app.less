@@ -336,23 +336,27 @@ select {
   }
 }
 
+.logo {
+  display: block;
+}
+
+.logo:hover .cube-logo {
+  animation: cube-rock 1s linear infinite;
+}
+
 .cube-logo {
   box-sizing: border-box;
   position: relative;
   top: -0.5rem;
   display: inline-block;
-  --size: 10px;
-  --fore: var(--fg);
-  --back: #777;
+  --size: 20px;
+  --fore: #fff;
+  --back: #aaa;
   --half: calc(var(--size) / 2);
   min-width: calc(6 * var(--size));
   min-height: calc(5 * var(--size));
   transform-style: preserve-3d;
   transform: rotateX(-15deg) rotateY(-35deg);
-
-  &:hover {
-    animation: cube-rock 1s linear infinite;
-  }
 
   .box {
     width: ~'calc(var(--size) + 1px)';
@@ -403,7 +407,35 @@ select {
   }
 }
 
-.voxel-radio {
+.cube-spin {
+  top: 0;
+  min-width: var(--size);
+  min-height: var(--size);
+  width: var(--size);
+  height: var(--size);
+  vertical-align: middle;
+  animation: cube-spin 1s linear infinite;
+}
+
+@keyframes cube-spin {
+  from {
+    transform: rotateX(-15deg) rotateY(-35deg);
+  }
+
+  to {
+    transform: rotateX(-15deg) rotateY(325deg);
+  }
+}
+
+.cube-page {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 40vh;
+  padding: 2rem;
+}
+
+header .voxel-radio {
   display: flex;
   border-radius: 6px;
   flex-direction: row;
@@ -507,16 +539,17 @@ select {
 
 .wrap-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(8rem, 1fr));
-  gap: 2rem;
+  grid-template-columns: repeat(auto-fill, minmax(6rem, 1fr));
+  gap: 1rem;
 
   img,
   .wearable-icon,
   .loading-image {
-    max-width: 100%;
+    // max-width: 100%;
     display: block;
     width: 100%;
     aspect-ratio: 1;
+    border-radius: 0.5rem;
   }
 
   .wearable-icon img,
@@ -1088,21 +1121,26 @@ div.map {
 .chat-page {
   display: flex;
   flex-direction: column;
-  height: calc(100dvh - 3rem);
+  height: 100%;
   min-height: 0;
-  padding: 1rem;
-  box-sizing: border-box;
+
+  .chat-times {
+    display: flex;
+    flex-direction: row;
+    font-size: x-small;
+    margin: 0;
+    padding: 0.25rem;
+
+    li {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+    }
+  }
 
   h1 {
     margin: 0 0 1rem 0;
     text-transform: lowercase;
-  }
-
-  .chat-body {
-    display: flex;
-    flex: 1;
-    min-height: 0;
-    gap: 1rem;
   }
 
   .chat-panel {
@@ -1113,27 +1151,6 @@ div.map {
     gap: 0.5rem;
   }
 
-  .chat-online {
-    width: 12rem;
-    flex-shrink: 0;
-    overflow-y: auto;
-    min-height: 0;
-
-    h2 {
-      margin: 0 0 0.5rem 0;
-      text-transform: lowercase;
-      font-weight: bold;
-    }
-
-    p {
-      margin: 0;
-    }
-
-    .chat-times {
-      margin-top: 1rem;
-    }
-  }
-
   .chat-messages {
     flex: 1;
     min-height: 0;
@@ -1141,25 +1158,37 @@ div.map {
     display: flex;
     flex-direction: column;
     gap: 0.25rem;
-    padding: 0.5rem;
-    border: var(--border);
   }
 
   .chat-line {
-    display: flex;
-    gap: 0.5rem;
     line-height: 1.4;
-    padding: 0.15rem 0;
+    padding: 0.15rem 0 0.15rem 1.5rem;
+    text-indent: -1.5rem;
+    word-break: break-word;
   }
 
   .chat-who {
     font-weight: bold;
     color: var(--red);
-    flex-shrink: 0;
+    text-decoration: none;
   }
 
-  .chat-text {
-    word-break: break-word;
+  .chat-anon {
+    color: inherit;
+  }
+
+  .chat-x {
+    all: unset;
+    float: right;
+    cursor: pointer;
+    color: var(--muted);
+  }
+
+  .chat-gap {
+    text-align: center;
+    font-size: x-small;
+    color: var(--muted);
+    padding: 0.5rem 0;
   }
 
   s.profanity {
@@ -1192,7 +1221,6 @@ div.map {
 
 .client {
   position: relative;
-  z-index: 1;
   min-width: 0;
   min-height: 0;
   height: 100%;
@@ -1584,13 +1612,14 @@ small {
 /* Forms */
 
 div.f {
-  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
   margin-bottom: 0.5rem;
-  padding: 0 0 0 10rem;
+  padding: 0;
 
   label {
-    position: absolute;
-    left: 0;
+    font-size: smaller;
     text-transform: lowercase;
   }
 
@@ -1610,7 +1639,7 @@ div.f {
   input[type='number'],
   textarea {
     font-family: 'source code pro', monospace;
-    width: 25rem;
+    width: 100%;
     font-size: 0.9rem;
     padding: 0.2rem;
   }
@@ -1786,7 +1815,7 @@ section.profile {
   background: var(--hover);
   position: relative;
 
-  .loading {
+  .cube-spin {
     position: absolute;
     left: 50%;
     top: 50%;
@@ -2584,45 +2613,6 @@ table.spaces {
   }
 }
 
-/* Loading spinner */
-.loading {
-  display: inline-block;
-  box-sizing: border-box;
-  flex-shrink: 0;
-  vertical-align: middle;
-  border: 2px solid currentColor;
-  border-top-color: var(--red);
-  border-right-color: transparent;
-  opacity: 0.9;
-  animation: loading-icon-spin 0.75s linear infinite;
-  background: none;
-  position: relative;
-  top: 0;
-  margin: 0;
-
-  &.on-light {
-    color: var(--line);
-  }
-}
-
-@-moz-keyframes loading-icon-spin {
-  100% {
-    transform: rotate(360deg);
-  }
-}
-
-@-webkit-keyframes loading-icon-spin {
-  100% {
-    transform: rotate(360deg);
-  }
-}
-
-@keyframes loading-icon-spin {
-  100% {
-    transform: rotate(360deg);
-  }
-}
-
 // Panel helpers
 .panel {
   padding: 5px;
@@ -2925,6 +2915,13 @@ body.walking .canvasdom aside > ul.ui-sidebar {
       color: var(--red);
       text-shadow: none;
     }
+
+    .chat-x {
+      all: unset;
+      cursor: pointer;
+      margin-left: 0.25rem;
+      opacity: 0.6;
+    }
   }
 
   s.profanity {
@@ -3084,21 +3081,23 @@ dialog.editor {
     }
   }
 
-  .editor-toolbar {
+  .toolbar {
+    margin: 0;
+    padding: 0;
     margin-bottom: 0.5rem;
+    gap: 0;
 
-    ul.toolbar {
-      display: flex;
-      flex-wrap: wrap;
-      list-style: none;
-      margin: 0;
-      padding: 0;
-      gap: 2px;
+    display: flex;
+    flex-direction: row;
+
+    button {
+      // margin: 0;
+      // border: none;
     }
-  }
 
-  .scrollContainer {
-    overflow-x: hidden;
+    li {
+      list-style: none;
+    }
   }
 
   textarea,
@@ -3631,145 +3630,6 @@ section.build-tab nav.build-main-tabs {
   }
 }
 
-/* Voxel tool belt (minecraft-like bottom bar) */
-
-.VoxelToolBelt {
-  position: fixed;
-  bottom: 0;
-  left: 50%;
-  transform: translateX(-50%);
-  padding: 1rem;
-  max-height: 6rem;
-  z-index: 10;
-
-  @media @narrow {
-    left: 40%;
-    bottom: unset;
-    top: 40%;
-    transform: translateY(-50%);
-  }
-
-  &.active .wrapper,
-  &:hover .wrapper {
-    top: 0;
-  }
-
-  .wrapper {
-    pointer-events: auto;
-    display: flex;
-    align-items: center;
-    padding: 0.125rem 0.25rem;
-    gap: 0.3rem;
-    position: relative;
-    top: 6rem;
-    transition: top 0.15s ease-out;
-    background: var(--bg);
-  }
-
-  .dem-buttons {
-    display: flex;
-    gap: 0.15rem;
-  }
-
-  button.iconish {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0;
-    text-shadow: none;
-  }
-
-  .toolbelt-pagination {
-    display: flex;
-    flex-direction: column;
-    gap: 0.125rem;
-
-    > span {
-      padding: 0.125rem;
-      font-size: 0.7rem;
-      cursor: pointer;
-      background: var(--tinge);
-      color: var(--fg);
-      text-align: center;
-      width: 1rem;
-      aspect-ratio: 1 / 1;
-
-      &[data-active='true'] {
-        background: var(--fg);
-        color: var(--bg);
-      }
-    }
-  }
-
-  .textures {
-    display: flex;
-
-    > div {
-      position: relative;
-      cursor: pointer;
-      margin: 0.1rem;
-
-      &.selected {
-        outline: 2px solid var(--accent);
-      }
-
-      img,
-      > div {
-        display: block;
-        width: 2.5rem;
-        height: 2.5rem;
-        background-size: 384px 384px;
-        background-repeat: repeat;
-        mix-blend-mode: multiply;
-      }
-    }
-  }
-
-  .keybind-help {
-    position: absolute;
-    right: 0.3rem;
-    bottom: 0.15rem;
-    font-size: 0.6rem;
-    color: var(--fg);
-    text-shadow: none;
-  }
-
-  .tint-wrap {
-    position: relative;
-  }
-
-  .tint-chooser {
-    position: absolute;
-    bottom: 100%;
-    right: 0;
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.15rem;
-    width: 6rem;
-    padding: 0.25rem;
-    background: var(--surface);
-
-    button {
-      width: 1.25rem;
-      height: 1.25rem;
-      border: var(--border);
-      padding: 0;
-      cursor: pointer;
-    }
-
-    .tint-chooser-edit {
-      width: 100%;
-      height: auto;
-      background: none;
-      color: var(--fg);
-    }
-  }
-
-  button.iconish.selected {
-    outline: 2px solid var(--accent);
-  }
-}
-
 /* Tint editor modal + customize voxels */
 
 .CustomizeVoxels {
@@ -4154,12 +4014,6 @@ section.build-tab nav.build-main-tabs {
     height: 100%;
     min-height: 0;
   }
-
-  .scrollContainer {
-    flex: 1;
-    min-height: 0;
-    overflow: visible;
-  }
 }
 
 .edit-pane-inspector {
@@ -4176,10 +4030,6 @@ section.build-tab nav.build-main-tabs {
 .ui-pane .editor,
 .ui-pane section.settings {
   overflow: visible;
-
-  .scrollContainer {
-    overflow: visible;
-  }
 }
 
 .inspector.overlay {
@@ -5007,7 +4857,6 @@ dialog.nft-view {
 /* Misc */
 .home-button {
   .cube-logo {
-    --size: 0.75rem;
     top: 0;
   }
 
@@ -5467,5 +5316,21 @@ body.theatre-mode {
       border-radius: 2rem;
       box-shadow: 3px 3px 1rem rgba(0, 0, 0, 0.2);
     }
+  }
+}
+
+.nft-grid {
+  font-size: small;
+
+  span,
+  cite {
+    display: block;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    overflow: hidden;
+  }
+
+  cite {
+    opacity: 0.5;
   }
 }

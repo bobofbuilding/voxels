@@ -12,7 +12,7 @@ const BUCKET = 'voxels-ugc'
 const REGION = 'syd1'
 const ENDPOINT = 'https://syd1.digitaloceanspaces.com'
 const ACCESS_KEY_ID = process.env.UGC_ACCESS || ''
-const CDN = 'https://ugc.crvox.com'
+const CDN = 'https://ugc.voxels.com'
 
 export type SpotKind = 'en' | 'ar'
 

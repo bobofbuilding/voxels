@@ -14,7 +14,6 @@ export class WorldEnvironment extends Environment {
   terrain?: Terrain
   horizon?: Horizon
   skybox?: Skybox
-  private _invalidateGroundLoaded: (() => void) | undefined
   private _isNight: boolean | null = null
   private _isUnderwater: boolean | null = null
   private _groundStateObservable: StateObservable<'loaded' | 'unloaded'> | undefined
@@ -89,10 +88,6 @@ export class WorldEnvironment extends Environment {
     return BABYLON.Engine.ALPHA_COMBINE
   }
 
-  get brightness() {
-    return this.isNight ? NIGHT_BRIGHTNESS : DAY_BRIGHTNESS
-  }
-
   async load() {
     await super.load()
 
@@ -101,19 +96,10 @@ export class WorldEnvironment extends Environment {
     const terrain = new Terrain(this.scene, [this.skybox])
     this.terrain = terrain
     this._groundStateObservable = terrain.islandsStateObservable
-    this._invalidateGroundLoaded = () => terrain.invalidateIslandsLoaded()
 
     this.horizon = new Horizon(this.scene)
 
     await terrain.load()
-  }
-
-  public override invalidateGroundLoaded() {
-    if (!this._invalidateGroundLoaded) {
-      throw new Error('invalidateGroundLoaded() called before WorldEnvironment.load()!')
-    }
-
-    this._invalidateGroundLoaded()
   }
 
   override update() {
@@ -135,9 +121,7 @@ export class WorldEnvironment extends Environment {
   }
 
   private updateSceneElements(): void {
-    const skyboxBrightness = this.brightness
-
-    this.skybox?.update(this.sunPosition, skyboxBrightness)
+    this.skybox?.update(this.sunPosition, 0.5)
     if (this.skybox) this.skybox.mesh.isVisible = !this.isUnderwater
     this.horizon?.update(this.horizonAlphaMode, this.fogColor)
     this.horizon?.setVisible(!this.isUnderwater)
@@ -153,11 +137,6 @@ export class WorldEnvironment extends Environment {
     this.updateFog(this.scene)
     this.scene.clearColor = this.clearColor
     ;(window as any).engine?.setUnderwater?.(this.isUnderwater)
-
-    // Update ambient light intensity when day/night changes
-    if (this.ambientLight) {
-      this.ambientLight.intensity = this.brightness
-    }
   }
 
   parcelMeshesAdded(meshes: BABYLON.Mesh[]) {

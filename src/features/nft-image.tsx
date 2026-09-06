@@ -9,7 +9,7 @@ import nftFrameColorsShaderColors from '../shaders/nft-frame-colors.fsh'
 import nftVertexShader from '../shaders/nft.vsh'
 import { fetchTexture } from '../textures/textures'
 import { rebindGizmos } from '../tools/gizmos'
-import { Advanced, BlendMode, FeatureEditor, FeatureEditorProps, FeatureID, Toolbar, UrlSourceNftImages } from '../ui/features'
+import { Advanced, BlendMode, FeatureEditor, FeatureEditorProps, FeatureID, Toolbar, SourceInput } from '../ui/features'
 import OpenseaAssetHelper from '../ui/gui/opensea-asset-helper'
 import showNftView from '../ui/html-ui/nft-view'
 import { tidyFloat } from '../utils/helpers'
@@ -349,7 +349,7 @@ export default class NftImage extends Feature2D<NftImageRecord> {
     material.emissiveColor.fromArray(new Array(3).fill(defaultIntensity))
 
     material.backFaceCulling = false
-    material.zOffset = -2
+    material.zOffset = -5
     material.diffuseTexture = texture
 
     if (!(this.mesh instanceof BABYLON.Mesh)) {
@@ -442,9 +442,14 @@ export default class NftImage extends Feature2D<NftImageRecord> {
 
     // Set material
     this.frame = c.toMesh('nft-image-frame', frameMaterial.material, this.scene, false)
-    if (this.parent) {
-      this.frame.parent = this.parent
-    }
+    this.frame.parent = this.mesh.parent
+    this.frame.position.copyFrom(this.position)
+    this.frame.rotation.copyFrom(this.rotation)
+  }
+
+  _dispose() {
+    this.frame?.dispose()
+    super._dispose()
   }
 }
 
@@ -544,7 +549,7 @@ class Editor extends FeatureEditor<NftImage> {
           <Scale feature={this.props.feature} key={this.props.feature.scale.toString()} />
           <Rotation feature={this.props.feature} key={this.props.feature.rotation.toString()} />
 
-          <UrlSourceNftImages feature={this.props.feature} handleStateChange={this.onUrlChange} />
+          <SourceInput feature={this.props.feature} accept="nft" handleStateChange={this.onUrlChange} />
 
           <Advanced>
             <FeatureID feature={this.props.feature} />

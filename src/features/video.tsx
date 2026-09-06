@@ -6,7 +6,7 @@ import { Position, Rotation, Scale, Behaviours, EditorProps } from '../../web/sr
 import Panel from '../../web/src/components/panel'
 import { AudioBus } from '../audio/audio-engine'
 import { SpatialAudio } from '../audio/spatial-audio'
-import { Advanced, Animation, BlendMode, FeatureEditor, FeatureEditorProps, FeatureID, Toolbar, UrlSourceVideos } from '../ui/features'
+import { Advanced, Animation, BlendMode, FeatureEditor, FeatureEditorProps, FeatureID, Toolbar, SourceInput } from '../ui/features'
 import { isURL, tidyFloat } from '../utils/helpers'
 import { opensea, readOpenseaUrl } from '../utils/proxy'
 import { FeatureMetadata, FeatureTemplate } from './_metadata'
@@ -155,7 +155,7 @@ export default class Video extends Feature2D<VideoRecord> implements AudioFeatur
     this.addAnimation()
   }
 
-  // These attributes update when the URL changes, via ui.tsx => UrlSourceVideos
+  // These attributes update when the URL changes, via SourceInput
   updateDurationOnUI() {
     this.setEditorState({ duration: this.duration })
   }
@@ -177,7 +177,7 @@ export default class Video extends Feature2D<VideoRecord> implements AudioFeatur
     material.alpha = 0.999
 
     // move the zOffset so that videos are behind the loader which is 4
-    material.zOffset = -3
+    material.zOffset = -5
     material.specularColor.set(0, 0, 0)
     material.emissiveColor.set(1, 1, 1)
 
@@ -594,7 +594,7 @@ class Editor extends FeatureEditor<Video> {
           <Scale feature={this.props.feature} key={this.props.feature.scale.toString()} />
           <Rotation feature={this.props.feature} key={this.props.feature.rotation.toString()} />
 
-          <UrlSourceVideos feature={this.props.feature} />
+          <SourceInput feature={this.props.feature} accept="mp4" />
 
           <div className="f">
             <label>Preview Image URL (optional)</label>

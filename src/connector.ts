@@ -61,6 +61,8 @@ const AVATAR_TIMEOUT_MS = 5 * 60 * 1000 // If we haven't seen an avatar in 5 min
 const AVATAR_DISPOSE_DELAY_MS = 10_000
 
 export type ChatMessageRecord = Readonly<{
+  id?: string
+  moderated?: boolean
   avatar: Avatar['uuid'] | undefined
   avatarRef?: AvatarRef
   text: string
@@ -337,7 +339,7 @@ export default class Connector extends TypedEventTarget<{ avatar_joined: string 
 
       this.onConnectionStateChanged.notifyObservers({ status: 'connected' })
 
-      // await this.getChatHistory()
+      await this.getChatHistory()
     })
 
     this.multiplayerClient.addEventListener('disconnected', () => {
@@ -790,7 +792,7 @@ export default class Connector extends TypedEventTarget<{ avatar_joined: string 
   onChat(message: messages.ChatMessage) {
     const avatar = this._avatarsByUuid.get(message.uuid)
     avatar?.addChat(message.text)
-    this.addChat(message.text, avatar, message.avatar)
+    this.addChat(message.text, avatar, message.avatar, message.id, message.moderated)
   }
 
   onEmoteMessage(message: messages.AvatarEmoteMessage) {
@@ -994,9 +996,11 @@ export default class Connector extends TypedEventTarget<{ avatar_joined: string 
     }
   }
 
-  private addChat(message: string, avatar: Avatar | undefined, avatarRef?: AvatarRef) {
+  private addChat(message: string, avatar: Avatar | undefined, avatarRef?: AvatarRef, id?: string, moderated?: boolean) {
     const list = messageList.value.slice()
     list.push({
+      id,
+      moderated,
       avatar: avatar?.uuid,
       avatarRef,
       text: message,
@@ -1010,34 +1014,25 @@ export default class Connector extends TypedEventTarget<{ avatar_joined: string 
     messageList.value = list
   }
 
-  // private async getChatHistory() {
-  //   if (this.messages[GLOBAL_CHANNEL].length > 0) {
-  //     // already have chat history
-  //     console.debug('Skipping chat restore. Already have chat history')
-  //     return
-  //   }
-
-  //   const history = await fetchFromMPServer<{ messages?: { m: messages.ChatMessage; ts: number }[] }>('/api/chat.json')
-  //   if (!history || !history.messages) {
-  //     console.error('Failed to fetch chat history')
-  //     return
-  //   }
-
-  //   // if we received messages while loading back them up
-  //   // hopefully this will prevent messages from being lost but risks duplicates
-  //   const current = [...this.messages[GLOBAL_CHANNEL]]
-  //   this.messages[GLOBAL_CHANNEL].length = 0
-
-  //   // add messages to the chat in reverse order
-  //   for (let i = history.messages.length - 1; i >= 0; i--) {
-  //     const message = history.messages[i]
-  //     if (current.find((m) => m.text === message.m.text && m.timestamp === message.ts)) continue
-  //     this.onChat(message.m, message.ts)
-  //   }
-
-  //   this.messages[GLOBAL_CHANNEL].push(...current)
-  //   this.onMessagesChange.notifyObservers()
-  // }
+  private async getChatHistory() {
+    if (messageList.value.length > 0) return
+    try {
+      const res = await fetch('/api/chat.json', { cache: 'no-store' })
+      const data = await res.json()
+      const list: ChatMessageRecord[] = []
+      for (const m of data.messages ?? []) {
+        list.push({
+          id: m.id,
+          moderated: m.moderated,
+          avatar: this._avatarsByUuid.get(m.uuid)?.uuid,
+          avatarRef: m.avatar,
+          text: m.text,
+          timestamp: Date.now(),
+        })
+      }
+      messageList.value = list
+    } catch {}
+  }
 
   private async addDummyAvatar(uuid: string, name: string): Promise<Avatar | null> {
     if (!uuid.trim() || !name.trim()) {

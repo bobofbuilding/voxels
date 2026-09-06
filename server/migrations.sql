@@ -353,3 +353,15 @@ SELECT apply_migration('ghosts-table', $$
   CREATE INDEX IF NOT EXISTS ghosts_start_idx ON ghosts (start_parcel);
   CREATE INDEX IF NOT EXISTS ghosts_end_idx ON ghosts (end_parcel);
 $$);
+
+SELECT apply_migration('chat-moderated-at', $$
+  ALTER TABLE chat_messages ADD COLUMN IF NOT EXISTS moderated_at timestamptz;
+$$);
+
+SELECT apply_migration('avatars-src', $$
+  ALTER TABLE avatars ADD COLUMN IF NOT EXISTS src text;
+$$);
+
+SELECT apply_migration('posts-hash', $$
+  ALTER TABLE posts ADD COLUMN IF NOT EXISTS hash text UNIQUE;
+$$);

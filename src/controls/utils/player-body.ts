@@ -2,9 +2,8 @@ import RAPIER from '@dimforge/rapier3d-compat'
 import { physics, PLAYER_QUERY, Vec3 } from '../../physics/world'
 const RADIUS = 0.2
 const EYE = 1.65 // eye height above the feet
-const HEAD = 0.1 // skull above the eyes
 const HALF = 0.6
-const DROP = (EYE - HEAD) / 2 // eye above the capsule centre, 0.75
+const DROP = 0.95
 
 const unchanged = (a: Vec3, b: Vec3, epsilon = 0.001) => Math.abs(a.x - b.x) < epsilon && Math.abs(a.y - b.y) < epsilon && Math.abs(a.z - b.z) < epsilon
 const nonzero = (v: Vec3, epsilon = 0.001) => Math.abs(v.x) > epsilon || Math.abs(v.y) > epsilon || Math.abs(v.z) > epsilon
@@ -14,27 +13,29 @@ export const WALK = 2.78 // was defaultSpeed 0.88
 export const RUN = 12.65 // was runSpeed 4.0
 export const JUMP_SPEED = 6
 export const HOP_SPEED = 3
-export const GRAVITY = -10.8
-export const WALK_HZ = 0.15
+export const GRAVITY = -9.8
+export const WALK_HZ = 0.05
 
-export type Motion = { hz: number; vy: number; grounded: boolean; impact: number }
+export type Motion = { hz: number; vy: number; impact: number }
 
+// plain {x,y,z}: the lite renderer runs this without babylon
 export default class PlayerBody {
-  position = BABYLON.Vector3.Zero()
-  grounded = false
-  motion: Motion = { hz: 0, vy: 0, grounded: false, impact: 0 }
+  position: Vec3 = { x: 0, y: 0, z: 0 }
+  motion: Motion = { hz: 0, vy: 0, impact: 0 }
   /** vehicles, pose balls, gateway: move straight, skip the world (implies no gravity) */
   noclip = false
-  gravity = false
+  flying = true
+  /** controls holds this off until the parcels under us have colliders */
+  gravity = true
   speed = WALK
   private body: RAPIER.RigidBody = undefined!
   private collider: RAPIER.Collider = undefined!
   private controller: RAPIER.KinematicCharacterController = undefined!
   private hit = new RAPIER.CharacterCollision()
   private ready = false
-  private vel = 0
+  private vel = new RAPIER.Vector3(0, 0, 0)
   private doubled = true
-  private scratch = BABYLON.Vector3.Zero()
+  private scratch: Vec3 = { x: 0, y: 0, z: 0 }
 
   get blocker(): RAPIER.RigidBody | undefined {
     return this.ready ? this.body : undefined
@@ -45,9 +46,9 @@ export default class PlayerBody {
     const w = physics()
     if (!w) return false
     this.body = w.createRigidBody(RAPIER.RigidBodyDesc.kinematicPositionBased().setTranslation(this.position.x, this.position.y - DROP, this.position.z))
-    this.collider = w.createCollider(RAPIER.ColliderDesc.cylinder(HALF, RADIUS), this.body)
-    this.controller = w.createCharacterController(0.01)
-    this.controller.enableAutostep(1, 0.1, false)
+    this.collider = w.createCollider(RAPIER.ColliderDesc.roundCylinder(HALF, RADIUS, 0.05), this.body)
+    this.controller = w.createCharacterController(0.05)
+    this.controller.enableAutostep(0.6, 0.1, false)
     this.controller.setSlideEnabled(true)
     this.controller.setMinSlopeSlideAngle(0.01)
     // this.controller.enableSnapToGround(0.5)
@@ -57,99 +58,82 @@ export default class PlayerBody {
   }
 
   jump() {
-    if (this.grounded || this.vel === 0) {
-      this.vel = JUMP_SPEED
-      this.grounded = false
-      return
-    }
-    if (this.doubled) {
-      this.doubled = false
-      this.vel = JUMP_SPEED
-    }
-  }
+    // const bump = 0.5
+    // const t = this.body.translation()
+    // this.body.setTranslation({ x: t.x, y: t.y + bump, z: t.z }, true)
+    // this.position.set(t.x, t.y + bump, t.z)
 
-  hop() {
-    this.vel = HOP_SPEED
-    this.grounded = false
+    this.vel.y = JUMP_SPEED
   }
 
   private writeMotion(hz: number, impact: number) {
     this.motion.hz = hz
-    this.motion.vy = this.vel
-    this.motion.grounded = this.grounded
+    this.motion.vy = this.vel.y
     this.motion.impact = impact
   }
 
-  private yeet() {
-    const t = this.body.translation()
-    this.body.setTranslation({ x: t.x, y: t.y + 2, z: t.z }, true)
-    this.position.set(t.x, t.y + 2, t.z)
-    this.grounded = false
-    this.vel = JUMP_SPEED
-  }
-
   private stuck = 0
+  private rise = 0
 
   /** move is unitless direction; speed is m/s; dt is seconds */
-  step(move: BABYLON.Vector3, dt: number): void {
-    this.scratch.copyFrom(move).scaleInPlace(this.speed * dt)
+  step(move: Vec3, dt: number): void {
+    // Smooth acceleration and deceleration
+    const t = 1 - Math.exp(-10 * dt)
+    this.vel.x += (move.x * this.speed - this.vel.x) * t
+    this.vel.z += (move.z * this.speed - this.vel.z) * t
+
+    // Re-use scratch
     const d = this.scratch
+    d.x = this.vel.x * dt
+    d.y = move.y * this.speed * dt
+    d.z = this.vel.z * dt
 
     if (this.noclip || !this.setup()) {
-      this.position.addInPlace(d)
-      this.grounded = false
+      this.rise = 0
+      this.position.x += d.x
+      this.position.y += d.y
+      this.position.z += d.z
       this.writeMotion(Math.hypot(d.x, d.z) / dt, 0)
       return
     }
 
     // teleports and seat snaps move position behind our back: resync before querying
-    this.body.setTranslation({ x: this.position.x, y: this.position.y - DROP, z: this.position.z }, true)
+    this.body.setTranslation({ x: this.position.x, y: this.position.y + this.rise - DROP, z: this.position.z }, true)
 
-    if (this.gravity) this.vel += GRAVITY * dt
-    else if (this.vel > 0) {
-      this.vel += GRAVITY * dt
-      if (this.vel < 0) this.vel = 0
+    // console.log(this.vel.y)
+
+    if (this.flying) {
+      var y = d.y
     } else {
-      this.vel = 0
+      var y = this.vel.y * dt
     }
 
-    const dy = this.gravity ? this.vel * dt : d.y + this.vel * dt
-    this.controller.computeColliderMovement(this.collider, { x: d.x, y: dy, z: d.z }, undefined, PLAYER_QUERY)
+    this.controller.computeColliderMovement(this.collider, { x: d.x, y: y, z: d.z }, undefined, PLAYER_QUERY)
     let stepped = this.controller.computedMovement()
     const at = this.body.translation()
     const next = { x: at.x + stepped.x, y: at.y + stepped.y, z: at.z + stepped.z }
 
-    if (nonzero(move) && unchanged(next, this.body.translation())) {
-      this.stuck += dt
+    // Setting velocity
+    // this.vel.y = (this.body.translation().y - next.y) / dt
+
+    // console.log(stepped.y)
+
+    const n = this.controller.numComputedCollisions()
+
+    if (n == 0 && this.gravity) {
+      this.vel.y += GRAVITY * dt
     } else {
-      this.stuck = 0
+      this.vel.y = 0
     }
 
-    if (this.stuck > 0.5) {
-      this.yeet()
-      this.stuck = 0
-      return
-    }
+    // autostep teleports the body up in one frame; lag the reported position and let it catch up so the step animates like the drop does
+    if (!this.flying && y <= 0 && stepped.y > 0) this.rise += stepped.y
+    this.rise *= Math.exp(-10 * dt)
 
     this.body.setNextKinematicTranslation(next)
-    this.position.set(next.x, next.y + DROP, next.z)
-
-    const wasGrounded = this.grounded
-    this.grounded = !!this.controller.computedGrounded()
-    let floorHit = false
-    const n = this.controller.numComputedCollisions()
-    for (let i = 0; i < n; i++) {
-      const c = this.controller.computedCollision(i, this.hit)
-      if (c && c.normal1.y > 0.5) {
-        floorHit = true
-        break
-      }
-    }
-    const impact = !wasGrounded && floorHit && this.vel < 0 ? -this.vel : 0
-    this.writeMotion(Math.hypot(stepped.x, stepped.z) / dt, impact)
-    if (this.grounded && this.vel <= 0) {
-      this.vel = 0
-      this.doubled = true
-    }
+    this.position.x = next.x
+    this.position.y = next.y + DROP - this.rise
+    this.position.z = next.z
+    this.writeMotion(Math.hypot(stepped.x, stepped.z) / dt, 0)
   }
 }
