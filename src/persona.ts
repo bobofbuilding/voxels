@@ -171,7 +171,7 @@ export default class Persona {
     this.connector.refreshNearestParcels()
 
     // clear out previous grounded and wait for new ground to load so that we don't fall before parcel has loaded
-    this.controls.invalidateGroundLoaded()
+    this.controls.resetFloor()
 
     // cached dest already meshed — no MeshLoaded; lift after one frame so grey still reads
     if (window.grid?.currentOrNearestParcel()?.voxelMesh) {
@@ -195,7 +195,7 @@ export default class Persona {
     const m = controls.body.motion
     if (controls.vehicleFeature) return Animations.Sitting
     if (this.emote != null) return this.emote
-    if (!m.grounded && !controls.body.gravity) return Animations.Floating
+    if (controls.body.flying) return Animations.Floating
     if (m.hz > WALK_HZ) return Animations.Walk
     return Animations.Idle
   }
@@ -211,7 +211,7 @@ export default class Persona {
     if (driveYaw != null) {
       // seated: face the car nose, not the orbiting camera
       this.rotation.y = driveYaw
-    } else {
+    } else if (!controls.camera?.orbit) {
       this.rotation.y = rotation.y
     }
 
@@ -227,7 +227,7 @@ export default class Persona {
       this._animation = Animations.Sitting
     }
 
-    const stepping = this._animation === Animations.Walk && m.grounded
+    const stepping = this._animation === Animations.Walk
     if (stepping !== this.stepping) {
       this.stepping = stepping
       if (stepping) this.audio?.footstepSounds?.walk()

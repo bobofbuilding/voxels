@@ -65,11 +65,10 @@ export const createWorld = async function (scene: BABYLON.Scene, canvas: HTMLCan
   if (!window.config.isBot) {
     // wait for ground to load before applying gravity
     // stops us from falling through collidable mega vox (etc) before they have loaded
-    controls.invalidateGroundLoaded()
+    controls.resetFloor()
 
     scene.onAfterRenderObservable.add(() => {
       stepPhysics(scene.getEngine().getDeltaTime() / 1000)
-      controls.refreshGravity()
     })
 
     // start the environment load loop (which will load water on demand)
@@ -116,7 +115,7 @@ function initialSpawn(_scene: BABYLON.Scene, _grid: Grid, controls: Controls) {
     randomZ = Math.random() * (nudgeL - -nudgeL) + -nudgeL
   }
 
-  controls.body.position.set(randomX, 2.5, randomZ)
+  Object.assign(controls.body.position, { x: randomX, y: 2.5, z: randomZ })
 }
 
 // Show params as NESW coordinates

@@ -9,7 +9,6 @@ import { isLoaded } from '../utils/loading-done'
 import Feature, { MeshExtended } from '../features/feature'
 import Avatar from '../avatar'
 import { cameraPosition, cameraRotation } from '../utils/camera'
-import type { Environment } from '../enviroments/environment'
 import { hasPointerLock } from '../../common/helpers/ui-helpers'
 import { IControls } from './iControls'
 import { Animations } from '../avatar-animations'
@@ -103,8 +102,6 @@ export default abstract class Controls implements IControls {
   /** mobile dpad sets this; also used as drive steer while in a vehicle */
   direction: BABYLON.Vector3 = new BABYLON.Vector3()
 
-  islandsReady = true
-
   congaTarget: Avatar | null = null
   /** Leader's inConga can arrive a few ticks late over multiplayer. */
   private congaSyncGraceUntil = 0
@@ -150,9 +147,8 @@ export default abstract class Controls implements IControls {
   MAX_PICK_DISTANCE = 20
   audioContext: AudioContext = undefined!
   private cameraZoomed = false
-  // Gravity stays off until parcel colliders underfoot exist. See refreshGravity().
-  floorReady = true
-  private floorParcels: number[] | null = null // null = waiting for parcel ids
+  // parcels under our feet still waiting on colliders. [] = waiting on the worker, null = floor is solid
+  private floorWait: number[] | null = null
 
   constructor(
     protected scene: BABYLON.Scene,
@@ -168,7 +164,7 @@ export default abstract class Controls implements IControls {
     this.scene.activeCamera = camera
 
     this.body = new PlayerBody()
-    this.body.position.copyFrom(camera.position)
+    Object.assign(this.body.position, { x: camera.position.x, y: camera.position.y, z: camera.position.z })
     camera.body = this.body
     camera.place()
 
@@ -191,16 +187,20 @@ export default abstract class Controls implements IControls {
 
     this.scene.onBeforeRenderObservable.add(() => {
       const dt = this.scene.getEngine().getDeltaTime() / 1000 || 1 / 60
+
       // stock babylon gamepad writes cameraDirection as stick * dt; fold into unitless move
       if (this.camera.cameraDirection.lengthSquared() > 0) {
         this.move.addInPlace(this.camera.cameraDirection.scaleInPlace(1 / dt))
         this.camera.cameraDirection.setAll(0)
       }
+
+      if (this.floorWait?.length && this.floorWait.every((id) => this.grid?.getByID(id)?.physicsRegistered)) this.floorWait = null
+      this.body.flying = this.flying
+      this.body.gravity = !this.flying && !this.floorWait
       this.body.step(this.move, dt)
       this.move.setAll(0)
       this.updateConga()
       this.updateVehicle()
-      this.cancelFly()
       // let persona update its position from the body
       this.persona.update(cameraPosition(this.scene), cameraRotation(this.scene), this)
       this.swimming = this.persona.isSwimming(SWIM_LEVEL) ?? this.swimming
@@ -227,12 +227,6 @@ export default abstract class Controls implements IControls {
 
   get connector(): Connector {
     return window.connector
-  }
-
-  // Some work can't be done in the ctor, because the scene has not yet had its environment field set.
-  attachEnvironment(environment: Environment) {
-    environment.groundStateObservable.addStateObserver('loaded', () => this._handleGroundLoaded())
-    environment.groundStateObservable.addStateObserver('unloaded', () => this._handleGroundUnloaded())
   }
 
   toggleZoom() {
@@ -315,8 +309,7 @@ export default abstract class Controls implements IControls {
     if (!pickInfo) return
 
     const picked = featureFromPick(pickInfo)
-    const feature = picked?.mostParent
-    if (feature?.onContextClick()) return
+    if (picked?.onContextClick()) return
 
     if (pickInfo.pickedMesh && pickInfo.pickedMesh.metadata?.avatar instanceof Avatar) {
       const avatar: Avatar = pickInfo.pickedMesh.metadata.avatar
@@ -329,19 +322,6 @@ export default abstract class Controls implements IControls {
       // fallback to currentParcel if no nearby parcels (used for spaces and when editing before fully loaded)
       const parcel = this.grid.getNearest(6, pickInfo.pickedPoint)[0] || this.grid.currentOrNearestParcel()
       if (parcel && parcel.onContextClick()) return
-    }
-  }
-
-  cancelFly() {
-    const grounded = this.body.motion.grounded
-    if (!this.flying) {
-      this.wasAirborne = false
-      return
-    }
-    if (!grounded) this.wasAirborne = true
-    else if (this.wasAirborne) {
-      this.setFlying(false)
-      this.wasAirborne = false
     }
   }
 
@@ -457,45 +437,20 @@ export default abstract class Controls implements IControls {
   }
 
   setFlying(value: boolean) {
-    if (!value) this.floorReady = true
-    if (value && !this.flying) this.body.hop()
     this.flying = value
+    console.log('setFlying', value)
   }
 
   toggleFlying() {
     this.setFlying(!this.flying)
   }
 
-  // called on spawn and teleport
-  public invalidateGroundLoaded() {
-    if (!window.environment) {
-      throw new Error('invalidateGroundLoaded() called before attachEnvironment()!')
-    }
-
-    this.floorReady = false
-    if (!this.grid) {
-      throw new Error('invalidateGroundLoaded() called before attachEnvironment()!')
-    }
-
-    // The main thread doesn't keep a complete list of parcels, so we need to wait for the grid worker to tell us the definitive set of parcels containing the camera.
-    this.floorParcels = null
-    this.grid.queryParcelsAtPosition(this.body.position).then((parcelIds) => {
-      this.floorParcels = parcelIds
-    })
-
-    window.environment.invalidateGroundLoaded()
-  }
-
-  // this is called by the render loop in index.ts
-  refreshGravity() {
-    // To avoid falling into the abyss, or through the floor of a second-floor parcel, gravity stays off at least until:
-    // 1. All islands have been meshed (this.islandsReady === true), and
-    // 2. Every parcel containing the camera position has a collider (this.floorReady).
-    if (!this.floorReady && this.floorParcels && this.floorParcels.every((id) => this.grid?.getByID(id)?.isColliderEnabled())) {
-      this.floorReady = true
-      this.floorParcels = null
-    }
-    this.body.gravity = !this.flying && !this.swimming && this.islandsReady && this.floorReady && isLoaded()
+  // called on spawn and teleport: hold gravity until the parcels here have colliders
+  resetFloor() {
+    if (!this.grid) return
+    this.floorWait = []
+    const p = this.body.position
+    this.grid.queryParcelsAtPosition(new BABYLON.Vector3(p.x, p.y, p.z)).then((ids) => (this.floorWait = ids.length ? ids : null))
   }
 
   setNoclip(on: boolean) {
@@ -536,6 +491,8 @@ export default abstract class Controls implements IControls {
       this.toggleZoom()
     }
     this.firstPersonView = true
+    this.camera.orbit = false
+    this.camera.autoRotate = false
     this.camera.rotation.x = 0
     return true
   }
@@ -638,10 +595,11 @@ export default abstract class Controls implements IControls {
       right.normalize()
     }
 
-    const dir = target.position.subtract(this.body.position)
+    const bp = new BABYLON.Vector3(this.body.position.x, this.body.position.y, this.body.position.z)
+    const dir = target.position.subtract(bp)
     dir.y = 0
     const gapHz = dir.length()
-    const gap3 = BABYLON.Vector3.Distance(target.position, this.body.position)
+    const gap3 = BABYLON.Vector3.Distance(target.position, bp)
     if (leaderFlying ? gap3 > 30 : gapHz > 30) {
       const tp = target.position.subtract(forward.scale(CONGA_FOLLOW_DISTANCE))
       if (!leaderFlying) {
@@ -672,7 +630,7 @@ export default abstract class Controls implements IControls {
       desired.y = this.body.position.y
     }
 
-    let pull = desired.subtract(this.body.position)
+    let pull = desired.subtract(bp)
     if (!leaderFlying) {
       pull.y = 0
     }
@@ -681,7 +639,10 @@ export default abstract class Controls implements IControls {
 
     pull.normalize()
     const step = Math.min(1, deltaTime * (3 + pullLen * 1.8))
-    this.body.position.addInPlace(pull.scale(Math.min(pullLen, pullLen * step)))
+    pull.scaleInPlace(Math.min(pullLen, pullLen * step))
+    this.body.position.x += pull.x
+    this.body.position.y += pull.y
+    this.body.position.z += pull.z
   }
 
   getCoords() {
@@ -710,14 +671,6 @@ export default abstract class Controls implements IControls {
       (mesh.enablePointerMoveEvents || this.scene.constantlyUpdateMeshUnderPointer || mesh._getActionManagerForTrigger() != null) &&
       (!this.scene.cameraToUseForPointers || (this.scene.cameraToUseForPointers.layerMask & mesh.layerMask) !== 0)
     )
-  }
-
-  protected _handleGroundUnloaded() {
-    this.islandsReady = false
-  }
-
-  protected _handleGroundLoaded() {
-    this.islandsReady = true
   }
 
   // --- ride ---
@@ -1065,7 +1018,7 @@ export default abstract class Controls implements IControls {
       const [ox, oy, oz] = this.vehicleSeatOffset
       this.vehicleSeatLocal.copyFromFloats(ox, oy, oz)
       BABYLON.Vector3.TransformCoordinatesToRef(this.vehicleSeatLocal, car.mesh.getWorldMatrix(), this.vehicleSeatWorld)
-      this.body.position.copyFrom(this.vehicleSeatWorld)
+      Object.assign(this.body.position, { x: this.vehicleSeatWorld.x, y: this.vehicleSeatWorld.y, z: this.vehicleSeatWorld.z })
       // mouse owns look (pitch + yaw); car facing is separate via getVehicleDriveYaw
     }
 

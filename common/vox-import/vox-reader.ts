@@ -20,13 +20,6 @@ type VoxDataWithCollider = VoxDataWithoutCollider & VoxDataColliderInfo
 
 export type VoxData = VoxDataWithCollider | VoxDataWithoutCollider
 
-export class TriangleLimitExceededError extends Error {
-  constructor(nTriangles: number, maxTriangles: number) {
-    super(`${nTriangles} triangles in vox model mesh exceeds limit of ${maxTriangles}`)
-    this.name = 'TriangleLimitExceededError'
-  }
-}
-
 interface Callback {
   (x: VoxData | Error): void
 }
@@ -95,7 +88,7 @@ function hashTableLookUp(bucketData: Uint32Array, wrapMask: number, key_a: numbe
   }
 }
 
-export const voxReader = (buffer: ArrayBuffer, renderJob: any, flipX: boolean, megavox: boolean, maxTriangles: number, dryRun: boolean, wantCollider: boolean, callback: Callback) => {
+export const voxReader = (buffer: ArrayBuffer, renderJob: any, flipX: boolean, megavox: boolean, wantCollider: boolean, callback: Callback, colorMap?: Record<number, [number, number, number]>) => {
   // console.log('voxReader processing...')
 
   VoxReader.read(buffer, (vox: any, errstr: string | null) => {
@@ -138,27 +131,6 @@ export const voxReader = (buffer: ArrayBuffer, renderJob: any, flipX: boolean, m
     // startTime = performance.now()
     let vertData: Uint8Array = createAOMesh(field)
 
-    if (vertData.length > maxTriangles * 3 * 8) {
-      const err = new TriangleLimitExceededError(vertData.length / 3 / 8, maxTriangles)
-      return callback(err)
-    }
-
-    if (dryRun) {
-      // Caller just wanted to check we meet the triangle threshold
-      return callback({
-        positions: new Float32Array(),
-        indices: new Uint16Array(),
-        colors: new Float32Array(),
-        size: [0, 0, 0],
-        ...(wantCollider
-          ? {
-              colliderPositions: [],
-              colliderIndices: [],
-            }
-          : {}),
-      })
-    }
-
     // console.log('vox-reader.ts: createAOMesh() took ' + (performance.now() - startTime) + ' ms.')
 
     // Allocate arrays using the number of unmerged vertices - this gives an upper bound on the final array sizes.
@@ -171,6 +143,11 @@ export const voxReader = (buffer: ArrayBuffer, renderJob: any, flipX: boolean, m
     const colorTable = new Uint32Array(256)
     for (let i = 0; i < 256; i++) {
       colorTable[i] = palette[i].r | (palette[i].g << 8) | (palette[i].b << 16)
+    }
+    if (colorMap) {
+      for (const [idx, rgb] of Object.entries(colorMap)) {
+        colorTable[+idx] = rgb[0] | (rgb[1] << 8) | (rgb[2] << 16)
+      }
     }
 
     // Identity function, use these to nudge the mesh as needed

@@ -30,8 +30,42 @@ tags:
   - name: events
   - name: search
   - name: ghosts
+  - name: chat
 
 paths:
+  /api/chat.json:
+    get:
+      operationId: listChat
+      tags: [chat]
+      summary: Recent chat messages
+      description: |
+        Returns up to 200 unmoderated chat messages in chronological order.
+        Used by the client on connect instead of replaying history over the
+        multiplayer websocket.
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  messages:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                        uuid:
+                          type: string
+                        text:
+                          type: string
+                        avatar:
+                          description: AvatarRef snapshot at send time
+                        moderated:
+                          type: boolean
+
   /api/ghosts:
     get:
       operationId: listGhosts
@@ -2180,8 +2214,7 @@ components:
     AvatarRef:
       description: |
         A citizen, or the bare lowercased wallet string when no avatar row
-        matches. Anywhere an owner or author appears, expect either shape, and in
-        the same array: `parcel_users` on a parcel mixes objects and strings.
+        matches. Anywhere an owner or author appears, expect either shape.
       oneOf:
         - type: string
         - type: object
@@ -2195,6 +2228,26 @@ components:
               type: string
             created_at:
               type: [string, 'null']
+
+    ParcelUser:
+      description: |
+        A collaborator on a parcel: their avatar row plus `role`. When they have
+        no avatar only `owner` (the lowercased wallet) and `role` are present.
+      type: object
+      required: [owner, role]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: [string, 'null']
+        owner:
+          type: string
+        created_at:
+          type: [string, 'null']
+        role:
+          type: string
+          enum: [owner, contributor, excluded]
 
     GeoJsonPoint:
       type: object
@@ -2394,7 +2447,7 @@ components:
             parcel_users:
               type: [array, 'null']
               items:
-                $ref: '#/components/schemas/AvatarRef'
+                $ref: '#/components/schemas/ParcelUser'
             content:
               $ref: '#/components/schemas/ParcelContent'
             settings:
@@ -2443,7 +2496,7 @@ components:
             parcel_users:
               type: [array, 'null']
               items:
-                type: object
+                $ref: '#/components/schemas/ParcelUser'
             hash:
               type: [string, 'null']
             lightmap_url:
@@ -2483,13 +2536,7 @@ components:
             parcel_users:
               type: array
               items:
-                type: object
-                properties:
-                  wallet:
-                    type: string
-                  role:
-                    type: string
-                    enum: [owner, contributor, excluded]
+                $ref: '#/components/schemas/ParcelUser'
             hash:
               type: [string, 'null']
             lightmap_url:
@@ -2589,6 +2636,9 @@ components:
           $ref: '#/components/schemas/Costume'
         home_id:
           type: [integer, 'null']
+        src:
+          type: [string, 'null']
+          description: UGC VRM url (ugc://...) when wearing a custom avatar mesh.
         created_at:
           type: [string, 'null']
           description: Pacific/Auckland, not UTC.

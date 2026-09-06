@@ -100,7 +100,7 @@ export default class Parcel extends TypedEventTarget<ParcelEventMap> {
   public readonly grid: Grid
   private regeneratingFeatures = false
   private colliderVoxels: Int32Array | null = null
-  private physicsRegistered = false
+  physicsRegistered = false
   private activated = false
   private activationState = ParcelActivationState.Inactive
   private fieldUpdateTimeout: NodeJS.Timeout | null = null
@@ -298,7 +298,7 @@ export default class Parcel extends TypedEventTarget<ParcelEventMap> {
    * Returns all wallets set as "contributor"
    */
   public get contributors() {
-    return this.parcel_users?.filter((pu) => pu.role == 'contributor').map((pu) => pu.wallet) || []
+    return this.parcel_users?.filter((pu) => pu.role == 'contributor').map((pu) => pu.owner) || []
   }
 
   // The parcel page info URL
@@ -310,7 +310,7 @@ export default class Parcel extends TypedEventTarget<ParcelEventMap> {
    * Returns all wallets set as parcel owner
    */
   get owners() {
-    return [this.owner, ...(this.parcel_users?.filter((pu) => pu.role == 'owner').map((pu) => pu.wallet) || [])]
+    return [this.owner, ...(this.parcel_users?.filter((pu) => pu.role == 'owner').map((pu) => pu.owner) || [])]
   }
 
   get canEdit(): boolean {
@@ -423,7 +423,6 @@ export default class Parcel extends TypedEventTarget<ParcelEventMap> {
     indicesCount += this.glassMesh?.getTotalIndices() || 0
     let animated = 0
     let groups = 0
-    let collidables = 0
 
     this.featuresList.forEach((f) => {
       if (f.isAnimated) animated++
@@ -431,16 +430,12 @@ export default class Parcel extends TypedEventTarget<ParcelEventMap> {
       if (f.mesh instanceof BABYLON.AbstractMesh && !f.mesh.isAnInstance) {
         indicesCount += f.mesh?.getTotalIndices() || 0
       }
-      if (f.mesh instanceof BABYLON.AbstractMesh && f.mesh.checkCollisions) {
-        collidables++
-      }
     })
 
     return {
       triangles: indicesCount / 3,
       animated: animated,
       groups: groups,
-      collidables: collidables,
       features: {
         active: this.featuresList.length,
         total: this.features.length,
@@ -566,11 +561,6 @@ export default class Parcel extends TypedEventTarget<ParcelEventMap> {
       this.palette = patch.palette
       this.refreshPalette()
     }
-
-    if (patch.brightness) {
-      this.brightness = patch.brightness
-      this.refreshBrightness()
-    }
   }
 
   receiveStatePatch(patch: Record<string, Partial<FeatureRecord>>) {
@@ -660,23 +650,7 @@ export default class Parcel extends TypedEventTarget<ParcelEventMap> {
     return new BABYLON.Vector3(0, 0, 0)
   }
 
-  updateShader() {
-    if (!this.voxelMesh || !this.voxelMesh.material || !(this.voxelMesh.material instanceof BABYLON.ShaderMaterial)) {
-      return
-    }
-
-    window.environment?.updateShaderProperties(this.voxelMesh.material)
-  }
-
   onTileSetUpdate: BABYLON.Observable<void> = new BABYLON.Observable<void>()
-
-  setBrightness(brightness: number) {
-    this.brightness = brightness
-    Object.assign(this.content, { brightness })
-
-    this.refreshBrightness()
-    this.sendBrightness()
-  }
 
   setPalette(colors: Array<string> | undefined) {
     this.applyPaletteLive(colors)
@@ -939,8 +913,6 @@ export default class Parcel extends TypedEventTarget<ParcelEventMap> {
     return true
   }
 
-  public isColliderEnabled = () => false
-
   carve(voxels: [number, number, number][]) {
     if (!this.field || !voxels.length) return
     this.setField(voxels, 0)
@@ -996,7 +968,6 @@ export default class Parcel extends TypedEventTarget<ParcelEventMap> {
     // console.log(`[parcel-${this.id}] Reloaded parcel`)
     this.loadField()
     this.regenerate()
-    this.refreshBrightness()
     this.refreshPalette()
 
     // allow bringing up of build menu
@@ -1132,8 +1103,6 @@ export default class Parcel extends TypedEventTarget<ParcelEventMap> {
     }
   }
 
-  // Called by Controls.refreshGravity() to determine whether all of this parcel's colliders are turned on.
-
   private sendTileset() {
     // Send false to force the operational transformer to update the key
     this.sendPatch({
@@ -1185,21 +1154,6 @@ export default class Parcel extends TypedEventTarget<ParcelEventMap> {
     if (palette && palette[1] && material instanceof BABYLON.ShaderMaterial) {
       material.setColor3Array('palette', palette)
     }
-  }
-
-  private refreshBrightness() {
-    if (!this.voxelMesh) {
-      return
-    }
-
-    // todo - disabled brightness toggle
-
-    // const material = this.voxelMesh.material as BABYLON.ShaderMaterial
-
-    // // regenerate if we are still using greedy blocks so that we don't change the brightness of surrounding parcels
-    // if (isShared(material)) return this.refreshVoxels()
-
-    // material.setFloat('brightness', this.brightness || window.environment?.brightness || 1.5)
   }
 
   /**
@@ -1353,9 +1307,8 @@ export default class Parcel extends TypedEventTarget<ParcelEventMap> {
     opaque.parent = this.transform
     opaque.position.set(off[0], off[1], off[2])
     opaque.isPickable = true
-    opaque.checkCollisions = opaque.getTotalVertices() !== 0
     opaque.freezeWorldMatrix()
-    this.setGlassMesh(glass, { collidable: true, pickable: true })
+    this.setGlassMesh(glass, { pickable: true })
     if (this.glassMesh) {
       this.glassMesh.position.set(off[0], off[1], off[2])
       this.glassMesh.freezeWorldMatrix()
@@ -1364,7 +1317,6 @@ export default class Parcel extends TypedEventTarget<ParcelEventMap> {
       this.colliderVoxels = voxelCollider(this.field)
       this.registerPhysics()
     }
-    this.isColliderEnabled = () => this.physicsRegistered
     this.dispatchEvent(createEvent('MeshLoaded', opaque))
   }
 
@@ -1384,7 +1336,7 @@ export default class Parcel extends TypedEventTarget<ParcelEventMap> {
     }
   }
 
-  private setVoxelMesh(mesh: BABYLON.Nullable<BABYLON.Mesh>, cfg?: { collidable: boolean; pickable: boolean }) {
+  private setVoxelMesh(mesh: BABYLON.Nullable<BABYLON.Mesh>, cfg?: { pickable: boolean }) {
     // Don't dispose cached/shared materials - they're used by other parcels
     if (this.voxelMesh?.material && !isShared(this.voxelMesh.material)) {
       this.voxelMesh.material.dispose()
@@ -1399,7 +1351,7 @@ export default class Parcel extends TypedEventTarget<ParcelEventMap> {
     mesh.freezeWorldMatrix()
   }
 
-  private setGlassMesh(mesh: BABYLON.Nullable<BABYLON.Mesh>, cfg?: { collidable: boolean; pickable: boolean }) {
+  private setGlassMesh(mesh: BABYLON.Nullable<BABYLON.Mesh>, cfg?: { pickable: boolean }) {
     // Don't dispose cached/shared materials - they're used by other parcels
     if (this.glassMesh?.material && !isShared(this.glassMesh.material)) {
       this.glassMesh.material.dispose()
@@ -1443,9 +1395,8 @@ export default class Parcel extends TypedEventTarget<ParcelEventMap> {
     this.physicsRegistered = false
   }
 
-  private setCommonMeshProperties(mesh: BABYLON.Mesh, cfg?: { collidable?: boolean; pickable: boolean }) {
+  private setCommonMeshProperties(mesh: BABYLON.Mesh, cfg?: { pickable: boolean }) {
     mesh.parent = this.transform
-    mesh.checkCollisions = !!cfg?.collidable && mesh.getTotalVertices() !== 0
     mesh.isPickable = cfg?.pickable || false
     mesh.setEnabled(true)
   }

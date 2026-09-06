@@ -23,7 +23,7 @@ interface Props {
 }
 
 export function bucketUrl(id: string) {
-  return `https://ugc.crvox.com/renders/asset-${id}.png`
+  return `https://ugc.voxels.com/renders/asset-${id}.png`
 }
 
 export function renderUrl(id: string) {

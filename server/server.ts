@@ -46,19 +46,20 @@ import rateLimit from 'express-rate-limit'
 import expressStaticGzip from 'express-static-gzip'
 import { Strategy as AnonymousStrategy } from 'passport-anonymous'
 import AssetLibraryController from './controllers/assets'
+import UgcController from './controllers/ugc'
 import AvatarsController from './controllers/avatars'
 import CostumesController from './controllers/costumes'
 import ExternalsController from './controllers/externals'
 import ModerationReportsController from './controllers/reports'
 import WompsController from './controllers/womps'
 import GhostsController from './controllers/ghosts'
+import ChatController from './controllers/chat'
 import IslandBoardController from './controllers/island-board'
 import BlogController from './controllers/blog'
-import { ingestReleaseNotes } from './blog-ingest'
 import createGridSocket from './grid/createGridSocket'
 import { searchAndReturn } from './handlers/search'
 import { EthereumListener } from './jobs/ethereum-listener'
-import truncateMetrics from './jobs/truncate-metrics'
+import startJobs from './cronjobs'
 import log from './lib/logger'
 import { createRequestHandlerForQuery, query } from './lib/query-helpers'
 import { getTypeOfContract } from './lib/utils'
@@ -78,7 +79,6 @@ import responseTime from 'response-time'
 import 'babylonjs' // BABYLON
 // Our requires
 import { stat } from 'fs/promises'
-import throng from 'throng'
 import config from '../common/config'
 import loadRoutes from '../web/load-routes'
 // @ts-expect-error - this is un-typed
@@ -152,7 +152,7 @@ if (process.env.NODE_ENV === 'development') {
   })
 }
 
-// Enable if you're behind a reverse proxy (Heroku, Bluemix, AWS ELB, Nginx, etc) see https://expressjs.com/en/guide/behind-proxies.html
+// Enable if you're behind a reverse proxy (Digital Ocean App Platform, Nginx, etc) see https://expressjs.com/en/guide/behind-proxies.html
 app.set('trust proxy', 1)
 const httpServer = http.createServer(app)
 
@@ -404,10 +404,10 @@ CostumesController(db, passport, app)
 WompsController(db, passport, app)
 // Ghosts (anonymous path fragments)
 GhostsController(db, passport, app)
+ChatController(db, app)
 
 IslandBoardController(db, passport, app)
 BlogController(db, passport, app)
-void ingestReleaseNotes().catch((e) => console.error('blog ingest failed:', e))
 // Spaces
 SpacesController(db, passport, app)
 // collections
@@ -420,6 +420,7 @@ EventsController(db, passport, app)
 FavoritesController(db, passport, app)
 // Asset library controller:
 AssetLibraryController(db, passport, app)
+UgcController(passport, app)
 // Reports Controller
 ModerationReportsController(db, passport, app)
 // Externals API Controller
@@ -615,30 +616,6 @@ const start = () => {
   })
 }
 
-const master = () => {
-  log.info(`master() running on DYNO=${process.env.DYNO} PORT=${port}`) //TODO: Remove
-
-  // truncate the next-to-be-reused metrics table once per day
-  setTimeout(() => {
-    setInterval(() => truncateMetrics(), 1000 * 60 * 60 * 24)
-    truncateMetrics()
-  }, 1000)
-
-  EthereumListener()
-}
-
-const WORKERS = Number(process.env.TEST_WEB_CONCURRENCY || '1')
-log.info(`WORKERS=${WORKERS}`) //TODO: Remove
-
-if (WORKERS > 1) {
-  throng({
-    workers: WORKERS,
-    worker: start,
-    master: master,
-    lifetime: Infinity,
-    start,
-  })
-} else {
-  start()
-  master()
-}
+start()
+startJobs()
+EthereumListener()

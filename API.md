@@ -23,7 +23,8 @@ Generated from `server/openapi.yaml` by `npm run docs:api`. Edit the spec, not t
 - [events](#events), 6 routes
 - [search](#search), 1 route
 - [ghosts](#ghosts), 1 route
-- [schemas](#schemas), 23 shapes
+- [chat](#chat), 1 route
+- [schemas](#schemas), 24 shapes
 
 ## parcels
 
@@ -1275,6 +1276,26 @@ Returns up to 10 anonymous movement fragments whose start or end parcel matches.
   - `ghosts` array of [`Ghost`](#ghost)
 - `400` The lookup did not land. Some handlers send this with status 200.
 
+## chat
+
+- [`GET /api/chat.json`](#get-apichatjson) Recent chat messages
+
+### GET /api/chat.json
+
+Recent chat messages
+
+Returns up to 200 unmoderated chat messages in chronological order. Used by the client on connect instead of replaying history over the multiplayer websocket.
+
+**answers**
+
+- `200` object
+  - `messages` array of object
+    - `id` string
+    - `uuid` string
+    - `text` string
+    - `avatar` anything: AvatarRef snapshot at send time
+    - `moderated` boolean
+
 ## schemas
 
 The shapes the routes above hand back.
@@ -1286,7 +1307,7 @@ The shapes the routes above hand back.
 
 ### AvatarRef
 
-A citizen, or the bare lowercased wallet string when no avatar row matches. Anywhere an owner or author appears, expect either shape, and in the same array: `parcel_users` on a parcel mixes objects and strings.
+A citizen, or the bare lowercased wallet string when no avatar row matches. Anywhere an owner or author appears, expect either shape.
 
 - string
 - object
@@ -1294,6 +1315,16 @@ A citizen, or the bare lowercased wallet string when no avatar row matches. Anyw
   - `name` string or null
   - `owner` string
   - `created_at` string or null
+
+### ParcelUser
+
+A collaborator on a parcel: their avatar row plus `role`. When they have no avatar only `owner` (the lowercased wallet) and `role` are present.
+
+- `id` string, a uuid
+- `name` string or null
+- `owner` string
+- `created_at` string or null
+- `role` string, one of `owner`, `contributor`, `excluded`
 
 ### GeoJsonPoint
 
@@ -1380,7 +1411,7 @@ One parcel with its build. What `/api/parcels/{id}.json` returns.
 - `kind` string, one of `plot`, `inner`, `outer`, `unit`, `basement`, `asset`
 - `geometry` [`ParcelGeometry`](#parcelgeometry)
 - `owner` [`AvatarRef`](#avatarref)
-- `parcel_users` array of [`AvatarRef`](#avatarref) or null
+- `parcel_users` array of [`ParcelUser`](#parceluser) or null
 - `content` [`ParcelContent`](#parcelcontent)
 - `settings` object or null
 - `lightmap_url` string or null
@@ -1406,7 +1437,7 @@ A row from the parcel list routes. No `content`.
 - `suburb` string or null
 - `geometry` [`ParcelGeometry`](#parcelgeometry)
 - `owner` [`AvatarRef`](#avatarref)
-- `parcel_users` array of object or null
+- `parcel_users` array of [`ParcelUser`](#parceluser) or null
 - `hash` string or null
 - `lightmap_url` string or null
 - `visible` boolean
@@ -1427,9 +1458,7 @@ A row from `/api/parcels/cached.json`.
 - `kind` string
 - `geometry` [`ParcelGeometry`](#parcelgeometry)
 - `owner` string: A lowercased wallet, not an avatar object.
-- `parcel_users` array of object
-  - `wallet` string
-  - `role` string, one of `owner`, `contributor`, `excluded`
+- `parcel_users` array of [`ParcelUser`](#parceluser)
 - `hash` string or null
 - `lightmap_url` string or null
 - `settings` object or null
@@ -1475,6 +1504,7 @@ A citizen.
 - `costume_id` string or null
 - `costume` [`Costume`](#costume)
 - `home_id` integer or null
+- `src` string or null: UGC VRM url (ugc://...) when wearing a custom avatar mesh.
 - `created_at` string or null: Pacific/Auckland, not UTC.
 - `last_online` string or null: Pacific/Auckland, not UTC.
 

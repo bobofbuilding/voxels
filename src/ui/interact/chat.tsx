@@ -7,7 +7,7 @@ import { isMobile } from '../../../common/helpers/detector'
 import { resetMobileViewportLayout } from '../../controls/mobile/controls'
 import { Emojis, replaceEmojiText, replaceEmoticonsAndEmojiText } from '../../../common/helpers/emojis'
 import { Emotes } from '../../../common/messages/constant'
-import { avatarName } from '../../../common/messages/avatar-ref'
+import { avatarName, avatarSlug } from '../../../common/messages/avatar-ref'
 import { PanelType } from '../../../web/src/components/panel'
 import { sendChat } from '../../../web/src/shard-chat'
 import { truncate } from '../../../web/src/lib/string-utils'
@@ -111,6 +111,54 @@ function chatName(m: ChatMessageRecord) {
 const CHAT_FADE_MS = 15000
 const CHAT_GONE_MS = 18000
 
+async function nerfChat(id: string) {
+  const res = await fetch(`/api/admin/chat/${id}/nerf`, { method: 'POST', credentials: 'include' })
+  if (!res.ok) return
+  const list = messageList.value.slice()
+  const i = list.findIndex((m) => m.id === id)
+  if (i < 0) return
+  list[i] = { ...list[i], moderated: true }
+  messageList.value = list
+}
+
+function ChatWho({ m }: { m: ChatMessageRecord }) {
+  const ref = m.avatarRef
+  if (ref && ref !== 'anon') {
+    const name = avatarName(ref)
+    if (name && name !== 'anon' && name !== '...') {
+      return (
+        <a class="chat-who" href={`/u/${avatarSlug(ref)}`}>
+          {name}
+        </a>
+      )
+    }
+  }
+  const name = chatName(m)
+  if (name !== 'anon' && name !== '...') {
+    return (
+      <a class="chat-who" href={`/u/${encodeURIComponent(name.toLowerCase())}`}>
+        {name}
+      </a>
+    )
+  }
+  return <span class="chat-who chat-anon">anon</span>
+}
+
+function ChatLineBody({ m }: { m: ChatMessageRecord }) {
+  return (
+    <>
+      <ChatWho m={m} />
+      {': '}
+      <ChatText text={m.text} moderated={m.moderated} />
+      {app.isAdmin() && m.id && !m.moderated && (
+        <button type="button" class="chat-x" onClick={() => nerfChat(m.id!)}>
+          x
+        </button>
+      )}
+    </>
+  )
+}
+
 export function ChatPanel({ cap, variant = 'page', class: className, style }: { cap: number; variant?: 'overlay' | 'page'; class?: string; style?: string }) {
   const [, bump] = useState(0)
   const [focused, setFocusedRaw] = useState(false)
@@ -183,10 +231,8 @@ export function ChatPanel({ cap, variant = 'page', class: className, style }: { 
       <div ref={chatRef} class={'chat' + (className ? ' ' + className : '')} style={style}>
         <div class={'chat-messages' + (atCap ? ' at-cap' : '')}>
           {shown.map((m) => (
-            <p key={m.timestamp} class={!focused && age(m) > CHAT_FADE_MS ? 'faded' : undefined}>
-              <span class="chat-who">{chatName(m)}</span>
-              {': '}
-              <ChatText text={m.text} />
+            <p key={m.id || m.timestamp} class={!focused && age(m) > CHAT_FADE_MS ? 'faded' : undefined}>
+              <ChatLineBody m={m} />
             </p>
           ))}
         </div>
@@ -203,14 +249,30 @@ export function ChatPanel({ cap, variant = 'page', class: className, style }: { 
   return (
     <div class={'chat-panel' + (className ? ' ' + className : '')} style={style}>
       <div ref={box} class={'chat-messages' + (atCap ? ' at-cap' : '')}>
-        {msgs.map((m, i) => (
-          <div class="chat-line" key={i}>
-            <span class="chat-who">{chatName(m)}</span>
-            <span class="chat-text">
-              <ChatText text={m.text} />
-            </span>
-          </div>
-        ))}
+        {msgs.map((m, i) => {
+          const prev = i > 0 ? msgs[i - 1] : null
+          const gapMs = prev ? m.timestamp - prev.timestamp : 0
+          const gapHours = gapMs > 3600_000 ? Math.round(gapMs / 3600_000) : 0
+          return (
+            <Fragment key={m.id || i}>
+              {gapHours > 0 && (
+                <div class="chat-gap">
+                  {gapHours} hour{gapHours > 1 ? 's' : ''} later
+                </div>
+              )}
+              <div class="chat-line">
+                {app.isAdmin() && m.id && !m.moderated && (
+                  <button type="button" class="chat-x" onClick={() => nerfChat(m.id!)}>
+                    x
+                  </button>
+                )}
+                <ChatWho m={m} />
+                {': '}
+                <ChatText text={m.text} moderated={m.moderated} />
+              </div>
+            </Fragment>
+          )
+        })}
       </div>
       <ChatInput keepFocus />
     </div>
@@ -283,8 +345,11 @@ function SlashCongaLinks({ text }: { text: string }) {
   )
 }
 
-const ChatText = ({ text }: { text: string }) => {
+const ChatText = ({ text, moderated }: { text: string; moderated?: boolean }) => {
   const decoded = decodeChatHtmlEntities(text)
+  if (moderated) {
+    return <s class="profanity">{decoded}</s>
+  }
   if (isHate(decoded)) {
     return <s class="profanity">{decoded}</s>
   }

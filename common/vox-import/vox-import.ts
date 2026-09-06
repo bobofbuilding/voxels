@@ -13,9 +13,8 @@ type JobRecordCommon = {
   flipX: boolean
   megavox: boolean
   sizeHint?: Array<number>
-  maxTriangles: number
-  dryRun: boolean // true to just test against maxTriangles and avoid actually constructing the mesh as far as possible
   timeoutMs: number
+  colorMap?: Record<number, [number, number, number]>
 }
 
 type UrlJobRecord = JobRecordCommon & {
@@ -28,10 +27,6 @@ type BufferJobRecord = JobRecordCommon & {
 
 export type JobRecord = UrlJobRecord | BufferJobRecord
 
-//TODO: Estimate these better. Architect Island has megavoxes with > 500000!
-export const MAX_TRIANGLES_PER_VOX_MODEL_DISPLAY = 1000000
-export const MAX_TRIANGLES_PER_VOX_MODEL_UPLOAD = 150000
-
 type JobsManager = { [x: number]: (data: { renderJob: number } & (VoxData | { error: any })) => void }
 
 export interface Options {
@@ -40,8 +35,7 @@ export interface Options {
   megavox?: boolean
   sizeHint?: BABYLON.Vector3
   signal: AbortSignal
-  maxTriangles?: number
-  dryRun?: boolean // true to just test against maxTriangles and avoid actually constructing the mesh as far as possible
+  colorMap?: Record<number, [number, number, number]>
 }
 
 let _instance: VoxImporter | null = null
@@ -101,9 +95,11 @@ export class VoxImporter {
     )
 
     const env = window.environment
+
     if (env && this.material instanceof BABYLON.ShaderMaterial) {
       this.material.setVector3('vLight', env.sunPosition || new BABYLON.Vector3(0.577, 0.577, -0.577).normalize())
-      env.setShaderParameters(this.material, 1.8)
+      this.material.setFloat('brightness', 1.8)
+      // env.setShaderParameters(this.material, 1.8)
     }
     this.material.blockDirtyMechanism = true
   }
@@ -119,7 +115,6 @@ export class VoxImporter {
       const mesh = new BABYLON.Mesh('utils/vox-box', this._scene ?? window.scene)
       mesh.material = this.material
       mesh.isPickable = true
-      mesh.checkCollisions = false
 
       const renderJob = Number(this.jobIndex)
       this.jobIndex++
@@ -153,7 +148,6 @@ export class VoxImporter {
         d.colors = colors
         d.applyToMesh(mesh)
 
-        mesh.checkCollisions = false
         mesh.refreshBoundingInfo()
 
         resolve(mesh)
@@ -171,10 +165,9 @@ export class VoxImporter {
         flipX: options && 'invertX' in options ? !!options.invertX : true,
         megavox: options && !!options.megavox,
         sizeHint,
-        maxTriangles: options.maxTriangles ?? MAX_TRIANGLES_PER_VOX_MODEL_DISPLAY,
-        dryRun: options.dryRun ?? false,
         wantCollider: false,
         timeoutMs: VoxImporter.JOB_TIMEOUT_MS,
+        colorMap: options.colorMap,
       }
       /// #if RUNTIME === 'WEB'
       const run = async () => {
