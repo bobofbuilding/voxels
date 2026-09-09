@@ -15,7 +15,7 @@ import showNftView from '../ui/html-ui/nft-view'
 import { tidyFloat } from '../utils/helpers'
 import { opensea, readOpenseaUrl } from '../utils/proxy'
 import { FeatureMetadata, FeatureTemplate } from './_metadata'
-import Feature, { Feature2D, TransparencyMode } from './feature'
+import { Feature2D, TransparencyMode } from './feature'
 import { setTextureProperties } from './image'
 import NFTFrame from './utils/nft-frame'
 import { Action } from '../../common/messages'
@@ -118,16 +118,6 @@ export default class NftImage extends Feature2D<NftImageRecord> {
   forceRefresh() {
     this.forceUpdate = true
     this.generateNFT()
-  }
-
-  generateDraft() {
-    if (this.disposed) return
-    if (!(this.mesh instanceof BABYLON.Mesh)) {
-      this.mesh = BABYLON.MeshBuilder.CreatePlane(this.uniqueEntityName('mesh'), { size: 1 }, this.scene)
-      rebindGizmos(this)
-    }
-    this.mesh.material = Feature.getDraftMaterial(this.scene)
-    this.setCommon()
   }
 
   get isInteract() {
@@ -358,7 +348,7 @@ export default class NftImage extends Feature2D<NftImageRecord> {
     } else {
       const old = this.mesh.material
       this.mesh.material = null
-      if (old instanceof BABYLON.StandardMaterial && old !== Feature.draftMaterial && old.getBindedMeshes().length <= 1) {
+      if (old instanceof BABYLON.StandardMaterial && old.getBindedMeshes().length <= 1) {
         old.dispose(false, true)
       }
     }
