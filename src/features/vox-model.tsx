@@ -7,7 +7,7 @@ import { rebindGizmos } from '../tools/gizmos'
 import { Advanced, Animation, FeatureEditor, FeatureEditorProps, FeatureID, Hyperlink, Toolbar, SourceInput } from '../ui/features'
 import { isURL } from '../utils/helpers'
 import { FeatureMetadata, FeatureTemplate } from './_metadata'
-import Feature, { Feature3D, FeatureEvent, FeatureTrigger, MeshExtended, transformVectors } from './feature'
+import { Feature3D, FeatureEvent, FeatureTrigger, MeshExtended, transformVectors } from './feature'
 import ActionGui from '../ui/gui/action-button-gui'
 
 // used when "Scale To Grid" is enabled
@@ -82,16 +82,6 @@ export default class VoxModel<Description extends VoxModelRecord | MegavoxRecord
     tv.scaling.multiplyInPlace(CUBESCALE_SCALE_FACTOR_RECIPROCAL_VECTOR)
     tv.position.subtractInPlace(cubescaleOffset([tv.scaling.x, tv.scaling.y, tv.scaling.z]))
     return tv
-  }
-
-  generateDraft() {
-    if (this.disposed) return
-    if (!(this.mesh instanceof BABYLON.Mesh)) {
-      this.mesh = BABYLON.MeshBuilder.CreateBox(this.uniqueEntityName('mesh'), { size: 1 }, this.scene)
-      rebindGizmos(this)
-    }
-    this.mesh.material = Feature.getDraftMaterial(this.scene)
-    this.setCommon()
   }
 
   private applyImportedMesh(imported: BABYLON.Mesh) {
