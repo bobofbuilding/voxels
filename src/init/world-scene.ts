@@ -16,6 +16,7 @@ const GATEWAY_AMBIENT = 0.45
 
 export type WorldSceneEvents = {
   'fog-updated': void
+  'ground-loaded': void
   'parcel-collider-added': BABYLON.AbstractMesh
   'parcel-collider-removed': BABYLON.AbstractMesh
 }
@@ -123,12 +124,13 @@ export async function createWorldScene(s: BABYLON.Scene) {
   window.graphic.addEventListener('settingsChanged', () => scene && updateFog(scene), { passive: true })
 
   skybox = new Skybox(s)
-  terrain = new Terrain(s, [skybox])
+  terrain = new Terrain(s)
   groundStateObservable = terrain.islandsStateObservable
   horizon = new Horizon(s)
   await terrain.load()
 
   loaded = true
+  worldSceneEvents.dispatchEvent(createEvent('ground-loaded', undefined))
   isNightCache = null
   isUnderwaterCache = null
 }
@@ -166,7 +168,7 @@ export function updateWorldScene() {
 
   skybox?.update(sunPosition(), 0.5)
   if (skybox) skybox.mesh.isVisible = !underwater
-  horizon?.update(BABYLON.Engine.ALPHA_COMBINE, fogColor())
+  horizon?.update(fogColor())
   horizon?.setVisible(!underwater)
   hideGatewayBackdrop(skybox, horizon)
   terrain?.update()
@@ -174,7 +176,6 @@ export function updateWorldScene() {
 
 export function parcelMeshesAdded(meshes: BABYLON.Mesh[]) {
   meshes.filter(Boolean).forEach((parcelMesh) => {
-    terrain?.addReflectionMesh(parcelMesh)
     if (parcelMesh.name.startsWith('voxel-field/opaque')) {
       worldSceneEvents.dispatchEvent(createEvent('parcel-collider-added', parcelMesh))
     }
@@ -183,7 +184,6 @@ export function parcelMeshesAdded(meshes: BABYLON.Mesh[]) {
 
 export function parcelMeshesRemoved(meshes: BABYLON.Mesh[]) {
   meshes.filter(Boolean).forEach((parcelMesh) => {
-    terrain?.removeReflectionMesh(parcelMesh)
     if (parcelMesh.name.startsWith('voxel-field/opaque')) {
       worldSceneEvents.dispatchEvent(createEvent('parcel-collider-removed', parcelMesh))
     }
