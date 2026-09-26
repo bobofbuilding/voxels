@@ -5,22 +5,7 @@ guidelines.
 
 # Getting started
 
-[![Open in GitHub Codespaces](https://img.shields.io/badge/Open_in-GitHub_Codespaces-238636?style=for-the-badge&logo=github&logoColor=white)](https://codespaces.new/cryptovoxels/retro)
-
-`pnpm install` and the database seed run when the codespace is created, so it comes up ready.
-
-* `pnpm run dev`
-* Open port 9000
-
-# Installing locally
-
-* Clone repo (`git clone --filter=blob:none` halves it, 225MB to 114MB, by leaving old database dumps on the server)
-* Install postgres@18 and node@25 and pnpm
-* `createdb voxels && cat db/import.sql.gz | gunzip | psql voxels`
-* `pnpm install`
-* `pnpm run dev`
-
-(Only *nix environments are supported, PC users install [WSL](https://learn.microsoft.com/en-au/windows/wsl/install))
+See [install.md](install.md) for Codespaces and local setup.
 
 # Infrastructure
 
