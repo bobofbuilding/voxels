@@ -12,7 +12,7 @@ Generated from `server/openapi.yaml` by `npm run docs:api`. Edit the spec, not t
 
 ## what is in here
 
-- [parcels](#parcels), 20 routes
+- [parcels](#parcels), 21 routes
 - [womps](#womps), 6 routes
 - [avatars](#avatars), 13 routes
 - [collectibles](#collectibles), 3 routes
@@ -30,6 +30,7 @@ Generated from `server/openapi.yaml` by `npm run docs:api`. Edit the spec, not t
 ## parcels
 
 - [`GET /api/parcels.json`](#get-apiparcelsjson) List parcels, or fetch a batch by id
+- [`GET /api/activity.json`](#get-apiactivityjson) The last 100 parcel transfers on chain
 - [`GET /api/parcels/cached.json`](#get-apiparcelscachedjson) Every visible parcel
 - [`GET /api/parcels/summary.json`](#get-apiparcelssummaryjson) id, address, island and name for every visible parcel
 - [`GET /api/parcels/xyz.json`](#get-apiparcelsxyzjson) Bounds and geometry only, for every parcel
@@ -66,6 +67,31 @@ Without `parcel_ids` this lists minted parcels and each row carries `parcel_user
 - `200` object
   - `success` boolean
   - `parcels` array of [`ParcelSummary`](#parcelsummary)
+
+### GET /api/activity.json
+
+The last 100 parcel transfers on chain
+
+Newest first. A mint has `from.owner` set to the zero address. `synced` is only set on the newest transfer of each parcel, and is false when our owner hasn't caught up with the chain yet.
+
+**answers**
+
+- `200` object
+  - `success` boolean
+  - `transfers` array of object
+    - `hash` string
+    - `block` integer
+    - `parcel_id` integer
+    - `created_at` string
+    - `name` string or null
+    - `address` string or null
+    - `from` object
+      - `owner` string
+      - `name` string or null
+    - `to` object
+      - `owner` string
+      - `name` string or null
+    - `synced` boolean or null
 
 ### GET /api/parcels/cached.json
 

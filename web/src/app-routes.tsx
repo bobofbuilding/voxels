@@ -2,6 +2,7 @@ import { ComponentType } from 'preact'
 import { Route } from 'preact-router'
 import GoLive from '../account/go-live'
 import GoLiveBroadcast from '../account/go-live-broadcast'
+import Activity from './activity'
 import Asset from './asset'
 import Assets from './assets'
 import AssetsNew from './assets-new'
@@ -92,6 +93,7 @@ const components: Record<string, ComponentType<any>> = {
   eventsEdit: EventsEdit,
   events: Events,
   shop: Shop,
+  activity: Activity,
   womps: WompsPage,
   islandsAdmin: IslandsAdmin,
   admin: Admin,

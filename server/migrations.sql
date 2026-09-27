@@ -379,3 +379,18 @@ SELECT apply_migration('email-codes', $$
     attempts integer NOT NULL DEFAULT 0
   );
 $$);
+
+SELECT apply_migration('parcel-transfers', $$
+  CREATE TABLE IF NOT EXISTS parcel_transfers (
+    hash text NOT NULL,
+    log_index integer NOT NULL,
+    block integer NOT NULL,
+    parcel_id integer NOT NULL,
+    from_wallet text NOT NULL,
+    to_wallet text NOT NULL,
+    created_at timestamptz NOT NULL,
+    PRIMARY KEY (hash, log_index)
+  );
+  CREATE INDEX IF NOT EXISTS parcel_transfers_block_idx ON parcel_transfers (block DESC, log_index DESC);
+  CREATE INDEX IF NOT EXISTS parcel_transfers_parcel_idx ON parcel_transfers (parcel_id, block DESC);
+$$);

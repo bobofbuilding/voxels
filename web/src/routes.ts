@@ -58,6 +58,7 @@ export const routes: RouteDef[] = [
   { path: '/events/:id/edit', component: 'eventsEdit', server: '/events/*' },
   { path: '/events', component: 'events' },
   { path: '/shop', component: 'shop' },
+  { path: '/activity', component: 'activity' },
   { path: '/womps', component: 'womps' },
   { path: '/propose/islands', component: 'islandsAdmin', server: '/propose/*' },
   { path: '/admin', component: 'admin' },

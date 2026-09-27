@@ -57,6 +57,14 @@ jobs:
 
           exit $(( ra | rb | rc ))
 
+      # smoke test renders, click through from the run summary
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: renders
+          path: test-output/
+          if-no-files-found: ignore
+
       # AGENTS.md: CI must stay under 60s or it may get deleted
       - if: always()
         run: |

@@ -59,7 +59,6 @@ import IslandBoardController from './controllers/island-board'
 import BlogController from './controllers/blog'
 import createGridSocket from './grid/createGridSocket'
 import { searchAndReturn } from './handlers/search'
-import { EthereumListener } from './jobs/ethereum-listener'
 import startJobs from './cronjobs'
 import log from './lib/logger'
 import { createRequestHandlerForQuery, query } from './lib/query-helpers'
@@ -525,6 +524,7 @@ app.get(
 )
 
 app.get('/api/parcels/cached.json', cache('60 seconds', true), createRequestHandlerForQuery(db, 'get-parcels-cached', 'parcels'))
+app.get('/api/activity.json', cache('15 seconds'), createRequestHandlerForQuery(db, 'get-parcel-activity', 'transfers'))
 
 const parcelProxy = proxy('https://www.voxels.com', {
   proxyReqPathResolver: (req) => req.originalUrl,
@@ -622,4 +622,3 @@ const start = () => {
 
 start()
 startJobs()
-EthereumListener()

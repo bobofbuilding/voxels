@@ -13,8 +13,8 @@
 
 (Only *nix environments are supported, PC users install [WSL](https://learn.microsoft.com/en-au/windows/wsl/install))
 
-* Clone repo (`git clone --filter=blob:none` halves it, 225MB to 114MB, by leaving old database dumps on the server)
-* Install postgres@18, node@25 and pnpm@9.15.4 (`corepack enable` picks up the pinned version from `package.json`)
+* Clone repo
+* Install postgres@18, node@24 and pnpm@9.15.4 (eg `brew install postgresql@18 node@24 && npm install -g pnpm`)
 * `createdb voxels && cat db/import.sql.gz | gunzip | psql voxels`
 * `cp .env.example .env` and set `DATABASE_URL=postgres://localhost/voxels` (the example points at the codespace `db` host)
 * `pnpm install`

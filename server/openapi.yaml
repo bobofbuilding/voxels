@@ -139,6 +139,60 @@ paths:
                     items:
                       $ref: '#/components/schemas/ParcelSummary'
 
+  /api/activity.json:
+    get:
+      operationId: listParcelTransfers
+      tags: [parcels]
+      summary: The last 100 parcel transfers on chain
+      description: |
+        Newest first. A mint has `from.owner` set to the zero address. `synced`
+        is only set on the newest transfer of each parcel, and is false when our
+        owner hasn't caught up with the chain yet.
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  transfers:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        hash:
+                          type: string
+                        block:
+                          type: integer
+                        parcel_id:
+                          type: integer
+                        created_at:
+                          type: string
+                          format: date-time
+                        name:
+                          type: [string, 'null']
+                        address:
+                          type: [string, 'null']
+                        from:
+                          type: object
+                          properties:
+                            owner:
+                              type: string
+                            name:
+                              type: [string, 'null']
+                        to:
+                          type: object
+                          properties:
+                            owner:
+                              type: string
+                            name:
+                              type: [string, 'null']
+                        synced:
+                          type: [boolean, 'null']
+
   /api/parcels/cached.json:
     get:
       operationId: listCachedParcels

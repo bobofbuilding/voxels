@@ -1,10 +1,12 @@
 import db from './pg'
 import truncateMetrics from './jobs/truncate-metrics'
+import { syncTransfers } from './jobs/ethereum-listener'
 import { named } from './lib/logger'
 
 const log = named('cron')
 
-const HOUR = 1000 * 60 * 60
+const MINUTE = 1000 * 60
+const HOUR = MINUTE * 60
 const DAY = HOUR * 24
 
 // half-assed cross-worker lock: grab a session advisory lock for the length of
@@ -46,5 +48,6 @@ export default function startJobs() {
   setTimeout(() => {
     schedule(1, DAY, () => truncateMetrics())
     schedule(2, HOUR, () => db.query('embedded/refresh-search', 'REFRESH MATERIALIZED VIEW search_corpus'))
+    schedule(3, MINUTE, () => syncTransfers())
   }, 1000)
 }
