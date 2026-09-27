@@ -285,10 +285,9 @@ export default abstract class Controls implements IControls {
     return pick ?? null
   }
 
-  // Highlight only: isInteract features + voxel-field occlusion. Skips vox/megavox/cube/polytext.
+  // Highlight only: isInteract features (flat planes), no occluders - triangle picking voxel fields per mousemove killed perf
   reticuleHighlightPredicate(mesh: BABYLON.AbstractMesh): boolean {
     if (!mesh.isPickable || !mesh.isVisible || !mesh.isEnabled()) return false
-    if (mesh.name.startsWith('voxel-field/opaque') || mesh.name.startsWith('voxelizer/')) return true
     const f = (mesh as MeshExtended).feature ?? (mesh.parent as MeshExtended | null)?.feature
     return !!f?.isInteract
   }
