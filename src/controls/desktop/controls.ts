@@ -98,6 +98,7 @@ export default class DesktopControls extends Controls {
 
     // sidebar buttons are unclickable while locked - fade them out of the way
     document.body.classList.toggle('walking', locked)
+    document.body.classList.toggle('locked', locked)
 
     this.scene.preventDefaultOnPointerDown = locked
     this.scene.preventDefaultOnPointerUp = locked

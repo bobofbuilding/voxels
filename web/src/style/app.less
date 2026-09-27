@@ -917,7 +917,28 @@ main {
   pointer-events: none;
 }
 
-.page:has(> .page-tool:not(:empty))>.page-route {
+// pointerlock: fade out slow, then visibility:hidden so nothing paints or hit-tests.
+// not display:none - the header is a grid column and the canvas would resize.
+@media @wide {
+  header:has(nav),
+  .page {
+    transition:
+      opacity 80ms,
+      visibility 80ms,
+      transform 200ms ease-out;
+  }
+
+  body.locked header:has(nav),
+  body.locked .page {
+    opacity: 0;
+    visibility: hidden;
+    transition:
+      opacity 300ms,
+      visibility 300ms;
+  }
+}
+
+.page:has(> .page-tool:not(:empty)) > .page-route {
   display: none;
 }
 
