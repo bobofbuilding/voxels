@@ -1,4 +1,4 @@
-import Controls, { CAMERA_DISTANCE } from '../controls'
+import Controls from '../controls'
 import Dpad from './dpad'
 import PlayerCamera from '../utils/player-camera'
 import { decodeCoords } from '../../../common/helpers/utils'
@@ -15,8 +15,6 @@ export default class MobileControls extends Controls {
   // set inside addControls(), which the base constructor calls before subclass field
   // initialisers run - an `= null` here would wipe it. `declare` emits no initialiser.
   declare dpad: Dpad | null
-  btnCameraView: HTMLElement | null = null
-  btnToggleFly: HTMLElement | null = null
   btnDrive: HTMLButtonElement | null = null
 
   constructor(scene: BABYLON.Scene, canvas: HTMLCanvasElement) {
@@ -54,8 +52,6 @@ export default class MobileControls extends Controls {
 
     // by now the UX buttons for the mobile should be in the DOM so we can grab them
     this.scene.onAfterRenderObservable.addOnce(() => {
-      this.btnCameraView = document.querySelector('.mobile-controls-container > .camera-view-button')
-      this.btnToggleFly = document.querySelector('.mobile-controls-container > .fly-button')
       this.btnDrive = document.querySelector('.mobile-controls-container > .drive-button')
       this.refreshMobileDriveChrome()
     })
@@ -72,29 +68,6 @@ export default class MobileControls extends Controls {
     } else {
       this.btnDrive.style.display = 'none'
     }
-  }
-
-  override setFlying(value: boolean) {
-    super.setFlying(value)
-    if (!!this.btnToggleFly) {
-      this.btnToggleFly.innerHTML = this.flying ? 'Walk' : 'Fly'
-    }
-  }
-
-  override enterThirdPerson(startingDistance = CAMERA_DISTANCE) {
-    const entered = super.enterThirdPerson(startingDistance)
-    if (entered && !!this.btnCameraView) {
-      this.btnCameraView.innerHTML = 'Zoom'
-    }
-    return entered
-  }
-
-  override enterFirstPerson() {
-    const entered = super.enterFirstPerson()
-    if (entered && !!this.btnCameraView) {
-      this.btnCameraView.innerHTML = 'Zoom'
-    }
-    return entered
   }
 
   walking() {

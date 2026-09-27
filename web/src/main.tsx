@@ -11,7 +11,6 @@ import { Route, Router, type RouterOnChangeArgs } from 'preact-router'
 
 import EditAccount from '../account/edit'
 import { Login } from './auth/login'
-import Snackbar from './components/snackbar'
 import RadioPage from './components/radio-page'
 import Home from './home'
 import { Client } from './client'
@@ -131,8 +130,6 @@ const Main = () => {
           />
         </div>
       </main>
-
-      <Snackbar />
     </MainApp>
   )
 }

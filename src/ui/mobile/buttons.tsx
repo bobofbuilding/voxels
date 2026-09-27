@@ -6,12 +6,6 @@ export default function MobileButtons({ connector }: { connector: Connector; sce
   return (
     <div class="mobile-buttons">
       <div style={(isTablet() && window.grid?.currentW === 0 && { bottom: '200px' }) as any} className="mobile-controls-container">
-        <button type="button" className="camera-view-button hex-button" onClick={() => connector.controls.togglePerspective()}>
-          Zoom
-        </button>
-        <button type="button" className="fly-button hex-button" onClick={() => connector.controls.toggleFlying()}>
-          Fly
-        </button>
         <button type="button" className="drive-button hex-button" style={{ display: 'none' }} onClick={() => (connector.controls as any).tryEnterVehicle?.()}>
           Drive
         </button>

@@ -101,6 +101,24 @@ const RAW_ICONS = {
     .....
   `,
 
+  // magnifying glass
+  zoom: `
+    ###..
+    #.#..
+    ###..
+    ...#.
+    ....#
+  `,
+
+  // wings
+  fly: `
+    .....
+    #...#
+    ##.##
+    .###.
+    ..#..
+  `,
+
   // stick figure, arm up
   dance: `
     ..#.#

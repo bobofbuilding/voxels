@@ -1174,7 +1174,6 @@ export default class UserInterface extends Component<UserInterfaceProps, UserInt
         {isPageTool(currentPane) && <PageToolPortal>{this.paneContent(currentPane!)}</PageToolPortal>}
         <div class="canvasdom">
           <FirstTimeInstructions />
-          <Snackbar />
 
           {chat && <ChatOverlay />}
 

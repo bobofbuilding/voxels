@@ -15,6 +15,7 @@ import { ChatMessageRecord, messageList } from '../../connector'
 import { isHate } from '../../hate'
 import { matcher } from '../../obscenity'
 import { createEvent, TypedEventTarget } from '../../utils/EventEmitter'
+import { snack } from '../../../web/src/components/snackbar'
 
 /** In-world HUD chat. Guests get a bigger cap and smaller type. */
 export function ChatOverlay() {
@@ -171,11 +172,18 @@ export function ChatPanel({ cap, variant = 'page', class: className, style }: { 
               if (isMobile()) window.scrollTo(0, 0)
             }}
           />
+          <button type="button" class="zoom" title="zoom [C]" onClick={() => window.connector?.controls.togglePerspective()}>
+            <Icon name="zoom" />
+          </button>
+          <button type="button" class="fly" title="press f to fly" onClick={() => window.connector?.controls.toggleFlying()}>
+            <Icon name="fly" />
+          </button>
           {app.signedIn && (
             <button type="button" title="womp [P]" onClick={() => (window as any).ui?.takeWomp((window as any).ui.props.scene)}>
               <Icon name="camera" />
             </button>
           )}
+          {snack.value && <p onClick={snack.value.onClick}>{snack.value.message}</p>}
         </div>
       </div>
     )

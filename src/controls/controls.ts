@@ -471,7 +471,7 @@ export default abstract class Controls implements IControls {
 
   setFlying(value: boolean) {
     this.flying = value
-    console.log('setFlying', value)
+    document.body.classList.toggle('flying', value)
   }
 
   toggleFlying() {
@@ -519,6 +519,7 @@ export default abstract class Controls implements IControls {
     this.targetCameraDistance = startingDistance
     this.persona.firstPersonView = false
     this.firstPersonView = false
+    document.body.classList.add('zoomed')
     return true
   }
 
@@ -530,6 +531,7 @@ export default abstract class Controls implements IControls {
       this.toggleZoom()
     }
     this.firstPersonView = true
+    document.body.classList.remove('zoomed')
     this.camera.orbit = false
     this.camera.autoRotate = false
     this.camera.rotation.x = 0
