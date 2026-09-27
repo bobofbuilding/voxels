@@ -736,6 +736,10 @@ main > button.site-nav-toggle {
 header nav {
   margin: 0;
   padding: 1rem;
+  box-sizing: border-box;
+  min-height: 100%;
+  display: grid;
+  grid-template-rows: auto 1fr;
 
   ul {
     display: flex;
@@ -748,6 +752,10 @@ header nav {
   li {
     list-style: none;
     position: relative;
+
+    &:has(> .header-end) {
+      margin-top: auto;
+    }
   }
 
   .badge {
@@ -788,7 +796,7 @@ header nav {
   }
 
   .voxel-radio {
-    margin: 2rem 0;
+    margin: 1rem 0 0;
     min-width: 0;
     max-width: none;
   }
@@ -2168,6 +2176,8 @@ button.iconish {
   p {
     margin: 0;
     line-height: 1.35;
+    padding-left: calc(16px + 0.25em);
+    text-indent: calc(-16px - 0.25em);
     transition: opacity 1s;
 
     &.faded {
