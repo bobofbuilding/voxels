@@ -4,19 +4,10 @@ import Head from './components/head'
 export default class Conduct extends Component<any, any> {
   render() {
     return (
-      <section>
+      <section class="prose">
         <Head title={`Code of Conduct`} />
-        <h2>Voxels Code of Conduct</h2>
-        <aside>
-          <div>
-            <img src="/images/excellent.webp" width="200" />
-            <p>
-              <em>
-                <strong>TL;DR</strong> Be excellent to each other!
-              </em>
-            </p>
-          </div>
-        </aside>
+        <h1>Code of conduct</h1>
+        <p>Be excellent to each other.</p>
         <section>
           <h3>1. Concerning all Voxels related social services</h3>
           <p>General Voxels-related social services include the Voxels website, Voxels in-world builds &amp; interactions, and third-parties provided services such as the Voxels discord server and the Voxels sub-reddit.</p>

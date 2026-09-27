@@ -129,6 +129,9 @@ input,
 textarea,
 select {
   font: inherit;
+  color: var(--fg);
+  background: var(--hover);
+  border: var(--border);
 }
 
 * {
@@ -416,14 +419,14 @@ select {
 
 header .voxel-radio {
   display: flex;
-  border-radius: 6px;
+  border-radius: 0;
   flex-direction: row;
   align-items: center;
 
   gap: var(--gap);
   padding: var(--gap);
   border: var(--border);
-  border-width: 2px;
+  border-width: 1px;
 
   > :last-child {
     margin-left: auto;
@@ -477,7 +480,7 @@ header .voxel-radio {
     color: var(--muted);
 
     &.active {
-      color: inherit;
+      color: var(--accent);
     }
   }
 }
@@ -529,7 +532,7 @@ header .voxel-radio {
     aspect-ratio: 1;
     overflow: hidden;
     background: var(--hover);
-    border-radius: 5px;
+    border-radius: 0;
 
     img {
       display: block;
@@ -537,7 +540,7 @@ header .voxel-radio {
       height: 100%;
       aspect-ratio: auto;
       object-fit: cover;
-      border-radius: 5px;
+      border-radius: 0;
     }
   }
 
@@ -550,7 +553,7 @@ header .voxel-radio {
 
   small {
     display: block;
-    opacity: 0.6;
+    opacity: 0.85;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -577,7 +580,7 @@ header .voxel-radio {
     display: block;
     width: 100%;
     aspect-ratio: 1;
-    border-radius: 10px;
+    border-radius: 0;
   }
 
   .wearable-icon img,
@@ -641,7 +644,7 @@ button {
   cursor: pointer;
 
   &:hover {
-    background: var(--hover);
+    background: color-mix(in srgb, var(--hover) 80%, var(--fg));
   }
 }
 
@@ -671,8 +674,8 @@ a.buttonish {
   }
 
   &.active {
-    background: var(--accent);
-    color: var(--scroll-track);
+    background: var(--hover);
+    color: var(--accent);
   }
 }
 
@@ -790,10 +793,6 @@ header nav {
     max-width: none;
   }
 
-  li:has(> details > ul.world-actions:empty) {
-    display: none;
-  }
-
   summary {
     cursor: pointer;
     padding: 0.15rem 1rem;
@@ -895,23 +894,20 @@ main {
       box-sizing: border-box;
       overflow-y: auto;
       margin: 0;
-      padding: 1rem;
+      padding: 3rem 1rem 1rem;
       .glass();
     }
 
-    // Sidebar title between chrome
+    // Titles sit below the sidebar controls.
 
     section {
-      margin-top: 3rem;
+      margin-top: 1rem;
 
       & > h1 {
-        position: absolute;
+        position: static;
         font-size: 0.875rem;
         font-weight: 600;
-        top: 1rem;
-        left: 1rem;
-        right: 1rem;
-        text-align: center;
+        text-align: left;
       }
     }
   }
@@ -984,6 +980,7 @@ section.prose {
   max-width: 42rem;
   margin: 0 auto;
   padding: 1rem;
+  overflow-wrap: anywhere;
 }
 
 section.art-doc img {
@@ -1326,6 +1323,7 @@ table {
 
   td {
     vertical-align: top;
+    padding: 0.25rem 0;
   }
 
   .price {
@@ -1336,7 +1334,8 @@ table {
     text-align: left;
     font-size: smaller;
     font-weight: normal;
-    opacity: 0.5;
+    opacity: 1;
+    color: var(--muted);
   }
 
   tr:last-child td {
@@ -1404,7 +1403,7 @@ figcaption {
 
   button[data-active='true'] {
     background: var(--bg);
-    color: var(--fg);
+    color: var(--accent);
   }
 }
 
@@ -1423,7 +1422,7 @@ figcaption {
 
 dl {
   dt {
-    opacity: 0.5;
+    opacity: 1;
     margin: 0;
     padding: 0;
   }
@@ -1580,6 +1579,7 @@ div.f {
     width: 100%;
     font-size: inherit;
     padding: 0.2rem;
+    box-sizing: border-box;
   }
 }
 
@@ -1745,9 +1745,9 @@ section.profile {
 
 .upload-button {
   margin-bottom: 0.5rem;
-  background: #fafaca;
+  background: var(--hover);
   padding: 0.5rem;
-  box-shadow: 2px 2px 1px 1px rgba(0, 0, 0, 0.1);
+  box-shadow: none;
 
   h3 {
     margin-bottom: 1rem;
@@ -1820,7 +1820,7 @@ p.empty {
 
   small {
     display: block;
-    opacity: 0.5;
+    opacity: 1;
   }
 
   form {
@@ -2198,14 +2198,14 @@ button.iconish {
 
   ul {
     margin: 0;
-    padding: 10px;
+    padding: 0;
     list-style: none;
     display: flex;
     flex-direction: column;
 
     li {
       margin: 0;
-      padding: 10px 0;
+      padding: 0.25rem 0;
       cursor: pointer;
       text-align: left;
       width: 100%;
@@ -2260,10 +2260,10 @@ button.iconish {
 .page .AnimateList ul {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.25rem;
 
   li:hover {
-    color: var(--bg);
+    color: var(--accent);
   }
 }
 
@@ -2356,7 +2356,7 @@ dialog.editor {
 
     li.active {
       border-bottom: none;
-      color: var(--fg);
+      color: var(--accent);
     }
   }
 
@@ -2400,11 +2400,11 @@ dialog.editor {
 
   // inspector property list
   dl.props {
-    display: flex;
-    flex-direction: column;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     margin: 0;
     padding: 0;
-    gap: 0.1rem;
+    gap: 0.25rem 1rem;
 
     dt,
     dd {
@@ -2412,7 +2412,7 @@ dialog.editor {
     }
 
     dt {
-      font-size: 0.85em;
+      font-size: inherit;
 
       &:empty {
         padding: 0;
@@ -2422,7 +2422,7 @@ dialog.editor {
 
     dd {
       padding: 0;
-      margin-bottom: 0.5rem;
+      margin: 0;
 
       &.full {
         grid-column: 1 / -1;
@@ -2709,7 +2709,7 @@ dialog.editor {
 
     dt,
     dd {
-      padding: 4px 0;
+      padding: 2px 0;
     }
 
     dd.full {
@@ -2762,7 +2762,7 @@ section.build-tab nav.build-main-tabs {
     cursor: pointer;
 
     &[data-active='true'] {
-      color: var(--fg);
+      color: var(--accent);
     }
   }
 }
@@ -3170,7 +3170,7 @@ section.build-tab nav.build-main-tabs {
       padding: 0;
 
       &.selected > a {
-        color: unset;
+        color: var(--accent);
         font-weight: bold;
         text-decoration: none;
       }
@@ -3521,14 +3521,6 @@ form.PermissionsRadioSelector > div {
     display: block;
   }
 
-  pre {
-    font-family: monospace;
-    user-select: text;
-    padding: 5px;
-    max-height: 70vh;
-    overflow-y: auto;
-  }
-
   .feature-inspector-container {
     padding: 10px;
     user-select: text;
@@ -3549,6 +3541,17 @@ form.PermissionsRadioSelector > div {
       margin: 10px 0;
     }
   }
+}
+
+.overlay.inspect-feature pre,
+section.prose pre {
+  font-family: monospace;
+  user-select: text;
+  padding: 5px;
+  max-height: 70vh;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 /* Explorer: users online + nearby players + search */
@@ -3689,7 +3692,7 @@ div.mobile-buttons {
 /* Overlay windows (admin / nft / take-womp etc) */
 dialog {
   border: none;
-  border-radius: 1rem;
+  border-radius: 0;
   box-shadow: 0.5rem 0.5rem 1rem rgba(0, 0, 0, 0.3);
   display: block;
   position: absolute;
@@ -3702,8 +3705,8 @@ dialog {
   max-height: 90vh;
   transform: translate(-50%, -50%);
   overflow: auto;
-  border: 1rem solid white;
-  padding: 0;
+  border: var(--border);
+  padding: 1rem;
   z-index: 12000;
 
   h1,
@@ -4336,8 +4339,8 @@ main:has(.worldmap) {
   > .page {
     grid-column: 2;
     padding: 0;
-    overflow: hidden;
-    background: transparent;
+    overflow: auto;
+    background: var(--bg);
 
     .sidebar-chrome {
       margin: 0;
@@ -4362,7 +4365,7 @@ main:has(.worldmap) {
 }
 
 .worldmap {
-  height: 100%;
+  height: 60vh;
   position: relative;
 }
 
@@ -4415,22 +4418,6 @@ main:has(.worldmap) {
 
 .wearable-icon img {
   border-radius: 0.5rem;
-}
-
-.fullscreen-button {
-  position: absolute;
-  top: 1rem;
-  right: 1rem;
-  padding: 0 1rem;
-  line-height: 2rem;
-  z-index: 1000;
-
-  border-radius: 1rem;
-
-  &:hover {
-    background-color: var(--red);
-    cursor: pointer;
-  }
 }
 
 .nft-grid {
@@ -4568,12 +4555,26 @@ main:has(.worldmap) {
 
 // Aside bottom bar
 
+.selected,
+.active,
+.-selected,
+.-active,
+[aria-current='page'],
+[aria-selected='true'],
+[data-active='true'] {
+  color: var(--accent);
+  font-weight: 700;
+
+  a {
+    color: inherit;
+    font-weight: inherit;
+  }
+}
+
 section {
   aside {
-    position: absolute;
-    bottom: 1rem;
-    left: 1rem;
-    right: 1rem;
+    position: static;
+    margin-top: 1rem;
   }
 
   aside > .buttonish {

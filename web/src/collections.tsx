@@ -59,7 +59,9 @@ export default function ListCollections({ path }: { path?: string }) {
         </table>
 
         <p>
-          <a href="/collections/new">New collection</a>
+          <a class="buttonish" href="/collections/new">
+            New collection
+          </a>
         </p>
       </article>
     </section>

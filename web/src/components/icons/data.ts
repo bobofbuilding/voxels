@@ -146,6 +146,15 @@ const RAW_ICONS = {
     ###..
   `,
 
+  // four corners
+  fullscreen: `
+    ##.##
+    #...#
+    .....
+    #...#
+    ##.##
+  `,
+
   // speech bubble with tail
   chat: `
     #####

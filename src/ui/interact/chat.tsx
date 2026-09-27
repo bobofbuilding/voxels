@@ -236,6 +236,9 @@ export function ChatPanel({ cap, variant = 'page', class: className, style }: { 
               <Icon name="camera" />
             </button>
           )}
+          <button type="button" title="fullscreen" onClick={() => window.engine?.enterFullscreen(true)}>
+            <Icon name="fullscreen" />
+          </button>
           {snack.value && <p onClick={snack.value.onClick}>{snack.value.message}</p>}
         </div>
       </div>

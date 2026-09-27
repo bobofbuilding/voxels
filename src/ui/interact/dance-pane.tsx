@@ -48,8 +48,7 @@ export class DancePane extends Component<any, any> {
         <div class="AnimateList">
           <ul>
             {dances.map((a) => (
-              <li key={a.name} class={animationMatches(this.state.animation, a.animation) ? '-active' : ''} tabIndex={0} onClick={() => this.playAnimation(a.animation)}>
-                {animationMatches(this.state.animation, a.animation) && '⭐️'}
+              <li key={a.name} class={animationMatches(this.state.animation, a.animation) ? 'selected' : ''} tabIndex={0} onClick={() => this.playAnimation(a.animation)}>
                 {a.name}
               </li>
             ))}

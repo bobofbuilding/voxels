@@ -25,7 +25,7 @@ function rows(r: VoxelRadioEngine | null) {
     return (
       <li key={`${it.at}-${it.label}`} onClick={it.spot && !parcelId ? () => r?.previewSpot(it.spot!) : undefined}>
         {live && <span>now</span>}
-        <span>{clock(it.at)}</span>
+        <span>{clock(it.at)} </span>
         {name}
       </li>
     )
@@ -42,10 +42,10 @@ export default function RadioPage() {
   const pct = Math.round((sec() / DAY) * 100)
 
   return (
-    <div>
+    <section>
       <h1>Radio</h1>
       <p>
-        <span>{onAir ? 'Radio / on air' : 'Radio'}</span>
+        <span>{onAir ? 'On air: ' : 'Playing: '}</span>
         <span>{text}</span>
       </p>
 
@@ -63,9 +63,7 @@ export default function RadioPage() {
         <span style={{ display: 'block', height: '100%', width: `${pct}%`, background: 'var(--bright)' }} />
       </div>
 
-      <small>
-        {clock(sec())} utc / day {pct}%
-      </small>
+      <small>{clock(sec())} UTC</small>
       <Knob
         label="track"
         min={0}
@@ -92,6 +90,6 @@ export default function RadioPage() {
       <h3>playlist</h3>
 
       <ul>{rows(r)}</ul>
-    </div>
+    </section>
   )
 }

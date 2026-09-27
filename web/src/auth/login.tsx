@@ -244,8 +244,8 @@ export const Login = ({ reason, hideHeading }: { reason?: string; hideHeading?: 
 
       <form onSubmit={onContinue}>
         <div class="f">
-          <label>email</label>
-          <input type="email" value={email} onInput={(e) => setEmail(e.currentTarget.value)} autocomplete="email" autocapitalize="none" autoFocus />
+          <label htmlFor="login-email">email</label>
+          <input id="login-email" type="email" value={email} onInput={(e) => setEmail(e.currentTarget.value)} autocomplete="email" autocapitalize="none" autoFocus />
         </div>
         {error && <p>{error}</p>}
         <button type="submit" disabled={busy || !email.trim()}>
@@ -254,9 +254,8 @@ export const Login = ({ reason, hideHeading }: { reason?: string; hideHeading?: 
       </form>
 
       <br />
-      <br />
 
-      <h3>or use your crypto wallet</h3>
+      <h3>or connect a wallet</h3>
       <button type="button" onClick={onMetamask} disabled={busy}>
         <img src={'/images/metamask.png'} width={30} height={30} title={'Metamask'} alt="" />
         &nbsp;{busy ? 'connecting...' : 'Metamask'}

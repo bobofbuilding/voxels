@@ -224,15 +224,13 @@ export default class WebHeader extends Component<Props, State> {
             </ul>
             <ul>
               {signedIn ? <A to="/logout">Log out</A> : <A to="/account">Login</A>}
-              <F name="In world">
-                <ul class="world-actions" ref={worldNavRef} />
-              </F>
               <F name="Building">
                 <ul>
                   <A to="/build">Build</A>
                   {signedIn && <A to="/costumer">Costume</A>}
                   <A to="/golive">Go live</A>
                 </ul>
+                <ul class="world-actions" ref={worldNavRef} />
               </F>
               <F name="Exploring">
                 <ul>

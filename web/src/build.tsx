@@ -4,7 +4,6 @@ import Head from './components/head'
 import { loadingBox } from './components/loading-icon'
 import cachedFetch from './helpers/cached-fetch'
 import { naviportHere } from './helpers/coords-nav'
-import SandboxesAside from './sandboxes'
 
 type SandboxRow = Partial<ConstructorParameters<typeof ParcelHelper>[0]> & { id: number; name?: string; address?: string }
 
@@ -46,7 +45,6 @@ export default class BuildPage extends Component<{}, State> {
         <Head title="Build" description="Learn voxels in a sandbox, then get a parcel in the shop." url="/build" />
         {loading && loadingBox()}
         {error && <p>{error}</p>}
-        {!loading && !error && <SandboxesAside />}
       </section>
     )
   }

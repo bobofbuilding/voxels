@@ -87,17 +87,14 @@ export default class Islands extends Component<Props, State> {
     return (
       <section>
         <Head title={`Islands`} />
-
-        <p>
-          Minted Islands | <a href="/propose/islands">Propose new islands</a>
-        </p>
+        <h1>Islands</h1>
 
         <article role={'group'}>
-          <label htmlFor="select">View order </label>
+          <label htmlFor="select">Sort </label>
           <select
             id="select"
             name="select"
-            aria-label="Select"
+            aria-label="Sort islands"
             onChange={(e) => {
               this.setState({ view: e.currentTarget.value as 'new' | 'old' })
             }}

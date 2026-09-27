@@ -876,11 +876,6 @@ export default class UserInterface extends Component<UserInterfaceProps, UserInt
     }
   }
 
-  enterFullscreen = (e: Event) => {
-    e.preventDefault()
-    window.engine.enterFullscreen(true)
-  }
-
   showNotificationBanner(message: string, duration = 5000, onClick?: () => void) {
     // ideally we would use a dedicated noitification banner component, but for now we'll use the snackbar
     return Snackbar.show(message, PanelType.Info, duration, onClick)
@@ -921,18 +916,6 @@ export default class UserInterface extends Component<UserInterfaceProps, UserInt
     return (
       <>
         <WorldNavPortal>
-          <li>
-            <a
-              href="#"
-              title="Fullscreen"
-              onClick={(e) => {
-                this.enterFullscreen(e)
-                dismissSiteNav()
-              }}
-            >
-              Fullscreen
-            </a>
-          </li>
           <li>
             <Link
               activeClassName="active"

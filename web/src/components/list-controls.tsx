@@ -62,7 +62,7 @@ export function useListControls(initialQuery = '', opts: ListControlsOptions = {
           setSubmitCount((n) => n + 1)
         }}
       >
-        <input type="search" value={query} onInput={(e: any) => setQuery(e.target.value)} placeholder="Search" />
+        <input type="search" value={query} onInput={(e: any) => setQuery(e.target.value)} placeholder="Search" aria-label="Search this list" />
       </form>
     </div>
   )
