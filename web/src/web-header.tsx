@@ -195,19 +195,17 @@ export default class WebHeader extends Component<Props, State> {
     return (
       <>
         <SiteNavToggle />
-        <header>
+        <header class="menu">
           <nav>
             <ul>
-              <li class="logo">
-                <a href="/">
-                  <CubeIcon name="c" />
-                </a>
-              </li>
               <li>
                 <form action="/search" onSubmit={this.onSubmit}>
                   <input name="q" value={this.state.query} type="search" onInput={this.onInput} placeholder="Search" />
                 </form>
                 <br />
+              </li>
+              <li>
+                <a href="/">Home</a>
               </li>
             </ul>
             <ul class="world-actions" ref={worldNavRef} />

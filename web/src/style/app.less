@@ -676,9 +676,8 @@ a.buttonish {
 }
 
 // Site nav is a sticky left column in the main grid
-header:has(nav) {
-  position: sticky;
-  top: 0;
+header.menu {
+  margin: 1rem;
   z-index: 100;
   height: 100vh;
   overflow-y: auto;
@@ -690,7 +689,7 @@ header:has(nav) {
 
 // phone: left nav is a closed hamburger overlay (desktop keeps the column)
 @media @narrow {
-  header:has(nav) {
+  header.menu {
     position: fixed;
     top: 0;
     left: 0;
@@ -897,7 +896,7 @@ main {
 // pointerlock: fade out slow, then visibility:hidden so nothing paints or hit-tests.
 // not display:none - the header is a grid column and the canvas would resize.
 @media @wide {
-  header:has(nav),
+  header.menu,
   .page {
     transition:
       opacity 80ms,
@@ -905,7 +904,7 @@ main {
       transform 200ms ease-out;
   }
 
-  body.locked header:has(nav),
+  body.locked header.menu,
   body.locked .page {
     opacity: 0;
     visibility: hidden;
@@ -1272,20 +1271,6 @@ body.gateway {
   height: 100%;
 }
 
-// We fullscreen <body> (not the canvas) so the in-world UI overlay stays visible.
-body:fullscreen .client,
-body:-webkit-full-screen .client,
-body:fullscreen .canvasdom,
-body:-webkit-full-screen .canvasdom,
-body:fullscreen .client-placeholder,
-body:-webkit-full-screen .client-placeholder {
-  position: fixed;
-  inset: 0;
-  width: 100vw;
-  height: 100vh;
-  z-index: 1;
-}
-
 dialog.first-time {
   position: absolute;
   inset: 0;
@@ -1310,18 +1295,11 @@ table {
     vertical-align: top;
   }
 
-  th,
-  td {
-    border-bottom: var(--border);
-  }
-
   .price {
     text-align: right;
   }
 
   th {
-    border-top: var(--softborder);
-    border-bottom: var(--softborder);
     text-align: left;
     font-size: smaller;
     font-weight: normal;
@@ -4404,101 +4382,6 @@ main:has(.worldmap) {
 
 .wearable-icon img {
   border-radius: 0.5rem;
-}
-
-.sandbox-guide {
-  position: fixed;
-  left: 12rem;
-  bottom: 7rem;
-  z-index: 600;
-  max-width: 14rem;
-  padding: 0.75rem 1rem;
-  color: var(--fg);
-
-  .sandbox-guide-head {
-    display: flex;
-    justify-content: space-between;
-    align-items: baseline;
-    margin-bottom: 0.5rem;
-    gap: 1rem;
-  }
-
-  ul {
-    margin: 0;
-    padding: 0;
-    list-style: none;
-  }
-
-  li {
-    margin: 0.25rem 0;
-
-    &.done,
-    &.skipped {
-      opacity: 0.45;
-    }
-  }
-
-  .mark {
-    display: inline-block;
-    width: 1.75rem;
-    font-family: monospace;
-  }
-
-  .hint {
-    margin: 0.25rem 0 0.25rem 1.75rem;
-    opacity: 0.7;
-  }
-
-  button.linkish {
-    margin-left: 1.75rem;
-    background: none;
-    border: none;
-    color: var(--fg);
-    opacity: 0.7;
-    cursor: pointer;
-    padding: 0;
-    text-decoration: underline;
-
-    &:hover {
-      opacity: 1;
-    }
-  }
-
-  &.sandbox-guide-mini {
-    left: 50%;
-    transform: translateX(-50%);
-    max-width: none;
-    display: flex;
-    gap: 1rem;
-    align-items: center;
-    padding: 0.5rem 1rem;
-
-    button.linkish {
-      margin-left: 0;
-      color: var(--fg);
-    }
-  }
-}
-
-.sandbox-guide-restart {
-  position: fixed;
-  left: 12rem;
-  bottom: 7rem;
-  z-index: 600;
-  padding: 0.5rem 0.75rem;
-  color: var(--fg);
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-
-  button {
-    background: none;
-    border: none;
-    color: var(--fg);
-    cursor: pointer;
-    padding: 0;
-    text-decoration: underline;
-  }
 }
 
 .fullscreen-button {
