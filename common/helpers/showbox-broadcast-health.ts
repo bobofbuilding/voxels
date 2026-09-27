@@ -1,6 +1,7 @@
 import { decodeJwt } from 'jose'
 import type { Room } from 'livekit-client'
 
+export const LIVEKIT_URL = 'https://voxels-7pvk06qt.livekit.cloud'
 export const BROADCAST_RECONNECT_MAX = 5
 export const BROADCAST_DISCONNECT_STRIKES = 2
 export const BROADCAST_CAMERA_STRIKES = 3

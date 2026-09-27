@@ -43,6 +43,7 @@ export default class Audio extends Feature2D<AudioRecord> implements AudioFeatur
   playProgress: BABYLON.GUI.Slider | null = null
   hasBeenGeneratedAtLeastOnce = false // First generate has been called? Feature has loaded but it having a mesh is not guaranteed
   autoStopTimeout: NodeJS.Timeout | null = null
+  src: string | undefined
   asset: ProxyAssetOpensea | null = null
 
   // fixme
@@ -137,6 +138,7 @@ export default class Audio extends Feature2D<AudioRecord> implements AudioFeatur
     if (!url) {
       return
     }
+    this.src = url
 
     this.setStatusLoading()
 
@@ -212,7 +214,7 @@ export default class Audio extends Feature2D<AudioRecord> implements AudioFeatur
   }
 
   onPlaying(offset: number) {
-    duckRadio(this, this.radioTitle())
+    duckRadio(this, this.src)
 
     if (this.interval) {
       clearInterval(this.interval)
@@ -255,7 +257,7 @@ export default class Audio extends Feature2D<AudioRecord> implements AudioFeatur
 
     if (this.sound) {
       // pause the soundtrack while audio is active
-      duckRadio(this, this.radioTitle())
+      duckRadio(this, this.src)
       this.playFrom(this.targetPlayOffset || 0, this.autoplay)
     } else {
       this.updatePlayStatus('Loading...')
@@ -402,19 +404,6 @@ export default class Audio extends Feature2D<AudioRecord> implements AudioFeatur
       return (await this.getAssetMp3()) || undefined
     } else if (this.url) {
       return this.url
-    }
-  }
-
-  radioTitle() {
-    const u = this.url
-    if (!u) return 'audio'
-    try {
-      const base = decodeURIComponent((u.split('?')[0].split('/').pop() || '').replace(/\.[^.]+$/, ''))
-        .replace(/[-_]+/g, ' ')
-        .trim()
-      return base || 'audio'
-    } catch {
-      return 'audio'
     }
   }
 

@@ -21,6 +21,11 @@ export default function VoxelRadio() {
         {showPlay ? '\u25B6' : '\u23F8'}
       </button>
       <a href="/radio">{text}</a>
+      {(r?.pinned || r?.duckSrc) && (
+        <button type="button" onClick={() => (r.pinned ? r.unpin() : r.pin())} title={r.pinned ? 'back to voxels radio' : 'keep playing this when you walk away'}>
+          {r.pinned ? 'unpin' : 'pin'}
+        </button>
+      )}
       {r && (
         <Knob
           small

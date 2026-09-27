@@ -12,6 +12,7 @@ import {
   BROADCAST_RECONNECT_MAX,
   broadcastVideoTrackLive,
   fetchShowboxRoomToken,
+  LIVEKIT_URL,
   livekitRoomState,
   publishedVideoTrack,
   saveShowboxPublisherIdentity,
@@ -100,7 +101,6 @@ function celebrateMoves(n: number, uuid: string) {
   return { anims: [] as Animations[], gapMs: 0 }
 }
 
-const LIVEKIT_URL = 'https://voxels-7pvk06qt.livekit.cloud'
 const mobile = isMobile()
 const LANDSCAPE_MESH_W = 640
 const LANDSCAPE_MESH_H = 360
@@ -1309,7 +1309,7 @@ export default class Showbox extends Feature2D<ShowboxRecord> {
         el.style.display = 'none'
         document.body.appendChild(el)
         this.trackStreamAudio(el, p.identity)
-        duckRadio(this)
+        this.duckLive()
       }
     }
     this.startBroadcastAudio()
@@ -2984,7 +2984,7 @@ export default class Showbox extends Feature2D<ShowboxRecord> {
         el.style.display = 'none'
         document.body.appendChild(el)
         this.trackStreamAudio(el, identity)
-        duckRadio(this)
+        this.duckLive()
         this.startBroadcastAudio()
         return
       }
@@ -3060,7 +3060,7 @@ export default class Showbox extends Feature2D<ShowboxRecord> {
 
     room.on(RoomEvent.AudioPlaybackStatusChanged, (playing) => {
       if (playing) {
-        duckRadio(this)
+        this.duckLive()
       } else {
         this.armGestureUnblock()
       }
@@ -3128,10 +3128,15 @@ export default class Showbox extends Feature2D<ShowboxRecord> {
     }
   }
 
+  // audience audio, pinnable from the header radio
+  duckLive() {
+    duckRadio(this, `livekit:${this.roomName()}`, this.parcel.name || this.parcel.address || 'live show')
+  }
+
   startBroadcastAudio() {
     if (!this.livekitRoom || !wantsAudio()) return
     this.livekitRoom.startAudio().catch(() => {})
-    duckRadio(this)
+    this.duckLive()
   }
 
   unblockAudiencePlayback() {
