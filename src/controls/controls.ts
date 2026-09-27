@@ -154,6 +154,8 @@ export default abstract class Controls implements IControls {
   private cameraZoomed = false
   // parcels under our feet still waiting on colliders. [] = waiting on the worker, null = floor is solid
   private floorWait: number[] | null = []
+  /** seconds left on the F lift */
+  private lift = 0
   private floorRetry = 0
 
   constructor(
@@ -214,6 +216,13 @@ export default abstract class Controls implements IControls {
       if (this.floorWait?.length && this.floorWait.every((id) => this.grid?.getByID(id)?.physicsRegistered)) this.floorWait = null
       this.body.flying = this.flying
       this.body.gravity = !this.flying && !this.floorWait
+      // F lift: 1m over 0.5s, ease-out, straight through blocks so it unsticks you
+      if (this.lift > 0) {
+        const t0 = 1 - this.lift / 0.5
+        this.lift = Math.max(0, this.lift - dt)
+        const t1 = 1 - this.lift / 0.5
+        this.body.position.y += t1 * (2 - t1) - t0 * (2 - t0)
+      }
       // XR moves this same body from the tracked headset pose in XROverlay.tick.
       if (!(this.scene.activeCamera instanceof BABYLON.WebXRCamera)) this.body.step(this.move, dt)
       this.move.setAll(0)
@@ -474,7 +483,12 @@ export default abstract class Controls implements IControls {
   }
 
   toggleFlying() {
-    this.setFlying(!this.flying)
+    // spawn floor hold looks like flying, so F from a hover drops you
+    this.setFlying(!this.flying && !this.floorWait)
+    // F always wins: drop the floor hold so gravity kicks in the same frame
+    this.floorWait = null
+    this.body.resetMotion()
+    this.lift = this.flying ? 0.5 : 0
   }
 
   // called on spawn and teleport: hold gravity until the parcels here have colliders
@@ -484,10 +498,12 @@ export default abstract class Controls implements IControls {
       this.floorWait = null
       return
     }
-    this.floorWait = []
+    const wait: number[] = []
+    this.floorWait = wait
     const p = this.body.position
     this.grid.queryParcelsAtPosition(new BABYLON.Vector3(p.x, p.y, p.z)).then((ids) => {
-      if (ids.length) this.floorWait = ids
+      // F may have dropped the hold while we waited
+      if (ids.length && this.floorWait === wait) this.floorWait = ids
     })
   }
 

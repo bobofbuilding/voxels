@@ -175,7 +175,15 @@ export function ChatPanel({ cap, variant = 'page', class: className, style }: { 
           <button type="button" class="zoom" title="zoom [C]" onClick={() => window.connector?.controls.togglePerspective()}>
             <Icon name="zoom" />
           </button>
-          <button type="button" class="fly" title="press f to fly" onClick={() => window.connector?.controls.toggleFlying()}>
+          <button
+            type="button"
+            class="fly"
+            title="press f to fly"
+            onClick={(e) => {
+              e.currentTarget.blur() // a focused BUTTON makes the keyboard handler eat F
+              window.connector?.controls.toggleFlying()
+            }}
+          >
             <Icon name="fly" />
           </button>
           {app.signedIn && (
