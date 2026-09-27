@@ -7,6 +7,7 @@ import { FOV } from '../graphic/field-of-view'
 import { type GraphicEngine, GraphicLevels, GraphicSettings } from '../graphic/graphic-engine'
 import type { MinimapSettings } from '../minimap'
 import { chatSettings } from './interact/chat'
+import { ghostSettings } from '../ghosts'
 import { voiceSettings } from '../voice-settings'
 import { DEFAULT_SENSITIVITY, MAX_SENSITIVITY, MIN_SENSITIVITY } from '../controls/user-control-settings'
 import { getTheme, setTheme } from '../../common/helpers/theme'
@@ -349,6 +350,18 @@ export class SettingsUI extends Component<Props, State> {
             <dt>Show chat</dt>
             <dd>
               <input type="checkbox" onChange={(e) => this.onToggleChat(e.target as HTMLInputElement)} checked={chatSettings.enabled} />
+            </dd>
+
+            <dt>Show ghosts</dt>
+            <dd>
+              <input
+                type="checkbox"
+                onChange={(e) => {
+                  ghostSettings.enabled = (e.target as HTMLInputElement).checked
+                  this.forceUpdate()
+                }}
+                checked={ghostSettings.enabled}
+              />
             </dd>
 
             <dt>Dark mode</dt>

@@ -105,6 +105,26 @@ function applyGhostLook(avatar: Avatar, ghostId: string) {
 
 const playing = new Map<string, { avatar: Avatar; disposeAt: number }>()
 
+// playback is opt-in; recording/posting paths still happens regardless
+// (fetchAt isn't advanced while disabled, so enabling fetches on the next frame)
+export const ghostSettings = {
+  get enabled() {
+    try {
+      return localStorage.getItem('showGhosts') === 'true'
+    } catch {
+      return false
+    }
+  },
+  set enabled(value: boolean) {
+    try {
+      localStorage.setItem('showGhosts', value ? 'true' : 'false')
+    } catch {}
+    if (!value) {
+      for (const id of [...playing.keys()]) disposeGhost(id)
+    }
+  },
+}
+
 export function disposeGhost(id: string) {
   const g = playing.get(id)
   if (!g) return
@@ -286,7 +306,7 @@ export function startGhosts(scene: BABYLON.Scene, grid: Grid, controls: Controls
   }
 
   const playGhost = async (row: GhostRow) => {
-    if (playing.size >= MAX_GHOSTS) return
+    if (!ghostSettings.enabled || playing.size >= MAX_GHOSTS) return
     const path = unpackPath(row.path)
     if (!path) return
     const n = path.length / STRIDE
@@ -300,7 +320,7 @@ export function startGhosts(scene: BABYLON.Scene, grid: Grid, controls: Controls
     } catch {
       return
     }
-    if (playing.size >= MAX_GHOSTS) {
+    if (!ghostSettings.enabled || playing.size >= MAX_GHOSTS) {
       avatar.disposeLocal()
       return
     }
@@ -373,7 +393,7 @@ export function startGhosts(scene: BABYLON.Scene, grid: Grid, controls: Controls
       if (now >= g.disposeAt) disposeGhost(id)
     }
 
-    if (now >= fetchAt) {
+    if (now >= fetchAt && ghostSettings.enabled) {
       fetchAt = now + 30000 + Math.random() * 60000
       const parcel = grid.currentParcel()?.id
       if (parcel != null && (playing.size < MAX_GHOSTS || parcel !== lastFetchParcel)) {
