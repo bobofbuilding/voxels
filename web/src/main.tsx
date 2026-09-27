@@ -123,7 +123,12 @@ const Main = () => {
               <AccountRoutes path="/account/:path*" />
             </Router>
           </div>
-          <div class="page-tool" ref={(el) => { if (pageToolEl.value !== el) pageToolEl.value = el }} />
+          <div
+            class="page-tool"
+            ref={(el) => {
+              if (pageToolEl.value !== el) pageToolEl.value = el
+            }}
+          />
         </div>
       </main>
 

@@ -378,6 +378,7 @@ export default class Parcel extends Component<Props, State> {
 
     return (
       <section class="parcel-page">
+        <Head title={parcelName} description={parcelDesc} url={`/parcels/${this.state.parcelId}`} imageURL={ogImage} />
         <h1>{this.state.parcel?.address}</h1>
         <h2>{parcelName}</h2>
 

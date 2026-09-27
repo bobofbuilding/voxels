@@ -1008,12 +1008,26 @@ export default class UserInterface extends Component<UserInterfaceProps, UserInt
             </a>
           </li>
           <li>
-            <Link activeClassName="active" href="/settings" onClick={() => { dismissSiteNav(); exitPointerLock() }}>
+            <Link
+              activeClassName="active"
+              href="/settings"
+              onClick={() => {
+                dismissSiteNav()
+                exitPointerLock()
+              }}
+            >
               Settings
             </Link>
           </li>
           <li>
-            <Link activeClassName="active" href="/avatar" onClick={() => { dismissSiteNav(); exitPointerLock() }}>
+            <Link
+              activeClassName="active"
+              href="/avatar"
+              onClick={() => {
+                dismissSiteNav()
+                exitPointerLock()
+              }}
+            >
               Avatar
             </Link>
           </li>
@@ -1046,17 +1060,38 @@ export default class UserInterface extends Component<UserInterfaceProps, UserInt
             </>
           )}
           <li>
-            <Link activeClassName="active" href="/dance" onClick={() => { dismissSiteNav(); exitPointerLock() }}>
+            <Link
+              activeClassName="active"
+              href="/dance"
+              onClick={() => {
+                dismissSiteNav()
+                exitPointerLock()
+              }}
+            >
               Dance
             </Link>
           </li>
           <li>
-            <Link activeClassName="active" href="/emote" onClick={() => { dismissSiteNav(); exitPointerLock() }}>
+            <Link
+              activeClassName="active"
+              href="/emote"
+              onClick={() => {
+                dismissSiteNav()
+                exitPointerLock()
+              }}
+            >
               Emote
             </Link>
           </li>
           <li>
-            <Link activeClassName="active" href="/yeet" onClick={() => { dismissSiteNav(); exitPointerLock() }}>
+            <Link
+              activeClassName="active"
+              href="/yeet"
+              onClick={() => {
+                dismissSiteNav()
+                exitPointerLock()
+              }}
+            >
               Yeet
             </Link>
           </li>
