@@ -3,7 +3,7 @@ import { Link } from 'preact-router/match'
 import { effect } from '@preact/signals'
 import { ssrFriendlyDocument } from '../../common/helpers/utils'
 import { PanelType } from './components/panel'
-import { app, AppEvent } from './state'
+import { app, AppEvent, navOpen, toggleFolder } from './state'
 import { CubeIcon } from './components/icons/icons'
 import VoxelRadio from './components/voxel-radio'
 import { route } from 'preact-router'
@@ -190,6 +190,20 @@ export default class WebHeader extends Component<Props, State> {
         </Link>
       </li>
     )
+    const F = ({ name, children }: { name: string; children: any }) => (
+      <li>
+        {/* set open via ref, ssr hydration won't patch the attribute */}
+        <details
+          ref={(el) => {
+            if (el) el.open = !!navOpen.value[name]
+          }}
+          onToggle={(e) => toggleFolder(name, e.currentTarget.open)}
+        >
+          <summary>{name}</summary>
+          {children}
+        </details>
+      </li>
+    )
     const badge = (n: number) => (n > 0 ? <span class="badge">{n}</span> : null)
 
     return (
@@ -208,74 +222,92 @@ export default class WebHeader extends Component<Props, State> {
                 <a href="/">Home</a>
               </li>
             </ul>
-            <ul class="world-actions" ref={worldNavRef} />
             <ul>
-              <A to="/">Home</A>
-              {admin && <A to="/admin">Admin</A>}
-              <A to="/account">{signedIn ? 'Profile' : 'Login'}</A>
-              {others.length > 0 && (
-                <li class="identities">
-                  <small>you are {current}</small>
-                  {others.map((id) => (
-                    <a key={id.wallet} href="" onClick={(e) => this.onSwitch(e, id.wallet)}>
-                      switch to {identityLabel(id)}
+              {signedIn ? <A to="/logout">Log out</A> : <A to="/account">Login</A>}
+              <F name="In world">
+                <ul class="world-actions" ref={worldNavRef} />
+              </F>
+              <F name="Building">
+                <ul>
+                  <A to="/build">Build</A>
+                  {signedIn && <A to="/costumer">Costume</A>}
+                  <A to="/golive">Go live</A>
+                </ul>
+              </F>
+              <F name="Exploring">
+                <ul>
+                  <A to="/art">Art</A>
+                  <A to="/assets">Assets</A>
+                  <A to="/blog">
+                    Blog
+                    {badge(blogN)}
+                  </A>
+                  <A to="/chat">
+                    Chat
+                    {badge(chatN)}
+                  </A>
+                  <A to="/collections">Collections</A>
+                  <A to="/events">
+                    Events
+                    {badge(eventsN)}
+                  </A>
+                  <A to="/islands">Islands</A>
+                  <A to="/map">Map</A>
+                  <A to="/parcels">Parcels</A>
+                  <A to="/radio">Radio</A>
+                  <A to="/shop">
+                    Shop
+                    {badge(shopN)}
+                  </A>
+                  <A to="/womps">Womps</A>
+                </ul>
+              </F>
+              <F name="Settings">
+                <ul>
+                  <A to="/settings">Settings</A>
+                  {signedIn && <A to="/account">Profile</A>}
+                  {others.length > 0 && (
+                    <li class="identities">
+                      <small>you are {current}</small>
+                      {others.map((id) => (
+                        <a key={id.wallet} href="" onClick={(e) => this.onSwitch(e, id.wallet)}>
+                          switch to {identityLabel(id)}
+                        </a>
+                      ))}
+                    </li>
+                  )}
+                  {admin && <A to="/admin">Admin</A>}
+                </ul>
+              </F>
+              <F name="Help">
+                <ul>
+                  <A to="/api">API</A>
+                  <A to="/behaviours">Behaviours</A>
+                  <A to="/conduct">Conduct</A>
+                  <A to="/privacy">Privacy</A>
+                  <A to="/terms">Terms</A>
+                </ul>
+              </F>
+
+              <F name="About">
+                <ul>
+                  <li>
+                    <a href="https://discord.gg/3RSCZGr3fr" target="_blank" rel="noopener">
+                      Discord
                     </a>
-                  ))}
-                </li>
-              )}
-              <A to="/api">API</A>
-              <A to="/art">Art</A>
-              <A to="/assets">Assets</A>
-              <A to="/behaviours">Behaviours</A>
-              <A to="/blog">
-                Blog
-                {badge(blogN)}
-              </A>
-              <A to="/chat">
-                Chat
-                {badge(chatN)}
-              </A>
-              <A to="/collections">Collections</A>
-              <A to="/conduct">Conduct</A>
-              {signedIn && <A to="/costumer">Costume</A>}
-              <A to="/events">
-                Events
-                {badge(eventsN)}
-              </A>
-              <A to="/golive">Go live</A>
-              <A to="/islands">Islands</A>
-              {signedIn && <A to="/logout">Log out</A>}
-              <A to="/map">Map</A>
-              <A to="/parcels">Parcels</A>
-              <A to="/privacy">Privacy</A>
-              <A to="/radio">Radio</A>
-              <A to="/shop">
-                Shop
-                {badge(shopN)}
-              </A>
-              <A to="/terms">Terms</A>
-              <A to="/womps">Womps</A>
-
-              <li>
-                <br />
-                <br />
-              </li>
-
-              <li>
-                <a href="https://discord.gg/3RSCZGr3fr" target="_blank" rel="noopener">
-                  &rarr; Discord
-                </a>
-              </li>
-              <li>
-                <a href="https://github.com/cryptovoxels/retro" target="_blank" rel="noopener">
-                  &rarr; Github
-                </a>
-              </li>
-              <li>
-                <a href="https://www.x.com/cryptovoxels" target="_blank" rel="noopener">
-                  &rarr; Twitter
-                </a>
-              </li>
+                  </li>
+                  <li>
+                    <a href="https://github.com/cryptovoxels/retro" target="_blank" rel="noopener">
+                      Github
+                    </a>
+                  </li>
+                  <li>
+                    <a href="https://www.x.com/cryptovoxels" target="_blank" rel="noopener">
+                      Twitter
+                    </a>
+                  </li>
+                </ul>
+              </F>
 
               <li>
                 <div class="header-end">

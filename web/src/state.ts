@@ -382,6 +382,21 @@ export class Appstate extends State {
 
 export const app = new Appstate()
 
+// which sidebar folders are open, persisted like the other local settings
+export const navOpen = signal<Record<string, boolean>>({ Exploring: true })
+try {
+  const v = localStorage.getItem('navOpen')
+  if (v) navOpen.value = JSON.parse(v)
+} catch {}
+
+export function toggleFolder(name: string, open: boolean) {
+  if (!!navOpen.value[name] === open) return
+  navOpen.value = { ...navOpen.value, [name]: open }
+  try {
+    localStorage.setItem('navOpen', JSON.stringify(navOpen.value))
+  } catch {}
+}
+
 // For debugging
 if (typeof window !== 'undefined') {
   window.app = app

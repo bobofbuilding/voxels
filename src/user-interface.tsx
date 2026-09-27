@@ -941,18 +941,6 @@ export default class UserInterface extends Component<UserInterfaceProps, UserInt
           <li>
             <Link
               activeClassName="active"
-              href="/settings"
-              onClick={() => {
-                dismissSiteNav()
-                exitPointerLock()
-              }}
-            >
-              Settings
-            </Link>
-          </li>
-          <li>
-            <Link
-              activeClassName="active"
               href="/avatar"
               onClick={() => {
                 dismissSiteNav()

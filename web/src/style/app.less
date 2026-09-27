@@ -783,12 +783,38 @@ header nav {
     max-width: none;
   }
 
-  ul.world-actions:empty {
+  li:has(> details > ul.world-actions:empty) {
     display: none;
   }
 
-  ul.world-actions:not(:empty) {
-    margin-bottom: 0.75rem;
+  summary {
+    cursor: pointer;
+    padding: 0 1rem;
+    list-style: none;
+  }
+
+  summary::-webkit-details-marker {
+    display: none;
+  }
+
+  // chevron drawn from two borders, points right when closed, down when open
+  summary::before {
+    content: '';
+    display: inline-block;
+    width: 0.35em;
+    height: 0.35em;
+    margin: 0 0.5em 0.15em 0;
+    border-right: 1.5px solid currentColor;
+    border-bottom: 1.5px solid currentColor;
+    transform: rotate(-45deg);
+  }
+
+  details[open] > summary::before {
+    transform: rotate(45deg);
+  }
+
+  details > ul {
+    padding-left: 1rem;
   }
 
   li.disabled > a {
