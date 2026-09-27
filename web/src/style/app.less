@@ -689,6 +689,10 @@ header.menu {
   transition: opacity 0.5s;
 
   .glass();
+
+  a[data-match] {
+    color: var(--accent);
+  }
 }
 
 // phone: left nav is a closed hamburger overlay (desktop keeps the column)
@@ -2133,6 +2137,11 @@ button.iconish {
   form,
   .chat-messages {
     pointer-events: auto;
+  }
+
+  &:has(.interact-popout) .chat-messages {
+    visibility: hidden;
+    pointer-events: none;
   }
 
   .chat-messages {
@@ -4499,7 +4508,9 @@ main:has(.worldmap) {
 }
 
 .interact-bar {
+  position: relative;
   .glass();
+  backdrop-filter: none;
   border-radius: 999px;
   display: flex;
   flex-wrap: wrap;
@@ -4513,6 +4524,15 @@ main:has(.worldmap) {
     cursor: pointer;
     display: flex;
     padding: 0.5rem;
+
+    &[aria-expanded='true'] {
+      color: var(--accent);
+    }
+
+    &.disabled {
+      opacity: 0.5;
+      cursor: default;
+    }
   }
 
   form {
@@ -4539,6 +4559,90 @@ main:has(.worldmap) {
     border: none;
     outline: none;
     color: inherit;
+  }
+}
+
+.interact-popout {
+  position: absolute;
+  bottom: calc(100% + 0.75rem);
+  left: 0;
+  width: min(18rem, calc(100vw - 2rem));
+  box-sizing: border-box;
+  background: color-mix(in srgb, var(--bg) 85%, transparent);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  color: var(--fg);
+  border: var(--border);
+  box-shadow: 0 0.5rem 1.5rem color-mix(in srgb, var(--scroll-track) 60%, transparent);
+  z-index: 1;
+
+  &::after {
+    content: '';
+    position: absolute;
+    bottom: -0.35rem;
+    left: 1.5rem;
+    width: 0.6rem;
+    height: 0.6rem;
+    background: var(--bg);
+    border-right: var(--border);
+    border-bottom: var(--border);
+    transform: rotate(45deg);
+  }
+
+  &[data-pane='emote']::after {
+    left: 4.25rem;
+  }
+
+  section {
+    margin: 0;
+    padding: 0.75rem;
+    max-height: min(24rem, calc(100dvh - 7rem));
+    overflow-y: auto;
+  }
+
+  h2 {
+    margin: 0 1.5rem 0.5rem;
+    font-size: inherit;
+    text-align: center;
+  }
+
+  button.popout-close {
+    position: absolute;
+    right: 0.25rem;
+    top: 0.15rem;
+    color: var(--muted);
+  }
+
+  .AnimateList {
+    margin: 0;
+
+    ul {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+    }
+
+    li {
+      box-sizing: border-box;
+      padding: 0.25rem 0.5rem;
+    }
+  }
+
+  .EmoteList ul {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    padding: 0;
+
+    li {
+      width: auto;
+      padding: 0.25rem;
+      font-size: 1.25rem;
+    }
+  }
+
+  li:hover,
+  li:focus-visible {
+    background: var(--hover);
+    outline: none;
   }
 }
 
