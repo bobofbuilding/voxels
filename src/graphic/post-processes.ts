@@ -1,6 +1,5 @@
 import { GraphicLevels, type GraphicEngine } from './graphic-engine'
 import type { ColorGrader } from './color-grading'
-import { isLoaded, markLoaded } from '../utils/loading-done'
 import { wantsGateway } from '../../common/helpers/detector'
 
 export class PostProcesses {

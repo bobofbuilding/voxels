@@ -47,7 +47,7 @@ export default function startJobs() {
   // let boot settle before we start hitting pg
   setTimeout(() => {
     schedule(1, DAY, () => truncateMetrics())
-    schedule(2, HOUR, () => db.query('embedded/refresh-search', 'REFRESH MATERIALIZED VIEW search_corpus'))
+    schedule(2, HOUR, () => db.query('embedded/refresh-search', 'SET LOCAL statement_timeout = 0; REFRESH MATERIALIZED VIEW search_corpus'))
     schedule(3, MINUTE, () => syncTransfers())
   }, 1000)
 }
