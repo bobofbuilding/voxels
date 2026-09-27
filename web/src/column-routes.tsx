@@ -2,7 +2,6 @@ import { useEffect, useState } from 'preact/hooks'
 import { AvatarTab } from '../../src/ui/avatar-tab'
 import { DancePane } from '../../src/ui/interact/dance-pane'
 import { EmotePane } from '../../src/ui/interact/emote-pane'
-import { YeetPane } from '../../src/ui/interact/yeet-pane'
 import { SettingsUI } from '../../src/ui/settings'
 
 function useWorldReady() {
@@ -30,11 +29,6 @@ export function DancePage(_props: { path?: string }) {
 export function EmotePage(_props: { path?: string }) {
   if (!useWorldReady()) return null
   return <EmotePane />
-}
-
-export function YeetPage(_props: { path?: string }) {
-  if (!useWorldReady()) return null
-  return <YeetPane />
 }
 
 export function AvatarPage(_props: { path?: string }) {

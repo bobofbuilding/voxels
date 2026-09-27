@@ -4,7 +4,7 @@ import { bakeLightmap } from './monoworker/lightmap'
 import { loadVox } from './monoworker/vox'
 import { requestInstanceIdentification, requestFeatureSorting } from './monoworker/pump'
 import { gridWorker } from './monoworker/grid'
-import { voxelCollider, wearVoxels } from './monoworker/physics'
+import { voxelCollider } from './monoworker/physics'
 import { meshDrafts } from './monoworker/drafts'
 
 installAbort()
@@ -18,7 +18,6 @@ const api = {
   requestInstanceIdentification,
   requestFeatureSorting,
   voxelCollider,
-  wearVoxels,
   init: gridWorker.init.bind(gridWorker),
   cameraUpdate: gridWorker.cameraUpdate.bind(gridWorker),
   queryParcelsAtPosition: gridWorker.queryParcelsAtPosition.bind(gridWorker),

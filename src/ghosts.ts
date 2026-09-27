@@ -135,31 +135,6 @@ export function disposeGhost(id: string) {
   playing.delete(id)
 }
 
-function segmentSphere(from: BABYLON.Vector3, to: BABYLON.Vector3, center: BABYLON.Vector3, radius: number): BABYLON.Vector3 | null {
-  const d = to.clone().subtract(from)
-  const f = from.clone().subtract(center)
-  const a = BABYLON.Vector3.Dot(d, d)
-  if (a < 1e-8) return null
-  const b = 2 * BABYLON.Vector3.Dot(f, d)
-  const c = BABYLON.Vector3.Dot(f, f) - radius * radius
-  let disc = b * b - 4 * a * c
-  if (disc < 0) return null
-  disc = Math.sqrt(disc)
-  const t = (-b - disc) / (2 * a)
-  if (t < 0 || t > 1) return null
-  return from.add(d.scale(t))
-}
-
-export function ghostSegmentHit(from: BABYLON.Vector3, to: BABYLON.Vector3): { ghostId: string; point: BABYLON.Vector3 } | null {
-  for (const [id, g] of playing) {
-    const collider = (g.avatar as any).collider as BABYLON.Mesh | undefined
-    if (!collider) continue
-    const hit = segmentSphere(from, to, collider.getAbsolutePosition(), 0.9)
-    if (hit) return { ghostId: id, point: hit }
-  }
-  return null
-}
-
 export function startGhosts(scene: BABYLON.Scene, grid: Grid, controls: Controls, connector: Connector) {
   if (window.config.isBot) return
 

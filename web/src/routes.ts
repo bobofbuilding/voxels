@@ -37,7 +37,6 @@ export const routes: RouteDef[] = [
   { path: '/build', component: 'build' },
   { path: '/dance', component: 'dance' },
   { path: '/emote', component: 'emote' },
-  { path: '/yeet', component: 'yeet' },
   { path: '/settings', component: 'settings' },
   { path: '/islands', component: 'islands' },
   { path: '/islands/:slug', component: 'island', server: '/islands/:id' },

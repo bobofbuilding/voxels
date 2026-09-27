@@ -17,7 +17,6 @@ import { Transform } from './utils/transform'
 import { signal } from '@preact/signals'
 import { decodeCoords } from '../common/helpers/utils'
 import { danceBySlug } from './ui/interact/dances'
-import { disposeAvatarPhysics, disposeYeetsForUuid, onRemoteNerf, onRemoteYeet, onRemoteYeetState } from './yeetable'
 
 const UPDATE_AVATAR_INTERVAL_MS = 200
 
@@ -490,34 +489,6 @@ export default class Connector extends TypedEventTarget<{ avatar_joined: string 
     this.lazyAvatarDisposer.cancelDisposal(message.uuid)
 
     this.disposeAvatar(message.uuid)
-    disposeYeetsForUuid(message.uuid)
-  }
-
-  sendYeet(payload: { id: string; wid: string; position: [number, number, number]; orientation: [number, number, number, number] }) {
-    if (this.connectionState.status !== 'connected') return
-    this.send({
-      type: MessageType.yeet,
-      uuid: Connector.clientUUID,
-      ...payload,
-    })
-  }
-
-  sendYeetState(objects: any[]) {
-    if (this.connectionState.status !== 'connected') return
-    this.send({
-      type: MessageType.yeetState,
-      uuid: Connector.clientUUID,
-      objects,
-    })
-  }
-
-  sendNerf(payload: { yeetId: string; kind: messages.NerfMessage['kind']; target?: string; position: [number, number, number] }) {
-    if (this.connectionState.status !== 'connected') return
-    this.send({
-      type: MessageType.nerf,
-      uuid: Connector.clientUUID,
-      ...payload,
-    })
   }
 
   onWorldState(message: messages.WorldStateMessage) {
@@ -740,15 +711,6 @@ export default class Connector extends TypedEventTarget<{ avatar_joined: string 
         break
       case messages.MessageType.behaviourSignal:
         this.onBehaviourSignal(msg)
-        break
-      case messages.MessageType.yeet:
-        onRemoteYeet(msg)
-        break
-      case messages.MessageType.yeetState:
-        onRemoteYeetState(msg)
-        break
-      case messages.MessageType.nerf:
-        onRemoteNerf(msg)
         break
       case messages.MessageType.loginComplete:
       case messages.MessageType.point:
@@ -1062,7 +1024,6 @@ export default class Connector extends TypedEventTarget<{ avatar_joined: string 
     const avatar = this._avatarsByUuid.get(uuid)
     if (avatar) {
       this._avatarsByUuid.delete(uuid)
-      disposeAvatarPhysics(uuid)
       avatar.disposeLocalAndRemote()
     }
   }

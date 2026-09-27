@@ -64,7 +64,6 @@ import { ChatOverlay, chatSettings } from './ui/interact/chat'
 import { voiceSettings } from './voice-settings'
 import { DancePane } from './ui/interact/dance-pane'
 import { EmotePane } from './ui/interact/emote-pane'
-import { YeetPane } from './ui/interact/yeet-pane'
 import { HelpOverlay } from './ui/interact/help'
 import { FirstTimeInstructions } from '../web/src/components/first-time-instructions'
 import { BroadcastSidebarTab } from '../web/src/broadcast-sidebar-tab'
@@ -108,7 +107,6 @@ function PageToolPortal({ children }: { children: ComponentChildren }) {
 const ROUTE_PANES: Partial<Record<UIPanes, string>> = {
   dance: '/dance',
   emote: '/emote',
-  yeet: '/yeet',
   settings: '/settings',
   avatar: '/avatar',
 }
@@ -138,7 +136,7 @@ export enum Mode {
   Avatar,
 }
 
-export type UIPanes = 'add' | 'edit' | 'voxels' | 'debugTool' | 'nfts' | 'dance' | 'emote' | 'yeet' | 'settings' | 'avatar' | 'womp' | 'takeWomp' | 'help' | 'login' | 'parcelSnapshots' | 'broadcast'
+export type UIPanes = 'add' | 'edit' | 'voxels' | 'debugTool' | 'nfts' | 'dance' | 'emote' | 'settings' | 'avatar' | 'womp' | 'takeWomp' | 'help' | 'login' | 'parcelSnapshots' | 'broadcast'
 
 export interface Tool {
   activate: () => void
@@ -521,7 +519,6 @@ export default class UserInterface extends Component<UserInterfaceProps, UserInt
         { code: 'KeyB', handleEvent: () => this.toggleVoxelTool() },
         { code: 'KeyG', handleEvent: () => this.setPane('dance') },
         { code: 'KeyT', handleEvent: () => this.setPane('emote') },
-        { code: 'KeyY', handleEvent: () => this.setPane('yeet') },
         { code: 'KeyZ', handleEvent: () => this.connector.controls.toggleZoom() },
         { code: 'Enter', handleEvent: this.focusChat },
         { code: 'Escape', handleEvent: () => this.onEscape() },
@@ -859,8 +856,6 @@ export default class UserInterface extends Component<UserInterfaceProps, UserInt
         return <DancePane />
       case 'emote':
         return <EmotePane />
-      case 'yeet':
-        return <YeetPane />
       case 'settings':
         return <SettingsUI scene={this.props.scene} minimapSettings={this.props.minimapSettings} />
       case 'avatar':
@@ -1000,18 +995,6 @@ export default class UserInterface extends Component<UserInterfaceProps, UserInt
               }}
             >
               Emote
-            </Link>
-          </li>
-          <li>
-            <Link
-              activeClassName="active"
-              href="/yeet"
-              onClick={() => {
-                dismissSiteNav()
-                exitPointerLock()
-              }}
-            >
-              Yeet
             </Link>
           </li>
           <li>
