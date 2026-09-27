@@ -755,12 +755,18 @@ header nav {
   li > a {
     display: block;
     padding: 0.15rem 1rem;
+    color: var(--fg);
+    font-weight: 400;
   }
 
   a.active {
-    font-weight: 600;
+    font-weight: 700;
     text-decoration: none;
-    color: var(--fg);
+    color: var(--accent);
+  }
+
+  details:has(a.active) > summary {
+    color: var(--accent);
   }
 
   li.identities {
@@ -1164,7 +1170,7 @@ div.map {
 
   .chat-who {
     font-weight: bold;
-    color: var(--red);
+    color: inherit;
     text-decoration: none;
   }
 
@@ -2136,7 +2142,7 @@ button.iconish {
 
     .chat-who {
       font-weight: bold;
-      color: var(--red);
+      color: inherit;
       text-shadow: none;
     }
 
