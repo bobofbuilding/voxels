@@ -306,25 +306,24 @@ paths:
                     items:
                       type: object
 
-  /api/parcels/search.json:
+  /api/parcels/search:
     get:
       operationId: searchParcels
       tags: [parcels]
       summary: Search minted, non-common parcels
       description: |
-        `q` matches address, island, parcel name, owner wallet or owner avatar
-        name. A bare wallet or a bare integer take their own code paths. Each row
-        carries `pagination_count`, the total the filter matched.
+        `q` is a prefix match on parcel name or address. A bare wallet matches
+        the owner exactly instead. No total count, a full page means there may
+        be another.
       parameters:
         - name: q
           in: query
-          required: true
-          description: Missing `q` is a 400.
+          description: Empty matches everything.
           schema:
             type: string
         - name: limit
           in: query
-          description: Capped at 50.
+          description: Capped at 50, defaults to 50.
           schema:
             type: integer
         - name: page
@@ -334,14 +333,14 @@ paths:
             type: integer
         - name: sort
           in: query
-          description: Anything else falls back to `id` descending.
+          description: Anything else falls back to `id`.
           schema:
             type: string
             enum: [id, name, height, island, distance]
             default: id
         - name: asc
           in: query
-          description: The string `true` flips the order.
+          description: The string `true` sorts ascending, otherwise descending.
           schema:
             type: string
       responses:
@@ -357,15 +356,20 @@ paths:
                   parcels:
                     type: array
                     items:
-                      allOf:
-                        - $ref: '#/components/schemas/ParcelSummary'
-                        - type: object
-                          properties:
-                            pagination_count:
-                              type: [integer, string]
-                              description: Total rows the filter matched, before limit.
-        '400':
-          $ref: '#/components/responses/Failure'
+                      type: object
+                      properties:
+                        id: { type: integer }
+                        name: { type: [string, 'null'] }
+                        address: { type: [string, 'null'] }
+                        island: { type: [string, 'null'] }
+                        kind: { type: [string, 'null'] }
+                        x1: { type: integer }
+                        x2: { type: integer }
+                        y1: { type: integer }
+                        y2: { type: integer }
+                        z1: { type: integer }
+                        z2: { type: integer }
+                        height: { type: integer }
 
   /api/parcels/favorites.json:
     get:

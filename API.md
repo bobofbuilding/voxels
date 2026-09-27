@@ -35,7 +35,7 @@ Generated from `server/openapi.yaml` by `npm run docs:api`. Edit the spec, not t
 - [`GET /api/parcels/summary.json`](#get-apiparcelssummaryjson) id, address, island and name for every visible parcel
 - [`GET /api/parcels/xyz.json`](#get-apiparcelsxyzjson) Bounds and geometry only, for every parcel
 - [`GET /api/parcels/map.json`](#get-apiparcelsmapjson) The map layer's parcel list
-- [`GET /api/parcels/search.json`](#get-apiparcelssearchjson) Search minted, non-common parcels
+- [`GET /api/parcels/search`](#get-apiparcelssearch) Search minted, non-common parcels
 - [`GET /api/parcels/favorites.json`](#get-apiparcelsfavoritesjson) Parcels somebody has favorited
 - [`GET /api/parcels/{id}.json`](#get-apiparcelsidjson) One parcel with its build
 - [`GET /api/parcels/{id}.vox`](#get-apiparcelsidvox) The parcel's build as a MagicaVoxel file
@@ -150,28 +150,37 @@ The map layer's parcel list
   - `success` boolean
   - `parcels` array of object
 
-### GET /api/parcels/search.json
+### GET /api/parcels/search
 
 Search minted, non-common parcels
 
-`q` matches address, island, parcel name, owner wallet or owner avatar name. A bare wallet or a bare integer take their own code paths. Each row carries `pagination_count`, the total the filter matched.
+`q` is a prefix match on parcel name or address. A bare wallet matches the owner exactly instead. No total count, a full page means there may be another.
 
 **parameters**
 
-- `q` (query, required) string: Missing `q` is a 400.
-- `limit` (query) integer: Capped at 50.
+- `q` (query) string: Empty matches everything.
+- `limit` (query) integer: Capped at 50, defaults to 50.
 - `page` (query) integer: Zero-based, multiplied by `limit` for the offset.
-- `sort` (query) string, one of `id`, `name`, `height`, `island`, `distance`, defaults to `id`: Anything else falls back to `id` descending.
-- `asc` (query) string: The string `true` flips the order.
+- `sort` (query) string, one of `id`, `name`, `height`, `island`, `distance`, defaults to `id`: Anything else falls back to `id`.
+- `asc` (query) string: The string `true` sorts ascending, otherwise descending.
 
 **answers**
 
 - `200` object
   - `success` boolean
-  - `parcels` array of [`ParcelSummary`](#parcelsummary) plus object
-    - everything in [`ParcelSummary`](#parcelsummary)
-    - `pagination_count` integer or string: Total rows the filter matched, before limit.
-- `400` The lookup did not land. Some handlers send this with status 200.
+  - `parcels` array of object
+    - `id` integer
+    - `name` string or null
+    - `address` string or null
+    - `island` string or null
+    - `kind` string or null
+    - `x1` integer
+    - `x2` integer
+    - `y1` integer
+    - `y2` integer
+    - `z1` integer
+    - `z2` integer
+    - `height` integer
 
 ### GET /api/parcels/favorites.json
 

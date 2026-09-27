@@ -9,7 +9,6 @@ import cachedFetch from './helpers/cached-fetch'
 import { useLiveSearch } from './helpers/live-search'
 import parse from './helpers/parse'
 import { Spinner } from './spinner'
-import { parcelCache } from './store/index'
 import { ParcelTile } from './tiles/parcel-tile'
 import { fetchOptions } from './utils'
 
@@ -100,12 +99,11 @@ export default function Parcels(props: Props) {
       })
       const ac = new AbortController()
       signal.addEventListener('abort', () => ac.abort())
-      const r = await cachedFetch(`/api/parcels/search.json?${searchParams}`, fetchOptions(ac))
+      const r = await cachedFetch(`/api/parcels/search?${searchParams}`, fetchOptions(ac))
       const body = await r.json()
       const next = (body.parcels || []) as SimpleParcelRecord[]
-      const total = next.length > 0 ? (next[0] as any).pagination_count : 0
-      next.forEach((p) => parcelCache.put(`/parcels/${p.id}`, p))
-      return { items: next, meta: total as number }
+      // no count on the server, a full page means there's probably a next one
+      return { items: next, meta: (page - 1) * limit + next.length + (next.length === limit ? 1 : 0) }
     },
     path: owner ? null : '/parcels',
     initial: props.parcels,
