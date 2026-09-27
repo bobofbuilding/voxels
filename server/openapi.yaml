@@ -965,6 +965,43 @@ paths:
                     wallet:
                       type: string
 
+  /api/avatars/refs.json:
+    get:
+      operationId: getAvatarRefs
+      tags: [avatars]
+      summary: Look up a batch of avatars by wallet or name
+      description: |
+        Chat uses this to turn every sender into an avatar in one hit.
+        Exact match, case insensitive, 200 keys at most. Unknown keys are
+        left out of the result.
+      parameters:
+        - name: q
+          in: query
+          description: comma separated wallets and/or names
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  avatars:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: integer
+                        name:
+                          type: [string, 'null']
+                        owner:
+                          type: string
+                        created_at:
+                          type: string
+
   /api/avatars/{wallet}/assets:
     get:
       operationId: getAvatarAssets

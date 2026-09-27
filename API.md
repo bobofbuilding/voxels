@@ -14,7 +14,7 @@ Generated from `server/openapi.yaml` by `npm run docs:api`. Edit the spec, not t
 
 - [parcels](#parcels), 21 routes
 - [womps](#womps), 6 routes
-- [avatars](#avatars), 13 routes
+- [avatars](#avatars), 14 routes
 - [collectibles](#collectibles), 3 routes
 - [collections](#collections), 9 routes
 - [wearables](#wearables), 8 routes
@@ -510,6 +510,7 @@ Matches `womps.author` exactly, so the wallet has to be cased the way it was sto
 - [`GET /api/avatars/{wallet}.json`](#get-apiavatarswalletjson) One citizen by wallet
 - [`GET /api/avatars/by/{nameOrWallet}.json`](#get-apiavatarsbynameorwalletjson) One citizen by name or wallet
 - [`GET /api/avatars/search`](#get-apiavatarssearch) Name or wallet substring match, ten at most
+- [`GET /api/avatars/refs.json`](#get-apiavatarsrefsjson) Look up a batch of avatars by wallet or name
 - [`GET /api/avatars/{wallet}/assets`](#get-apiavatarswalletassets) Wearables this wallet can wear or authored
 - [`GET /api/avatars/{wallet}/wearables`](#get-apiavatarswalletwearables) The collectibles in this citizen's current costume
 - [`GET /api/avatars/{wallet}/costume.json`](#get-apiavatarswalletcostumejson) The costume this citizen is wearing
@@ -568,6 +569,25 @@ The odd one out: it answers with a bare array, no envelope, and an empty `q` giv
 - `200` array of object
   - `name` string or null
   - `wallet` string
+
+### GET /api/avatars/refs.json
+
+Look up a batch of avatars by wallet or name
+
+Chat uses this to turn every sender into an avatar in one hit. Exact match, case insensitive, 200 keys at most. Unknown keys are left out of the result.
+
+**parameters**
+
+- `q` (query) string: comma separated wallets and/or names
+
+**answers**
+
+- `200` object
+  - `avatars` array of object
+    - `id` integer
+    - `name` string or null
+    - `owner` string
+    - `created_at` string
 
 ### GET /api/avatars/{wallet}/assets
 

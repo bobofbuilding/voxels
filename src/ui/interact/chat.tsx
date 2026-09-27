@@ -1,4 +1,5 @@
-import { effect } from '@preact/signals'
+import { effect, signal } from '@preact/signals'
+import makeBlockie from 'ethereum-blockies-base64'
 import { Fragment, JSX } from 'preact'
 import { useEffect, useRef, useState } from 'preact/hooks'
 import { route } from 'preact-router'
@@ -7,7 +8,7 @@ import { isMobile } from '../../../common/helpers/detector'
 import { exitPointerLock } from '../../../common/helpers/ui-helpers'
 import Icon from '../../../web/src/components/icons/icons'
 import { resetMobileViewportLayout } from '../../controls/mobile/controls'
-import { avatarName, avatarSlug } from '../../../common/messages/avatar-ref'
+import { avatarName, avatarSlug, avatarWallet, type AvatarRef, type AvatarRefObj } from '../../../common/messages/avatar-ref'
 import { sendChat } from '../../../web/src/shard-chat'
 import { truncate } from '../../../web/src/lib/string-utils'
 import { app } from '../../../web/src/state'
@@ -44,8 +45,49 @@ async function nerfChat(id: string) {
   messageList.value = list
 }
 
+// string senders (wallet or name) resolved to full avatars. null = pending or unknown
+const refCache = new Map<string, AvatarRefObj | null>()
+const refsRev = signal(0)
+const blockies = new Map<string, string>()
+
+function fetchRefs(list: readonly ChatMessageRecord[]) {
+  const keys = new Set<string>()
+  for (const m of list) {
+    const k = typeof m.avatarRef === 'string' ? m.avatarRef.toLowerCase() : ''
+    if (k && k !== 'anon' && !refCache.has(k)) keys.add(k)
+  }
+  if (!keys.size) return
+  for (const k of keys) refCache.set(k, null)
+  fetch(`/api/avatars/refs.json?q=${encodeURIComponent([...keys].join(','))}`)
+    .then((r) => r.json())
+    .then((d) => {
+      for (const a of d.avatars ?? []) {
+        refCache.set(a.owner.toLowerCase(), a)
+        if (a.name) refCache.set(a.name.toLowerCase(), a)
+      }
+      refsRev.value++
+    })
+    .catch(() => {})
+}
+
+function blockie(wallet: string) {
+  const k = wallet.toLowerCase()
+  let b = blockies.get(k)
+  if (!b) blockies.set(k, (b = makeBlockie(k)))
+  return b
+}
+
 function ChatWho({ m }: { m: ChatMessageRecord }) {
-  const ref = m.avatarRef
+  let ref: AvatarRef | undefined = m.avatarRef
+  if (typeof ref === 'string') ref = refCache.get(ref.toLowerCase()) || ref
+  const wallet = avatarWallet(ref)
+  if (wallet.startsWith('0x')) {
+    return (
+      <a class="chat-who" href={`/u/${avatarSlug(ref)}`} title={avatarName(ref)}>
+        <img width={16} height={16} src={blockie(wallet)} />
+      </a>
+    )
+  }
   if (ref && ref !== 'anon') {
     const name = avatarName(ref)
     if (name && name !== 'anon' && name !== '...') {
@@ -64,15 +106,17 @@ function ChatWho({ m }: { m: ChatMessageRecord }) {
       </a>
     )
   }
-  return <span class="chat-who chat-anon">anon</span>
+  return (
+    <span class="chat-who chat-anon" title="anon">
+      <img width={16} height={16} src="/images/no-image.png" />
+    </span>
+  )
 }
 
 function ChatLineBody({ m }: { m: ChatMessageRecord }) {
   return (
     <>
-      <ChatWho m={m} />
-      {': '}
-      <ChatText text={m.text} moderated={m.moderated} />
+      <ChatWho m={m} /> <ChatText text={m.text} moderated={m.moderated} />
       {app.isAdmin() && m.id && !m.moderated && (
         <button type="button" class="chat-x" onClick={() => nerfChat(m.id!)}>
           x
@@ -97,7 +141,8 @@ export function ChatPanel({ cap, variant = 'page', class: className, style }: { 
 
   useEffect(() => {
     return effect(() => {
-      messageList.value
+      refsRev.value
+      fetchRefs(messageList.value)
       bump((n) => n + 1)
     })
   }, [])
@@ -217,9 +262,7 @@ export function ChatPanel({ cap, variant = 'page', class: className, style }: { 
                     x
                   </button>
                 )}
-                <ChatWho m={m} />
-                {': '}
-                <ChatText text={m.text} moderated={m.moderated} />
+                <ChatWho m={m} /> <ChatText text={m.text} moderated={m.moderated} />
               </div>
             </Fragment>
           )

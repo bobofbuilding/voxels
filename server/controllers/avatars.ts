@@ -455,4 +455,24 @@ export default function AvatarsController(db: Db, passport: PassportStatic, app:
     const result = await db.query('avatars/search', `select name, owner as wallet from avatars where lower(name) ilike lower($1) or lower(owner) ilike lower($1) limit 10`, [like])
     res.json(result.rows)
   })
+
+  // chat resolves every sender (wallet or name) in one hit
+  app.get('/api/avatars/refs.json', cache('30 seconds'), async (req, res) => {
+    const keys = String(req.query.q || '')
+      .toLowerCase()
+      .split(',')
+      .filter(Boolean)
+      .slice(0, 200)
+    if (!keys.length) {
+      res.json({ avatars: [] })
+      return
+    }
+    try {
+      const result = await db.query('avatars/refs', `select id, name, owner, created_at from avatars where lower(owner) = any($1) or lower(name) = any($1)`, [keys])
+      res.json({ avatars: result.rows })
+    } catch (e) {
+      console.error(e)
+      res.json({ avatars: [] })
+    }
+  })
 }

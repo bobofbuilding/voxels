@@ -254,7 +254,6 @@ export default class WebHeader extends Component<Props, State> {
                   <A to="/islands">Islands</A>
                   <A to="/map">Map</A>
                   <A to="/parcels">Parcels</A>
-                  <A to="/radio">Radio</A>
                   <A to="/shop">
                     Shop
                     {badge(shopN)}
