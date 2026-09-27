@@ -148,45 +148,6 @@ export default class Grid extends SocketClient {
 
     this.scene.onBeforeRenderObservable.add(this.occlusionTick)
 
-    // todo: temp flicker probe for the parcel-load flicker - delete when fixed.
-    // usage: localStorage.flickerWatch = 4650 (survives reload) then reload and stand outside.
-    let probeState = ''
-    let probeMesh: BABYLON.Mesh | null = null
-    let probeArmed = false
-    let probeFrames = 0
-    this.scene.onAfterRenderObservable.add(() => {
-      let id: any = (window as any).flickerWatch ?? localStorage.getItem('flickerWatch')
-      if (!id) return
-      if (!probeArmed) {
-        probeArmed = true
-        console.warn(`[flicker] probe armed, watching parcel ${id}`)
-      }
-      const p = this.parcels.get(Number(id)) ?? this.parcels.get(id)
-      if (++probeFrames % 300 === 0) console.warn(`[flicker] heartbeat: ${probeState || 'no state yet'}`)
-      const vm = p?.voxelMesh
-      if ((vm ?? null) !== probeMesh) {
-        console.warn(`[flicker] voxelMesh ${vm ? (probeMesh ? 'rebuilt' : 'created') : 'gone'}`)
-        probeMesh = vm ?? null
-      }
-      let state = 'no-parcel'
-      if (p) {
-        const cam = this.scene.activeCamera
-        const root = (p as any)._featureRoot as BABYLON.TransformNode | null
-        const bits = [`act:${p.activationStatus}`]
-        if (!vm || vm.isDisposed()) bits.push('vm:none')
-        else {
-          bits.push(`enabled:${vm.isEnabled()}`, `ready:${vm.isReady(true)}`, `active:${this.scene.getActiveMeshes().indexOf(vm) > -1}`)
-          if (cam && vm.getLOD(cam) !== vm) bits.push('lod-culled')
-        }
-        bits.push(`features:${root && !root.isDisposed() ? (root.isEnabled() ? 'shown' : 'hidden') : 'none'}`)
-        state = bits.join(' ')
-      }
-      if (state !== probeState) {
-        console.warn(`[flicker] ${state}`)
-        probeState = state
-      }
-    })
-
     if (this.seeksConnection) {
       this.listenToLeaveWorld()
 
