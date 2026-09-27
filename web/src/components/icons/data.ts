@@ -92,6 +92,33 @@ const RAW_ICONS = {
     .#.#.
   `,
 
+  // camera body + lens
+  camera: `
+    .#...
+    #####
+    #.#.#
+    #####
+    .....
+  `,
+
+  // stick figure, arm up
+  dance: `
+    ..#.#
+    .###.
+    #.#..
+    .#.#.
+    #...#
+  `,
+
+  // smiley
+  emote: `
+    #####
+    #.#.#
+    #####
+    #...#
+    .###.
+  `,
+
   // arrow pointing right out of a doorway
   logout: `
     ###..

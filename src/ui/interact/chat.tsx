@@ -1,8 +1,11 @@
 import { effect } from '@preact/signals'
 import { Fragment, JSX } from 'preact'
 import { useEffect, useRef, useState } from 'preact/hooks'
+import { route } from 'preact-router'
 
 import { isMobile } from '../../../common/helpers/detector'
+import { exitPointerLock } from '../../../common/helpers/ui-helpers'
+import Icon from '../../../web/src/components/icons/icons'
 import { resetMobileViewportLayout } from '../../controls/mobile/controls'
 import { avatarName, avatarSlug } from '../../../common/messages/avatar-ref'
 import { sendChat } from '../../../web/src/shard-chat'
@@ -155,12 +158,25 @@ export function ChatPanel({ cap, variant = 'page', class: className, style }: { 
             </p>
           ))}
         </div>
-        <ChatInput
-          onFocusChange={(f) => {
-            setFocused(f)
-            if (isMobile()) window.scrollTo(0, 0)
-          }}
-        />
+        <div class="interact-bar">
+          <button type="button" title="dance [G]" onClick={() => go('/dance')}>
+            <Icon name="dance" />
+          </button>
+          <button type="button" title="emote [T]" onClick={() => go('/emote')}>
+            <Icon name="emote" />
+          </button>
+          <ChatInput
+            onFocusChange={(f) => {
+              setFocused(f)
+              if (isMobile()) window.scrollTo(0, 0)
+            }}
+          />
+          {app.signedIn && (
+            <button type="button" title="womp [P]" onClick={() => (window as any).ui?.takeWomp((window as any).ui.props.scene)}>
+              <Icon name="camera" />
+            </button>
+          )}
+        </div>
       </div>
     )
   }
@@ -196,6 +212,11 @@ export function ChatPanel({ cap, variant = 'page', class: className, style }: { 
       <ChatInput keepFocus />
     </div>
   )
+}
+
+function go(path: string) {
+  exitPointerLock()
+  route(path)
 }
 
 const CONGA_CMD_PATTERN = /\/conga\b/

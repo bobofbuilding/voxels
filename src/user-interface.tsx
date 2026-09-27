@@ -83,7 +83,6 @@ import ParcelSnapshots from './ui/parcel-snapshots'
 import { SettingsUI } from './ui/settings'
 import { AvatarTab } from './ui/avatar-tab'
 import TakeWomp from './ui/take-womp'
-import WompButton from './ui/womp-button'
 
 const NUMBER_KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'] as const
 
@@ -1177,12 +1176,6 @@ export default class UserInterface extends Component<UserInterfaceProps, UserInt
           <FirstTimeInstructions />
           <Snackbar />
 
-          {!isMobileMedia() && (
-            <div class="top-right">
-              <WompButton onClick={() => this.takeWomp(this.props.scene)} />
-            </div>
-          )}
-
           {chat && <ChatOverlay />}
 
           {nearestEditableParcel?.sandbox && nearestEditableParcel.canEdit && (
@@ -1210,7 +1203,7 @@ export default class UserInterface extends Component<UserInterfaceProps, UserInt
 
           <ConnectionStatusUI connector={this.connector} grid={this.grid} scene={this.props.scene} />
           <OnlyMobile>
-            <MobileButtons connector={this.connector} scene={this.props.scene} minimapSettings={this.props.minimapSettings} onWomp={() => this.takeWomp(this.props.scene)} />
+            <MobileButtons connector={this.connector} scene={this.props.scene} minimapSettings={this.props.minimapSettings} />
           </OnlyMobile>
 
           <CongaJoinHintOverlay />
