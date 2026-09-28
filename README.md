@@ -10,7 +10,7 @@ See [install.md](install.md) for Codespaces and local setup.
 # Infrastructure
 
 This app deploys to Digital Ocean App Platform from `main` at https://retro.voxels.com.
-Deploy pre-job runs `npm run predeploy` (migrate + release-blog).
+Deploy pre-job runs `npm run predeploy` (migrate).
 
 # Operations
 
