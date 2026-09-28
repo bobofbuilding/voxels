@@ -6,6 +6,6 @@ import Explore from '../web/src/explore'
 test('explore renders the sidebar', async () => {
   stubFetch({})
 
-  const root = await renderView('explore', h(Explore, {}), 'section.explorer h3')
-  expect(root.querySelector('h1')!.textContent).toBe('Voxels')
+  const root = await renderView('explore', h(Explore, {}), 'section.explorer summary')
+  expect(root.querySelector('h1')!.textContent).toBe('Explore')
 })

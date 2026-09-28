@@ -17,7 +17,6 @@ import { Client } from './client'
 import { isPlayPath, notifyUrlChange } from './helpers/coords-nav'
 import { track, trackPage } from './helpers/umami'
 import WebHeader from './web-header'
-import { SidebarClose, closePageSidebar } from './sidebar-close'
 
 import { useEffect, useState } from 'preact/hooks'
 import { JSXInternal } from 'preact/src/jsx'
@@ -113,7 +112,6 @@ const Main = () => {
         <Client coords={coords} path={currentPath} />
 
         <div class={play ? 'page -play' : 'page'}>
-          {!play && !lightBroadcast && <SidebarClose onClick={closePageSidebar} />}
           <div class="page-route">
             <Router onChange={handleRoute}>
               {AppRoutes()}

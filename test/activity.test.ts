@@ -22,10 +22,8 @@ test('activity renders a transfer row', async () => {
     },
   })
 
-  const root = await renderView('activity', h(Activity, {}), 'tbody tr')
-  const cells = root.querySelectorAll('tbody td')
-  expect(cells[1].textContent).toBe('the pier')
-  expect(cells[2].textContent).toBe('minted')
-  expect(cells[3].textContent).toBe('ben')
-  expect(cells[4].textContent).toBe('stale')
+  const root = await renderView('activity', h(Activity, {}), 'ol.activity-feed li')
+  expect(root.querySelector('.activity-parcel')!.textContent).toBe('the pier')
+  expect(root.querySelector('.activity-people')!.textContent).toContain('Minted by')
+  expect(root.querySelector('.activity-people')!.textContent).toContain('ben')
 })

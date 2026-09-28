@@ -52,14 +52,20 @@ export default class Explore extends Component<{}> {
         <Head title="Voxels" url="/" />
 
         <section class="explorer" onKeyDown={onListArrowKeys}>
-          <h1>Voxels</h1>
-          <a href="/account">Login</a>
+          <h1>Explore</h1>
           <Radar teleportTo={naviportHere} />
-          <h3>Womps</h3>
-          <WompsList numberToShow={12} mobilePreview={6} collapsed={false} fetch="/womps.json" ttl={600} onWompClick={teleportToWomp} />
-          <h3>Popular</h3>
-          <PopularParcels />
-          <Classifieds limit={3} />
+          <details class="inspector-section" open>
+            <summary>womps</summary>
+            <WompsList numberToShow={16} mobilePreview={6} collapsed={false} fetch="/womps.json" ttl={600} onWompClick={teleportToWomp} />
+          </details>
+          <details class="inspector-section" open>
+            <summary>popular</summary>
+            <PopularParcels />
+          </details>
+          <details class="inspector-section" open>
+            <summary>shop</summary>
+            <Classifieds limit={3} />
+          </details>
         </section>
       </Fragment>
     )

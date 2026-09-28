@@ -13,10 +13,12 @@ import db from './pg'
 import { bbox } from '@turf/turf'
 import { SUPPORTED_CHAINS } from '../common/helpers/chain-helpers'
 import { FeatureRecord, FeatureType } from '../common/messages/feature'
+import { readNftUrl } from '../common/helpers/nft-url'
+import { isUgcTextureUrl } from '../common/helpers/parcel-compile'
 const DEGREES_TO_METRES = 100
 
 // query builder - optimized to prevent full table scan on avatars
-const loadQuery = () => {
+const loadQuery = (where = 'p.id = $1') => {
   return `
     SELECT
       p.id,
@@ -56,7 +58,7 @@ const loadQuery = () => {
       properties p
     left join suburbs on suburbs.id = p.suburb_id
     WHERE
-      p.id = $1
+      ${where}
   `
 }
 
@@ -145,6 +147,8 @@ export abstract class AbstractParcel implements ParcelRef {
   is_common = false
   settings!: ParcelSettings
   sandbox = false
+  // feature uuid -> nft image url, joined from the nfts table. never written into content
+  nfts?: Record<string, string>
 
   constructor(row: any) {
     if (row) {
@@ -252,6 +256,7 @@ export abstract class AbstractParcel implements ParcelRef {
       id: this.id,
       hash: this.hash,
       features: this.allFeatures,
+      nfts: this.nfts,
       settings: this.settings,
       voxels: this.voxels,
       owner: this.owner,
@@ -647,6 +652,11 @@ export default class Parcel extends AbstractParcel {
     return new Parcel(result.rows[0])
   }
 
+  static async loadMany(ids: number[]): Promise<Parcel[]> {
+    const result = await db.query('embedded/get-parcels-many', loadQuery('p.id = any($1)'), [ids])
+    return (result?.rows || []).map((row: any) => new Parcel(row))
+  }
+
   static async loadXYZ(id: number): Promise<Pick<Parcel, 'address' | 'x1' | 'x2' | 'id' | 'y1' | 'y2' | 'z1' | 'z2'> | null> {
     const result = await db.query(
       'embedded/get-parcel-xyz',
@@ -732,3 +742,31 @@ const labelSets: {
   { name: 'food', include: ['restaurant', 'coffee', 'pizza', 'food', 'burger', 'sushi', 'breakfast'] },
   { name: 'theater', include: ['theater', 'theatre'] },
 ]
+
+// paint known nft-images without a client round trip to nft.json. misses are left for the client
+export async function nftImages(parcels: Parcel[]) {
+  const wanted: { p: Parcel; uuid: string; chain: number; contract: string; token: string }[] = []
+  for (const p of parcels) {
+    for (const f of (p.allFeatures || []) as any[]) {
+      if (f?.type !== 'nft-image' || f.draft || isUgcTextureUrl(f.url)) continue
+      const nft = readNftUrl(f.url)
+      if (nft && f.uuid) wanted.push({ p, uuid: f.uuid, chain: nft.chain, contract: nft.contract.toLowerCase(), token: nft.token })
+    }
+  }
+  if (!wanted.length) return
+  try {
+    const r = await db.query(
+      'embedded/get-nft-images',
+      `select chain_id, contract, token_id, immutable->>'image_url' as image_url from nfts
+       where (chain_id, contract, token_id) in (select * from unnest($1::int[], $2::text[], $3::text[]))`,
+      [wanted.map((w) => w.chain), wanted.map((w) => w.contract), wanted.map((w) => w.token)],
+    )
+    const urls = new Map<string, string>(r.rows.map((row: any) => [`${row.chain_id}:${row.contract}:${row.token_id}`, row.image_url]))
+    for (const w of wanted) {
+      const url = urls.get(`${w.chain}:${w.contract}:${w.token}`)
+      if (url) w.p.nfts = { ...w.p.nfts, [w.uuid]: url }
+    }
+  } catch (e) {
+    log.error('nft images failed', e)
+  }
+}

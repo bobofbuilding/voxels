@@ -2,7 +2,8 @@ import fs from 'fs'
 import http from 'http'
 import https from 'https'
 import 'source-map-support/register'
-import Parcel, { PARCEL_EVENT_EMITTER } from './parcel'
+import Parcel, { nftImages, PARCEL_EVENT_EMITTER } from './parcel'
+import { unpackIds } from '../common/helpers/bloom'
 
 // Import handlers
 import BuildRequestHandler from './handlers/build-parcel'
@@ -496,11 +497,37 @@ app.get('/api/parcels/by/:wallet/query', cache('5 seconds'), refreshParcelsByWal
 //   res.json({ success: true, parcels: grid.parcels.map((p) => p.summary) })
 // })
 
+// id:hash pairs, refreshed every 10s so .pack lookups don't scan properties per request
+let packHashes: { at: number; rows: { id: number; hash: string }[] } = { at: 0, rows: [] }
+
+// bloom of id:hash pairs. the url changes whenever a parcel does, so cache forever
+app.get('/grid/parcels/:bits.pack', cache('immutable'), async (req, res) => {
+  const has = unpackIds(req.params.bits)
+  if (!has) {
+    noCache(res)
+    res.status(400).json({ success: false })
+    return
+  }
+
+  if (Date.now() - packHashes.at > 10000) {
+    const r = await db.query('embedded/get-parcel-hashes', `select id, memoized_hash as hash from properties where visible`)
+    packHashes = { at: Date.now(), rows: r.rows }
+  }
+
+  const ids = packHashes.rows
+    .filter((p) => has(`${p.id}:${p.hash}`))
+    .map((p) => p.id)
+    .slice(0, 32)
+  const parcels = ids.length ? await Parcel.loadMany(ids) : []
+  await nftImages(parcels)
+  res.json({ success: true, parcels: parcels.map((p) => p.summary) })
+})
+
 app.get('/grid/parcels/:id', cache('10 seconds'), async (req, res) => {
   const id = parseInt(req.params.id, 10)
 
   if (isNaN(id)) {
-    res.status(404)
+    res.status(404).end()
     return
   }
 
@@ -512,6 +539,7 @@ app.get('/grid/parcels/:id', cache('10 seconds'), async (req, res) => {
     return
   }
 
+  await nftImages([parcel])
   res.json({ success: true, parcel: parcel.summary })
 })
 

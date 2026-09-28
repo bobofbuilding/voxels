@@ -140,6 +140,10 @@ export default class NftImage extends Feature2D<NftImageRecord> {
     // draft present: leave it, don't hit OpenSea just to maybe replace it with a failure
     if ((this.description as any).draft) return
 
+    // server attached the image from the nfts table, skip nft.json
+    const known = (this.parcel.summary as any).nfts?.[this.uuid] as string | undefined
+    if (known && this.parcel.id !== 86) return this.paintTexture(known)
+
     // uncompiled, no draft: OpenSea for the texture (popup path shares loadURL)
     const imgUrl = await this.loadURL()
     if (!imgUrl || this.disposed || this.abortController.signal.aborted) return

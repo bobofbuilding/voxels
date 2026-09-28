@@ -946,7 +946,7 @@ main {
       box-sizing: border-box;
       overflow-y: auto;
       margin: 0;
-      padding: 3rem 1rem 1rem;
+      padding: 1rem;
       .glass();
     }
 
@@ -1302,50 +1302,6 @@ body.gateway {
   pointer-events: auto;
 }
 
-// sticky top strip so back + X stay put while the column scrolls
-.sidebar-chrome {
-  position: absolute;
-  top: 1rem;
-  left: 0.5rem;
-  right: 0.5rem;
-  z-index: 5000;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  pointer-events: none;
-
-  button {
-    pointer-events: auto;
-    background: none;
-    border: none;
-    font-family: inherit;
-    font-size: 24px;
-    height: 32px;
-    width: 32px;
-    line-height: 32px;
-    display: block;
-    padding: 0;
-    border-radius: 0;
-
-    &:hover {
-      background: var(--hover);
-      color: var(--fg);
-    }
-  }
-
-  .sidebar-back {
-    width: 40px;
-    height: 40px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-
-    svg {
-      display: block;
-    }
-  }
-}
-
 .client-placeholder {
   position: relative;
   width: 100%;
@@ -1565,10 +1521,34 @@ small {
 // Popular parcels
 
 .popularity {
-  td:nth-child(1) {
-    width: 2rem;
-    text-align: right;
-    max-width: unset;
+  ul {
+    list-style: none;
+    padding: 0;
+  }
+
+  a {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.35rem 0.5rem;
+
+    span {
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    small {
+      color: var(--muted);
+      font-variant-numeric: tabular-nums;
+    }
+
+    &:hover,
+    &:focus-visible {
+      background: var(--hover);
+    }
   }
 }
 
@@ -2123,9 +2103,14 @@ table.spaces {
   }
 
   li li {
-    margin-left: 0.8rem;
-    padding-left: 0.8rem;
-    list-style-type: '>';
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    list-style: none;
+
+    img {
+      object-fit: cover;
+    }
   }
 
   & > li {
@@ -2136,8 +2121,73 @@ table.spaces {
 
 // Explore Online: pack radar / live / womps a bit tighter so more fits in the sidebar
 .explorer {
-  h3 {
-    margin: 0.65rem 0 0.3rem;
+  .wrap-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0.25rem;
+    margin-top: 0.75rem;
+
+    .womp {
+      position: relative;
+      min-width: 0;
+
+      img {
+        object-fit: cover;
+      }
+
+      a > p,
+      .womp-meta {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        padding: 0.25rem;
+        background: var(--bg);
+        opacity: 0;
+        pointer-events: none;
+      }
+
+      &:hover,
+      &:focus-within {
+        a > p,
+        .womp-meta {
+          opacity: 1;
+        }
+      }
+    }
+  }
+
+  .classifieds {
+    margin-top: 0.75rem;
+
+    .classifieds-tabs {
+      display: flex;
+      gap: 0;
+
+      button {
+        flex: 1;
+      }
+    }
+
+    table {
+      width: 100%;
+      table-layout: fixed;
+      margin: 0.5rem 0;
+    }
+
+    td {
+      padding: 0.35rem 0.5rem;
+
+      &:last-child {
+        width: 5rem;
+        text-align: right;
+        color: var(--muted);
+        font-variant-numeric: tabular-nums;
+      }
+    }
+
+    tr:hover {
+      background: var(--hover);
+    }
   }
 
   .explorer-back {
@@ -2638,10 +2688,11 @@ dialog.editor {
   // inspector property list
   dl.props {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-columns: minmax(5rem, 0.7fr) minmax(0, 1.3fr);
     margin: 0;
     padding: 0;
-    gap: 0.25rem 1rem;
+    gap: 0.5rem 0.75rem;
+    align-items: center;
 
     dt,
     dd {
@@ -2663,7 +2714,7 @@ dialog.editor {
 
       &.full {
         grid-column: 1 / -1;
-        padding: 4px 6px;
+        padding: 0;
       }
 
       input[type='text'],
@@ -3383,12 +3434,12 @@ section.build-tab nav.build-main-tabs {
 }
 
 .edit-pane-tree {
-  max-height: 15rem;
+  max-height: 10rem;
   min-height: 0;
-  margin-top: auto;
+  margin-top: 0.5rem;
   overflow: auto;
   overflow-x: hidden;
-  border-top: 1px solid var(--line);
+  border-top: 0;
 
   .feature-tree {
     margin: 0;
@@ -3406,7 +3457,13 @@ section.build-tab nav.build-main-tabs {
       margin: 0;
       padding: 0;
 
+      > a {
+        display: block;
+        padding: 0.25rem 0.5rem;
+      }
+
       &.selected > a {
+        background: var(--hover);
         color: var(--accent);
         font-weight: bold;
         text-decoration: none;
@@ -3437,6 +3494,36 @@ section.build-tab nav.build-main-tabs {
     flex-direction: column;
     height: 100%;
     min-height: 0;
+  }
+}
+
+.feature-inspector {
+  .toolbar {
+    gap: 0.25rem;
+    margin-bottom: 1rem;
+  }
+
+  .inspector-section > dl {
+    margin-top: 0.75rem;
+  }
+
+  .f > label:has(input[type='checkbox']) {
+    grid-column: 2;
+    padding: 0;
+  }
+
+  .f > br {
+    display: none;
+  }
+
+  .f.uv {
+    grid-template-columns: minmax(5rem, 0.7fr) repeat(2, minmax(0, 0.65fr));
+    gap: 0.25rem;
+
+    input {
+      grid-column: auto;
+      width: 100%;
+    }
   }
 }
 
@@ -4578,15 +4665,6 @@ main:has(.worldmap) {
     padding: 0;
     overflow: auto;
     background: var(--bg);
-
-    .sidebar-chrome {
-      margin: 0;
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      background: transparent;
-    }
   }
 }
 
@@ -4612,12 +4690,6 @@ main:has(.worldmap) {
 
     .page-route {
       height: 100%;
-    }
-
-    .sidebar-chrome {
-      left: auto;
-      width: 23rem;
-      box-sizing: border-box;
     }
   }
 
@@ -4647,7 +4719,7 @@ main:has(.worldmap) {
       min-width: 0;
       min-height: 0;
       margin: 0;
-      padding: 3rem 1rem 1rem;
+      padding: 1rem;
       overflow-y: auto;
       box-sizing: border-box;
       background: var(--bg);
@@ -5011,10 +5083,6 @@ header nav .user-menu {
     input {
       width: 100%;
     }
-  }
-
-  .sidebar-chrome {
-    display: none;
   }
 }
 
