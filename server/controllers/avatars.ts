@@ -391,6 +391,8 @@ export default function AvatarsController(db: Db, passport: PassportStatic, app:
     createRequestHandlerForQuery(db, 'avatars/get-avatar-costume-collectibles', 'wearables', (req) => [req.params.wallet]),
   )
 
+  app.get('/api/free-avatars.json', cache('1 minute'), createRequestHandlerForQuery(db, 'free-avatars', 'avatars'))
+
   app.get(
     '/api/avatars/:wallet/costume.json',
     cache(false),

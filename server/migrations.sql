@@ -394,3 +394,12 @@ SELECT apply_migration('parcel-transfers', $$
   CREATE INDEX IF NOT EXISTS parcel_transfers_block_idx ON parcel_transfers (block DESC, log_index DESC);
   CREATE INDEX IF NOT EXISTS parcel_transfers_parcel_idx ON parcel_transfers (parcel_id, block DESC);
 $$);
+
+SELECT apply_migration('free-avatars', $$
+  CREATE TABLE IF NOT EXISTS free_avatars (
+    id serial PRIMARY KEY,
+    name text NOT NULL,
+    src text NOT NULL,
+    created_at timestamptz NOT NULL DEFAULT now()
+  );
+$$);

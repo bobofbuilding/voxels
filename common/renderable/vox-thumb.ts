@@ -98,3 +98,25 @@ export async function renderVoxThumb(ctx: ThumbScene, renderable: Renderable): P
     mesh?.dispose(false, true)
   }
 }
+
+/** VRM (glb) url -> webp, front 3/4 view. */
+export async function renderVrmThumb(ctx: ThumbScene, url: string, background: string, size: number): Promise<RenderedImage> {
+  const { scene, camera, canvas, engine } = ctx
+  if (size > 0) engine.setSize(size, size)
+  scene.clearColor = parseBg(background)
+  const slash = url.lastIndexOf('/')
+  const container = await BABYLON.SceneLoader.LoadAssetContainerAsync(url.slice(0, slash + 1), url.slice(slash + 1), scene, null, '.glb')
+  try {
+    container.addAllToScene()
+    zoomCamera(camera, scene)
+    // glTF root flips z so VRMs face +Z; camera sits in front, a little to the side
+    camera.alpha = Math.PI / 2 - 0.4
+    camera.beta = Math.PI / 2.2
+    await scene.whenReadyAsync()
+    scene.render()
+    const bytes = await blobFromCanvas(canvas)
+    return { bytes, contentType: 'image/webp' }
+  } finally {
+    container.dispose()
+  }
+}

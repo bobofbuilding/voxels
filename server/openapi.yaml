@@ -148,6 +148,13 @@ paths:
         Newest first. A mint has `from.owner` set to the zero address. `synced`
         is only set on the newest transfer of each parcel, and is false when our
         owner hasn't caught up with the chain yet.
+      parameters:
+        - name: parcel
+          in: query
+          description: Filter to this parcel before taking the latest 100 transfers.
+          schema:
+            type: integer
+            minimum: 1
       responses:
         '200':
           description: ok
@@ -1147,6 +1154,37 @@ paths:
                     type: array
                     items:
                       type: object
+
+  /api/free-avatars.json:
+    get:
+      operationId: listFreeAvatars
+      tags: [avatars]
+      summary: VRM avatars anyone can wear
+      description: >
+        Wear one by posting its src to /api/avatar/appearance. Thumbs come from
+        the renderer at /renderer/v1/avatar/{id}.webp.
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  avatars:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: integer
+                        name:
+                          type: string
+                        src:
+                          type: string
+                          example: ugc://avatars/woody.vrm
 
   /api/costumes/{id}:
     get:

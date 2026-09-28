@@ -14,7 +14,7 @@ Generated from `server/openapi.yaml` by `npm run docs:api`. Edit the spec, not t
 
 - [parcels](#parcels), 21 routes
 - [womps](#womps), 6 routes
-- [avatars](#avatars), 14 routes
+- [avatars](#avatars), 15 routes
 - [collectibles](#collectibles), 3 routes
 - [collections](#collections), 9 routes
 - [wearables](#wearables), 8 routes
@@ -73,6 +73,10 @@ Without `parcel_ids` this lists minted parcels and each row carries `parcel_user
 The last 100 parcel transfers on chain
 
 Newest first. A mint has `from.owner` set to the zero address. `synced` is only set on the newest transfer of each parcel, and is false when our owner hasn't caught up with the chain yet.
+
+**parameters**
+
+- `parcel` (query) integer: Filter to this parcel before taking the latest 100 transfers.
 
 **answers**
 
@@ -516,6 +520,7 @@ Matches `womps.author` exactly, so the wallet has to be cased the way it was sto
 - [`GET /api/avatars/{wallet}/costume.json`](#get-apiavatarswalletcostumejson) The costume this citizen is wearing
 - [`GET /api/avatars/{wallet}/costumes`](#get-apiavatarswalletcostumes) Every costume this citizen has saved
 - [`GET /api/avatars/{wallet}/score.json`](#get-apiavatarswalletscorejson) This citizen's scores
+- [`GET /api/free-avatars.json`](#get-apifree-avatarsjson) VRM avatars anyone can wear
 - [`GET /api/costumes/{id}`](#get-apicostumesid) One costume by id
 - [`GET /api/avatar/{wallet}/name.json`](#get-apiavatarwalletnamejson) This citizen's display name
 - [`GET /api/avatar/{wallet}/names`](#get-apiavatarwalletnames) Every name this wallet holds
@@ -671,6 +676,21 @@ This citizen's scores
 - `200` object
   - `success` boolean
   - `scores` array of object
+
+### GET /api/free-avatars.json
+
+VRM avatars anyone can wear
+
+Wear one by posting its src to /api/avatar/appearance. Thumbs come from the renderer at /renderer/v1/avatar/{id}.webp.
+
+**answers**
+
+- `200` object
+  - `success` boolean
+  - `avatars` array of object
+    - `id` integer
+    - `name` string
+    - `src` string
 
 ### GET /api/costumes/{id}
 

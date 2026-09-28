@@ -1,13 +1,15 @@
-// ABOUTME: Wearable + parcel thumb renderer - GET holds until webp/png ready, then 302 to CDN (or 503 Retry-After).
+// ABOUTME: Wearable + free avatar + parcel thumb renderer - GET holds until webp/png ready, then 302 to CDN (or 503 Retry-After).
 
 import './bootstrap'
+import { createHash } from 'crypto'
 import express from 'express'
 import path from 'path'
+import { thumbKey, thumbUrl } from '../../common/renderable/thumb-url'
 import { fileURLToPath } from 'url'
-import { loadGhosts, loadIslands, loadLots, loadParcelRecord, loadWearableVox } from './db'
+import { loadFreeAvatarSrc, loadGhosts, loadIslands, loadLots, loadParcelRecord, loadWearableVox } from './db'
 import { embedUrls, parcelPreviewUrls } from './embed'
-import { hasParcelThumb, hasWearableThumb, parcelCdnUrl, ugcConfigured, uploadParcelThumb, uploadWearableThumb, wearableCdnUrl } from './s3'
-import { closeBrowser, renderParcel, renderWearable, setPageBase, warmBrowser } from './browser'
+import { hasAvatarThumb, hasParcelThumb, hasWearableThumb, parcelCdnUrl, ugcConfigured, uploadAvatarThumb, uploadParcelThumb, uploadWearableThumb, wearableCdnUrl } from './s3'
+import { closeBrowser, renderAvatar, renderParcel, renderWearable, setPageBase, warmBrowser } from './browser'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -66,6 +68,50 @@ function mountRoutes(r: express.Router | express.Express) {
         return
       }
       console.error('[renderer]', id, e)
+      res.status(500).end('render failed')
+    }
+  })
+
+  r.get('/v1/avatar/:id.webp', async (req, res) => {
+    const id = Number(req.params.id)
+    if (!Number.isInteger(id) || id <= 0) {
+      res.status(400).end('bad id')
+      return
+    }
+
+    try {
+      const src = await loadFreeAvatarSrc(id)
+      if (!src?.startsWith('ugc://')) {
+        res.status(404).end('not found')
+        return
+      }
+
+      // src hash in the key so swapping a row's vrm gets a fresh thumb
+      const name = `${id}-${createHash('sha1').update(src).digest('hex').slice(0, 8)}`
+      const key = thumbKey('avatar', name)
+      const cdn = thumbUrl('avatar', name)
+      const ugc = ugcConfigured()
+
+      if (ugc && (await hasAvatarThumb(key))) {
+        res.redirect(302, cdn)
+        return
+      }
+
+      const webp = await renderAvatar(key, 'https://ugc.voxels.com/' + src.slice(6))
+      if (!ugc) {
+        res.type('image/webp').status(200).send(webp)
+        return
+      }
+      await uploadAvatarThumb(key, webp)
+      res.redirect(302, cdn)
+    } catch (e: any) {
+      const code = e?.code
+      if (code === 'BUSY' || code === 'TIMEOUT') {
+        res.set('Retry-After', RETRY_AFTER)
+        res.status(503).end('try again')
+        return
+      }
+      console.error('[renderer] avatar', id, e)
       res.status(500).end('render failed')
     }
   })
