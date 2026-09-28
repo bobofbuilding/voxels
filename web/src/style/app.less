@@ -2358,6 +2358,14 @@ button.iconish {
   }
 }
 
+// header column fades out on pointerlock but keeps its width, so pin to the screen edge
+@media @wide {
+  body.locked .parcel-location {
+    position: fixed;
+    left: 0.5rem;
+  }
+}
+
 // the aside is the single scroll container in split view; inner pane sections
 // must not make a second one (that was the double-scrollbar). pin headers with
 // position: sticky instead of a nested scroller.

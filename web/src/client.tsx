@@ -8,6 +8,7 @@ import { spaceW } from '../../src/utils/space-w'
 import cachedFetch from './helpers/cached-fetch'
 import { getCoords, getParcelIdFromPath, getSpaceIdFromPath, isSpacePath, isSpacePlayPath, syncParcelUrl } from './helpers/coords-nav'
 import { app, AppEvent } from './state'
+import { currentOrNearestParcel } from '../../src/store'
 
 /** Memoised engine boot; safe to await from anywhere that needs window.persona / window.grid. */
 export function worldBoot(): Promise<BootResult | null> {
@@ -102,7 +103,8 @@ export class Client extends Component<FrameProps, FrameState> {
   }
 
   private gotoParcel(id: number) {
-    if (window.grid?.currentParcel()?.id === id) return
+    // already here or next to it (location label click), don't teleport
+    if (window.grid?.currentParcel()?.id === id || currentOrNearestParcel.value?.id === id) return
     void cachedFetch(`/api/parcels/${id}.json`)
       .then((r) => r.json())
       .then((d) => {

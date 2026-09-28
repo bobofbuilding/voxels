@@ -104,11 +104,12 @@ const Location = () => {
         if (e.button || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return
         e.preventDefault()
         exitPointerLock()
-        route(`/parcels/${parcel.id}?coords=${encodeURIComponent(window.connector?.controls.getCoords() || '')}`)
+        sidebarClosed.value = false
+        route(`/parcels/${parcel.id}`, true)
       }}
     >
       <strong>{parcel.name || parcel.address}</strong>
-      {parcel.name && <span>{parcel.address}</span>}
+      <span>{parcel.name ? parcel.address : parcel.island}</span>
     </a>
   )
 }

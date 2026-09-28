@@ -168,28 +168,6 @@ export const isPersistentPane = (p?: string) => !!p && PERSISTENT_PANES.has(p)
 export const uiAsideTick = signal(0)
 export const sidebarClosed = signal(false)
 
-// phone: closed overlay. desktop ignores this (left column stays).
-export const siteNavOpen = signal(false)
-
-effect(() => {
-  document.body.classList.toggle('site-nav-open', siteNavOpen.value)
-  window.engine?.resize()
-})
-
-if (typeof window !== 'undefined' && typeof window.matchMedia === 'function') {
-  window.matchMedia('(max-width: 50em)').addEventListener('change', (e) => {
-    if (e.matches) siteNavOpen.value = false
-  })
-}
-
-export function toggleSiteNav() {
-  siteNavOpen.value = !siteNavOpen.value
-}
-
-export function dismissSiteNav() {
-  if (typeof window !== 'undefined' && window.matchMedia('(max-width: 50em)').matches) siteNavOpen.value = false
-}
-
 // mounted in-world UI, header renders the world links off it
 export const worldUi = signal<UserInterface | null>(null)
 export const mic = signal<'off' | 'live' | 'muted'>('off')

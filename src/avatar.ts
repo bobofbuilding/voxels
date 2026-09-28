@@ -748,7 +748,7 @@ export default class Avatar extends Entity {
 
   // is used before eg. position is changed so that we can compare coming changes
   protected onBeforeUpdate(next: Readonly<Transform>) {
-    if (BABYLON.Vector3.DistanceSquared(this.position, next.position) > 16 * 16) {
+    if (BABYLON.Vector3.DistanceSquared(this.position, next.position) > 16 * 16 && !this.isUser) {
       this.teleportFX(this.absolutePosition, 'avatar.leave')
     }
   }

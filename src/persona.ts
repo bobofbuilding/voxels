@@ -157,7 +157,6 @@ export default class Persona {
   // out of a restricted area.
   teleportNoHistory(coords: coords) {
     console.log(`Teleporting to ${coords.position.x}, ${coords.position.y}, ${coords.position.z}`)
-    this.audio?.playSound('persona.teleport')
 
     setCameraPosition(this.scene, coords.position)
 
