@@ -46,7 +46,7 @@ import IslandsAdmin from './admin/islands'
 import Admin from './admin/admin'
 import NotFound from './not-found'
 import { ChatPage } from './chat-page'
-import { AvatarPage, DancePage, EmotePage, SettingsPage } from './column-routes'
+import { AvatarPage, SettingsPage } from './column-routes'
 import { routes } from './routes'
 
 const components: Record<string, ComponentType<any>> = {
@@ -96,8 +96,6 @@ const components: Record<string, ComponentType<any>> = {
   womps: WompsPage,
   islandsAdmin: IslandsAdmin,
   admin: Admin,
-  dance: DancePage,
-  emote: EmotePage,
   settings: SettingsPage,
   avatarTab: AvatarPage,
 }

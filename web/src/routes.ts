@@ -34,8 +34,6 @@ export const routes: RouteDef[] = [
   { path: '/spaces/:id', component: 'space', server: false },
   { path: '/spaces/:id/play', component: 'spacePlay', server: false },
   { path: '/build', component: 'build' },
-  { path: '/dance', component: 'dance' },
-  { path: '/emote', component: 'emote' },
   { path: '/settings', component: 'settings' },
   { path: '/islands', component: 'islands' },
   { path: '/islands/:slug', component: 'island', server: '/islands/:id' },

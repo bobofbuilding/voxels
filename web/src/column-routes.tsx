@@ -1,7 +1,5 @@
 import { useEffect, useState } from 'preact/hooks'
 import { AvatarTab } from '../../src/ui/avatar-tab'
-import { DancePane } from '../../src/ui/interact/dance-pane'
-import { EmotePane } from '../../src/ui/interact/emote-pane'
 import { SettingsUI } from '../../src/ui/settings'
 
 function useWorldReady() {
@@ -19,16 +17,6 @@ function useWorldReady() {
     return () => clearInterval(id)
   }, [])
   return ready
-}
-
-export function DancePage(_props: { path?: string }) {
-  if (!useWorldReady()) return null
-  return <DancePane />
-}
-
-export function EmotePage(_props: { path?: string }) {
-  if (!useWorldReady()) return null
-  return <EmotePane />
 }
 
 export function AvatarPage(_props: { path?: string }) {

@@ -301,8 +301,6 @@ export default class WebHeader extends Component<Props, State> {
                         <W go={() => void spamhaus(parcel)}>spamhaus</W>
                       </>
                     )}
-                    <A to="/dance">Dance</A>
-                    <A to="/emote">Emote</A>
                     <W go={() => (canEditHere ? ui.openBuildToolbelt() : route('/build'))} active={canEditHere && ui.voxelTool.enabled.value}>
                       Build
                     </W>
