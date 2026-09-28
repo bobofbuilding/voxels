@@ -1,21 +1,20 @@
-// 256 bit bloom of `${id}:${hash}` keys, used to batch parcel fetches into one cacheable url
-const BITS = 256
-const K = 5
+// 512 bit bloom of `${id}:${hash}` keys, used to batch parcel fetches into one cacheable url
+const BITS = 512
+const K = 7
 
-function fnv(key: string, seed: number) {
-  let h = seed
-  for (let i = 0; i < key.length; i++) {
-    h ^= key.charCodeAt(i)
-    h = Math.imul(h, 16777619)
-  }
-  return h >>> 0
+// murmur3 finalizer. raw fnv with two seeds is useless here: every key is the same length, so they differ by a constant
+function mix(h: number) {
+  h = Math.imul(h ^ (h >>> 16), 0x85ebca6b)
+  h = Math.imul(h ^ (h >>> 13), 0xc2b2ae35)
+  return (h ^ (h >>> 16)) >>> 0
 }
 
 function bloomBits(key: string) {
-  const a = fnv(key, 2166136261)
-  const b = fnv(key, 3323198485) | 1
+  let h = 2166136261
+  for (let i = 0; i < key.length; i++) h = Math.imul(h ^ key.charCodeAt(i), 16777619)
+  // mix every probe separately, a + i*b mod 512 only has ~17 bits of pattern and collides
   const out: number[] = []
-  for (let i = 0; i < K; i++) out.push(((a + i * b) >>> 0) % BITS)
+  for (let i = 0; i < K; i++) out.push(mix(h + Math.imul(i, 0x9e3779b9)) % BITS)
   return out
 }
 
