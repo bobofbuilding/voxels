@@ -34,7 +34,6 @@ import Parcels from './parcels'
 import Privacy from './privacy'
 import RenderAsset from './render/asset'
 import RenderCostume from './render/costume'
-import Search from './search'
 import Shop from './shop'
 import Space from './space'
 import SpacePlay from './space-play'
@@ -63,7 +62,6 @@ const components: Record<string, ComponentType<any>> = {
   apiDoc: ApiDoc,
   logout: Logout,
   notFound: NotFound,
-  search: Search,
   assets: Assets,
   assetsNew: AssetsNew,
   asset: Asset,

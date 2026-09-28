@@ -4,6 +4,7 @@ import Group from './features/group'
 import { effect, signal } from '@preact/signals'
 import Grid from './grid'
 import type { AvatarRef } from '../common/messages/avatar-ref'
+import type UserInterface from './user-interface'
 export type CheckedFeatures = Record<string, Feature>
 
 const TICK = 500
@@ -126,6 +127,11 @@ export const selectNearestEditableParcel = () => {
   return nearestEditableParcel.value
 }
 
+export const isOnSandboxParcel = () => {
+  const p = selectNearestEditableParcel() ?? (typeof window !== 'undefined' ? window.grid?.nearestEditableParcel?.() : null)
+  return !!(p as any)?.sandbox
+}
+
 export const currentOrNearestParcel = signal<Parcel | undefined>(undefined)
 
 export const selectCurrentOrNearestParcel = () => {
@@ -180,8 +186,14 @@ export function toggleSiteNav() {
   siteNavOpen.value = !siteNavOpen.value
 }
 
-// header mounts this list; UserInterface portals the in-world rows into it
-export const worldNavEl = signal<HTMLElement | null>(null)
+export function dismissSiteNav() {
+  if (typeof window !== 'undefined' && window.matchMedia('(max-width: 50em)').matches) siteNavOpen.value = false
+}
+
+// mounted in-world UI, header renders the world links off it
+export const worldUi = signal<UserInterface | null>(null)
+export const mic = signal<'off' | 'live' | 'muted'>('off')
+export const micEnabled = signal(false)
 
 // .page mounts this; world tools (add, edit, …) portal into it and cover the route
 export const pageToolEl = signal<HTMLElement | null>(null)

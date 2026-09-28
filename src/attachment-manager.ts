@@ -64,18 +64,17 @@ export class AvatarAttachmentManager {
    * @see /web/src/state.ts
    * @returns {void} void
    */
-  generateCostume(costume?: Costume) {
+  generateCostume(costume?: Costume, preview = false) {
+    this.abortController.abort()
     this.abortController = new AbortController()
     this.costume = costume ?? null
 
-    if (costume) {
-      // bnolan model has its own material and texture
-      this.avatar.setSkin(costume.skin)
-    }
+    // Clear the preview skin when restoring an avatar without a costume.
+    this.avatar.setSkin(costume?.skin || '')
 
     this.costume_id = costume?.id || null
     this.attachments = ((costume && costume.attachments) || []).slice(0, 12)
-    this.avatar.isUser && app.setState({ costume: costume })
+    this.avatar.isUser && !preview && app.setState({ costume: costume })
     this.loadAttachments()
   }
 
@@ -96,21 +95,25 @@ export class AvatarAttachmentManager {
    * @returns {void} void
    */
   async loadAttachments() {
+    const signal = this.abortController.signal
     if (this.attached) {
       this.attached.forEach((a) => a.dispose())
     }
     this.attached = []
 
     for (const attachment of this.attachments) {
+      if (signal.aborted) return
       try {
         await this.loadAttachment(attachment)
       } catch (e) {
+        if (signal.aborted) return
         console.error(`Error loading attachment ${attachment.wid}`, e)
       }
     }
   }
 
   loadAttachment = async (attachment: AttachmentWithMesh) => {
+    const signal = this.abortController.signal
     const name = attachment.bone
     if (!this.skeleton) {
       return
@@ -131,7 +134,11 @@ export class AvatarAttachmentManager {
 
     const url = `/api/collectibles/${attachment.wid}/vox`
 
-    const mesh = await voxImporter().import(url, { signal: this.abortController.signal })
+    const mesh = await voxImporter().import(url, { signal })
+    if (signal.aborted) {
+      mesh.dispose()
+      return
+    }
     mesh.name = 'wearable'
 
     this.attached.push(mesh)

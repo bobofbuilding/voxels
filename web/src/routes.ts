@@ -21,7 +21,6 @@ export const routes: RouteDef[] = [
   { path: '/api', component: 'apiDoc', server: false },
   { path: '/logout', component: 'logout', cache: false },
   { path: '/not-found', component: 'notFound', server: false },
-  { path: '/search', component: 'search' },
   { path: '/assets', component: 'assets' },
   { path: '/assets/new', component: 'assetsNew' },
   { path: '/assets/:id', component: 'asset' },

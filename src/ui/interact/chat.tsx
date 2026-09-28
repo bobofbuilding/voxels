@@ -2,11 +2,10 @@ import { effect, signal } from '@preact/signals'
 import makeBlockie from 'ethereum-blockies-base64'
 import { Fragment, JSX } from 'preact'
 import { useEffect, useRef, useState } from 'preact/hooks'
-import { route } from 'preact-router'
 
 import { isMobile } from '../../../common/helpers/detector'
-import { exitPointerLock } from '../../../common/helpers/ui-helpers'
-import Icon from '../../../web/src/components/icons/icons'
+import { InteractPopout } from './popout'
+import Icon from '../../../web/src/components/icons/interact'
 import { resetMobileViewportLayout } from '../../controls/mobile/controls'
 import { avatarName, avatarSlug, avatarWallet, type AvatarRef, type AvatarRefObj } from '../../../common/messages/avatar-ref'
 import { sendChat } from '../../../web/src/shard-chat'
@@ -205,12 +204,7 @@ export function ChatPanel({ cap, variant = 'page', class: className, style }: { 
           ))}
         </div>
         <div class="interact-bar">
-          <button type="button" title="dance [G]" onClick={() => go('/dance')}>
-            <Icon name="dance" />
-          </button>
-          <button type="button" title="emote [T]" onClick={() => go('/emote')}>
-            <Icon name="emote" />
-          </button>
+          <InteractPopout />
           <ChatInput
             onFocusChange={(f) => {
               setFocused(f)
@@ -231,11 +225,9 @@ export function ChatPanel({ cap, variant = 'page', class: className, style }: { 
           >
             <Icon name="fly" />
           </button>
-          {app.signedIn && (
-            <button type="button" title="womp [P]" onClick={() => (window as any).ui?.takeWomp((window as any).ui.props.scene)}>
-              <Icon name="camera" />
-            </button>
-          )}
+          <button type="button" title={app.signedIn ? 'womp [P]' : 'sign in to take a womp'} class={app.signedIn ? '' : 'disabled'} disabled={!app.signedIn} onClick={() => (window as any).ui?.takeWomp((window as any).ui.props.scene)}>
+            <Icon name="camera" />
+          </button>
           <button type="button" title="fullscreen" onClick={() => window.engine?.enterFullscreen(true)}>
             <Icon name="fullscreen" />
           </button>
@@ -274,11 +266,6 @@ export function ChatPanel({ cap, variant = 'page', class: className, style }: { 
       <ChatInput keepFocus />
     </div>
   )
-}
-
-function go(path: string) {
-  exitPointerLock()
-  route(path)
 }
 
 const CONGA_CMD_PATTERN = /\/conga\b/

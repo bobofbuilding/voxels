@@ -433,6 +433,73 @@ header .voxel-radio {
   }
 }
 
+.radio-page {
+  dl {
+    display: grid;
+    grid-template-columns: 1fr 1.3fr;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  dt,
+  dd {
+    margin: 0;
+  }
+
+  .radio-transport {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.75rem;
+    background: var(--hover);
+
+    strong {
+      display: block;
+      overflow-wrap: anywhere;
+    }
+  }
+
+  small {
+    color: var(--muted);
+    font-weight: 400;
+  }
+
+  h3 {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-top: 1.5rem;
+  }
+
+  input[type='range'] {
+    width: 100%;
+    margin: 0;
+  }
+
+  ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  li {
+    display: grid;
+    grid-template-columns: 3rem minmax(0, 1fr);
+    gap: 0.75rem;
+    padding: 0.4rem 0.5rem;
+    overflow-wrap: anywhere;
+
+    time {
+      font-variant-numeric: tabular-nums;
+    }
+
+    &.selected {
+      background: var(--hover);
+    }
+  }
+}
+
 .admin-tabs {
   display: flex;
   gap: 1rem;
@@ -1942,6 +2009,142 @@ table.spaces {
   width: 100%;
 }
 
+.parcel-page {
+  > h1 {
+    margin-bottom: 0.25rem;
+    overflow-wrap: anywhere;
+  }
+
+  .parcel-address {
+    margin: 0 0 1rem;
+    color: var(--muted);
+  }
+
+  .sidebar-tabs {
+    gap: 0;
+    padding: 0.2rem;
+    background: var(--scroll-track);
+
+    li {
+      flex: 1;
+    }
+
+    button {
+      width: 100%;
+      background: transparent;
+      border: 0;
+      padding: 0.35rem;
+
+      &.selected {
+        background: var(--hover);
+        color: var(--accent);
+      }
+    }
+  }
+
+  .parcel-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+  }
+
+  h3 {
+    margin: 1rem 0 0.5rem;
+  }
+
+  .parcel-properties {
+    display: grid;
+    grid-template-columns: 5rem minmax(0, 1fr);
+    gap: 0.65rem 1rem;
+    margin: 0 0 1rem;
+
+    dt {
+      color: var(--muted);
+    }
+
+    dt,
+    dd {
+      margin: 0;
+      overflow-wrap: anywhere;
+    }
+  }
+}
+
+.activity-feed,
+.inspector-section .activity-feed {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+
+  li {
+    padding: 0.75rem 0;
+    border-bottom: var(--border);
+    min-width: 0;
+  }
+
+  .activity-parcel {
+    display: block;
+    font-weight: 600;
+    overflow-wrap: anywhere;
+    margin-bottom: 0.25rem;
+  }
+
+  .activity-people {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 0.25rem 0.5rem;
+    overflow-wrap: anywhere;
+  }
+
+  .activity-time {
+    display: inline-block;
+    color: var(--muted);
+    font-size: 0.85em;
+    margin-top: 0.25rem;
+  }
+}
+
+.inspector-section {
+  border-top: var(--border);
+  padding: 0.75rem 0;
+
+  summary {
+    cursor: pointer;
+    font-weight: 600;
+    list-style: none;
+  }
+
+  summary::-webkit-details-marker {
+    &:extend(header nav summary::-webkit-details-marker);
+  }
+
+  summary::before {
+    &:extend(header nav summary::before);
+  }
+
+  &[open] > summary::before {
+    &:extend(header nav details[open] > summary::before);
+  }
+
+  ul {
+    list-style: none;
+    padding: 0;
+    margin: 0.5rem 0 0;
+
+    li {
+      padding: 0.25rem 0;
+    }
+  }
+
+  p {
+    line-height: 1.55;
+    overflow-wrap: anywhere;
+    margin-bottom: 0;
+  }
+}
+
 // Radar
 
 .radar {
@@ -2113,6 +2316,41 @@ button.iconish {
 // clicks on empty canvas chrome fall through to the world
 .canvasdom {
   pointer-events: none;
+}
+
+.parcel-location {
+  position: absolute;
+  top: 0.5rem;
+  left: var(--play-gutter, 0.5rem);
+  max-width: min(22rem, calc(100% - 2rem));
+  box-sizing: border-box;
+  padding: 0;
+  text-shadow: 0 1px 3px var(--scroll-track);
+  color: var(--fg);
+  pointer-events: auto;
+
+  strong,
+  span {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  span {
+    color: var(--muted);
+    margin-top: 0.15rem;
+  }
+
+  &:hover {
+    color: var(--accent);
+    text-decoration: none;
+  }
+
+  @media @narrow {
+    left: 3.5rem;
+    max-width: calc(100% - 4.5rem);
+  }
 }
 
 // the aside is the single scroll container in split view; inner pane sections
@@ -4393,6 +4631,55 @@ main:has(.worldmap) {
   position: relative;
 }
 
+@media @wide {
+  main > .page:has(.for-sale) {
+    overflow: hidden;
+
+    .page-route {
+      height: 100%;
+    }
+
+    .sidebar-chrome {
+      left: auto;
+      width: 23rem;
+      box-sizing: border-box;
+    }
+  }
+
+  .page .for-sale {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 23rem;
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+
+    > article {
+      min-width: 0;
+      min-height: 0;
+    }
+
+    .worldmap {
+      height: 100%;
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    > .for-sale-list {
+      position: static;
+      width: auto;
+      min-width: 0;
+      min-height: 0;
+      margin: 0;
+      padding: 3rem 1rem 1rem;
+      overflow-y: auto;
+      box-sizing: border-box;
+      background: var(--bg);
+    }
+  }
+}
+
 // clear the fixed hamburger (same ~3.5rem offset as the play sidebar pills)
 .map-for-sale-cta {
   position: absolute;
@@ -4593,6 +4880,22 @@ main:has(.worldmap) {
     left: 4.25rem;
   }
 
+  &[data-pane='costumes']::after {
+    left: 7rem;
+  }
+
+  .costume-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+
+    li {
+      padding: 0.4rem 0.5rem;
+      cursor: pointer;
+      overflow-wrap: anywhere;
+    }
+  }
+
   section {
     margin: 0;
     padding: 0.75rem;
@@ -4647,6 +4950,62 @@ main:has(.worldmap) {
 }
 
 // MOBILE CHAT
+header nav .user-menu {
+  .user-trigger {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    width: 100%;
+    padding: 0.25rem 1rem;
+    background: transparent;
+    border: 0;
+    text-align: left;
+
+    span {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    &[aria-expanded='true'] {
+      color: var(--accent);
+    }
+  }
+
+  .user-popout {
+    top: calc(100% + 0.5rem);
+    bottom: auto;
+    width: 100%;
+    padding: 0.5rem;
+    z-index: 10;
+
+    &::after {
+      top: -0.35rem;
+      bottom: auto;
+      transform: rotate(225deg);
+    }
+
+    a,
+    button {
+      display: block;
+      width: 100%;
+      box-sizing: border-box;
+      padding: 0.4rem 0.5rem;
+      color: var(--fg);
+      background: transparent;
+      border: 0;
+      text-align: left;
+      overflow-wrap: anywhere;
+
+      &:hover,
+      &:focus-visible {
+        background: var(--hover);
+        text-decoration: none;
+      }
+    }
+  }
+}
+
 @media @narrow {
   :root {
     --chatbar: 6rem;

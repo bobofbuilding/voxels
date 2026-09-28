@@ -1,3 +1,4 @@
+import { ActivitySection } from './activity'
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks'
 import Toggle from './components/toggle'
 import Head from './components/head'
@@ -246,6 +247,7 @@ export default function ForSale(_props: { path?: string }) {
             </table>
           </>
         )}
+        <ActivitySection parcelId={view === 'detail' ? (selectedId ?? undefined) : undefined} />
       </aside>
     </section>
   )

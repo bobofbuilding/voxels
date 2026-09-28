@@ -11,5 +11,6 @@ select t.hash,
             else lower(p.owner) = lower(t.to_wallet) end as synced
   from parcel_transfers t
   left join properties p on p.id = t.parcel_id
+ where ($1::bigint is null or t.parcel_id = $1::bigint)
  order by t.block desc, t.log_index desc
  limit 100

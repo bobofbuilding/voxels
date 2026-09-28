@@ -18,61 +18,79 @@ type Transfer = {
 
 const ZERO = '0x0000000000000000000000000000000000000000'
 
-export default function Activity(_props: { path?: string }) {
+export function ActivityFeed({ parcelId }: { parcelId?: number }) {
   const [transfers, setTransfers] = useState<Transfer[] | null>(null)
+  const [error, setError] = useState(false)
 
   useEffect(() => {
-    cachedFetch('/api/activity.json', undefined, 15)
+    let live = true
+    setTransfers(null)
+    setError(false)
+    cachedFetch(`/api/activity.json${parcelId ? `?parcel=${parcelId}` : ''}`, undefined, 15)
       .then((r) => r.json())
-      .then((r) => setTransfers(r.success ? r.transfers : []))
-      .catch(() => setTransfers([]))
-  }, [])
+      .then((r) => {
+        if (!r.success) throw new Error('Could not load activity')
+        if (live) setTransfers(r.transfers)
+      })
+      .catch(() => {
+        if (live) setError(true)
+      })
+    return () => {
+      live = false
+    }
+  }, [parcelId])
 
+  if (error) return <p>Could not load activity. Try again later.</p>
+  if (!transfers) return <p>Loading activity...</p>
+  if (!transfers.length) return <p>No transfers yet.</p>
+
+  return (
+    <ol class="activity-feed">
+      {transfers.map((t) => (
+        <li key={t.hash + t.parcel_id}>
+          {!parcelId && (
+            <a class="activity-parcel" href={`/parcels/${t.parcel_id}`}>
+              {t.name || t.address || `Parcel #${t.parcel_id}`}
+            </a>
+          )}
+          <div class="activity-people">
+            {typeof t.from === 'object' && t.from.owner === ZERO ? (
+              <>
+                <span>Minted by</span> <AvatarLink avatar={t.to} />
+              </>
+            ) : (
+              <>
+                <AvatarLink avatar={t.from} />
+                <span aria-label="transferred to">&rarr;</span>
+                <AvatarLink avatar={t.to} />
+              </>
+            )}
+          </div>
+          <a class="activity-time" href={`https://etherscan.io/tx/${t.hash}`} target="_blank" rel="noopener noreferrer" title="View transaction">
+            <time dateTime={t.created_at}>{format(t.created_at)}</time>
+          </a>
+        </li>
+      ))}
+    </ol>
+  )
+}
+
+export function ActivitySection({ parcelId }: { parcelId?: number }) {
+  const [open, setOpen] = useState(false)
+  return (
+    <details class="inspector-section" onToggle={(e) => setOpen(e.currentTarget.open)}>
+      <summary>activity</summary>
+      {open && <ActivityFeed parcelId={parcelId} />}
+    </details>
+  )
+}
+
+export default function Activity(_props: { path?: string }) {
   return (
     <section>
       <Head title="Activity" url="/activity" />
-
-      <header>
-        <h1>Activity</h1>
-        <p>Every parcel changing hands on chain, newest first.</p>
-      </header>
-
-      {!transfers ? (
-        <p>loading...</p>
-      ) : !transfers.length ? (
-        <p>nothing yet. the chain is quiet, or the sync hasn't caught up.</p>
-      ) : (
-        <table>
-          <thead>
-            <tr>
-              <th>when</th>
-              <th>parcel</th>
-              <th>from</th>
-              <th>to</th>
-              <th>db</th>
-            </tr>
-          </thead>
-          <tbody>
-            {transfers.map((t) => (
-              <tr key={t.hash + t.parcel_id}>
-                <td>
-                  <a href={`https://etherscan.io/tx/${t.hash}`} target="_blank">
-                    {format(t.created_at)}
-                  </a>
-                </td>
-                <td>
-                  <a href={`/parcels/${t.parcel_id}`}>{t.name || t.address || `#${t.parcel_id}`}</a>
-                </td>
-                <td>{typeof t.from === 'object' && t.from.owner === ZERO ? 'minted' : <AvatarLink avatar={t.from} />}</td>
-                <td>
-                  <AvatarLink avatar={t.to} />
-                </td>
-                <td>{t.synced === null ? '' : t.synced ? 'synced' : 'stale'}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
+      <h1>Activity</h1>
+      <ActivityFeed />
     </section>
   )
 }

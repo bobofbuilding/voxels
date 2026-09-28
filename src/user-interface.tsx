@@ -3,16 +3,13 @@ import { effect } from '@preact/signals'
 import { Component, Fragment, type ComponentChildren } from 'preact'
 import { createPortal } from 'preact/compat'
 import { route } from 'preact-router'
-import { Link } from 'preact-router/match'
 import { isPlayPath } from '../web/src/helpers/coords-nav'
 import { isMobileMedia } from '../common/helpers/detector'
 import { exitPointerLock, hasPointerLock, requestPointerLock } from '../common/helpers/ui-helpers'
 import { onBeginUpload, onCompleteUpload, onFailUpload } from '../common/helpers/upload-media'
-import { shorterWallet } from '../common/helpers/utils'
 import { Login } from '../web/src/auth/login'
 import { PanelType } from '../web/src/components/panel'
 import Snackbar from '../web/src/components/snackbar'
-import Toggle from '../web/src/components/toggle'
 import { app, AppEvent } from '../web/src/state'
 import { KeyboardHandler } from './components/keyboard-handler'
 import { OnlyMobile } from './components/utils'
@@ -24,7 +21,6 @@ import type { FeatureTemplate } from './features/_metadata'
 import type Grid from './grid'
 import type { MinimapSettings } from './minimap'
 import Parcel from './parcel'
-import { spamhaus } from './markov-haus'
 import {
   selectCurrentOrNearestParcel,
   selectNearestEditableParcel,
@@ -41,8 +37,11 @@ import {
   uiAsideTick,
   uiPane,
   sidebarClosed,
-  siteNavOpen,
-  worldNavEl,
+  dismissSiteNav,
+  isOnSandboxParcel,
+  worldUi,
+  mic,
+  micEnabled,
   pageToolEl,
   isPageTool,
   pendingWomp,
@@ -62,6 +61,7 @@ import { FeatureEditor } from './ui/features/misc'
 import HomeButton from './ui/home-button'
 import { ChatOverlay, chatSettings } from './ui/interact/chat'
 import { voiceSettings } from './voice-settings'
+import { togglePopout } from './ui/interact/popout'
 import { DancePane } from './ui/interact/dance-pane'
 import { EmotePane } from './ui/interact/emote-pane'
 import { HelpOverlay } from './ui/interact/help'
@@ -83,21 +83,6 @@ import TakeWomp from './ui/take-womp'
 
 const NUMBER_KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'] as const
 
-const isOnSandboxParcel = () => {
-  const p = selectNearestEditableParcel() ?? (typeof window !== 'undefined' ? window.grid?.nearestEditableParcel?.() : null)
-  return !!(p as any)?.sandbox
-}
-
-function dismissSiteNav() {
-  if (typeof window !== 'undefined' && window.matchMedia('(max-width: 50em)').matches) siteNavOpen.value = false
-}
-
-function WorldNavPortal({ children }: { children: ComponentChildren }) {
-  const el = worldNavEl.value
-  if (!el) return null
-  return createPortal(children, el)
-}
-
 function PageToolPortal({ children }: { children: ComponentChildren }) {
   const el = pageToolEl.value
   if (!el) return null
@@ -111,19 +96,23 @@ const ROUTE_PANES: Partial<Record<UIPanes, string>> = {
   avatar: '/avatar',
 }
 
-const Location = (props: { scene: BABYLON.Scene; signedIn: any }) => {
-  const currentOrNearestParcel = selectCurrentOrNearestParcel()
-  if (!currentOrNearestParcel) {
-    return <a href="/">Home</a>
-  }
-
-  const owner = currentOrNearestParcel.owner ? shorterWallet(currentOrNearestParcel.owner) : 'nobody'
-
-  const link = `/parcels/${currentOrNearestParcel.id}`
+const Location = () => {
+  const parcel = selectCurrentOrNearestParcel()
+  if (!parcel) return null
 
   return (
-    <a key={currentOrNearestParcel.id} class="address" href={link}>
-      {currentOrNearestParcel.name || currentOrNearestParcel.address}
+    <a
+      class="parcel-location"
+      href={`/parcels/${parcel.id}?coords=${encodeURIComponent(window.connector?.controls.getCoords() || '')}`}
+      onClick={(e) => {
+        if (e.button || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return
+        e.preventDefault()
+        exitPointerLock()
+        route(`/parcels/${parcel.id}?coords=${encodeURIComponent(window.connector?.controls.getCoords() || '')}`)
+      }}
+    >
+      <strong>{parcel.name || parcel.address}</strong>
+      {parcel.name && <span>{parcel.address}</span>}
     </a>
   )
 }
@@ -176,8 +165,6 @@ type UserInterfaceState = {
   onlineCount: number
   chatEnabled: boolean
   dragging?: boolean
-  voice?: 'off' | 'live' | 'muted'
-  voiceEnabled: boolean
 }
 
 export default class UserInterface extends Component<UserInterfaceProps, UserInterfaceState> {
@@ -227,8 +214,8 @@ export default class UserInterface extends Component<UserInterfaceProps, UserInt
       currentOrNearestParcel: null,
       onlineCount: 0,
       chatEnabled: chatSettings.enabled,
-      voiceEnabled: voiceSettings.enabled,
     }
+    micEnabled.value = voiceSettings.enabled
   }
 
   get engine() {
@@ -256,19 +243,19 @@ export default class UserInterface extends Component<UserInterfaceProps, UserInt
     if (!voiceSettings.enabled) return
     const vc = this.connector.persona?.voiceChat
     if (!vc) return
-    if (this.state.voice === 'live') {
+    if (mic.value === 'live') {
       vc.setMuted(true)
-      this.setState({ voice: 'muted' })
+      mic.value = 'muted'
       return
     }
     if (!vc.on) {
       void vc.enable().then(() => {
-        if (vc.on) this.setState({ voice: 'live' })
+        if (vc.on) mic.value = 'live'
       })
       return
     }
     vc.setMuted(false)
-    this.setState({ voice: 'live' })
+    mic.value = 'live'
   }
 
   openEditor(editor: FeatureEditor, feature: Feature) {
@@ -324,6 +311,7 @@ export default class UserInterface extends Component<UserInterfaceProps, UserInt
   }
 
   componentDidMount() {
+    worldUi.value = this
     app.on(AppEvent.Change, this.onAppChange)
     document.addEventListener('pointerlockchange', this.onPointerLockChange)
     if (isMobileMedia()) {
@@ -420,15 +408,17 @@ export default class UserInterface extends Component<UserInterfaceProps, UserInt
   onVoiceSettingsChange = () => {
     if (!voiceSettings.enabled) {
       void this.connector.persona?.voiceChat?.disable()
-      this.setState({ voiceEnabled: false, voice: 'off' })
+      micEnabled.value = false
+      mic.value = 'off'
       return
     }
-    this.setState({ voiceEnabled: true })
+    micEnabled.value = true
   }
 
   updateCanEdit = () => {}
 
   componentWillUnmount() {
+    worldUi.value = null
     this.presenceEs?.close()
     this.presenceEs = null
     app.removeListener(AppEvent.Change, this.onAppChange)
@@ -517,8 +507,8 @@ export default class UserInterface extends Component<UserInterfaceProps, UserInt
         { code: 'KeyF', handleEvent: () => this.connector.controls.toggleFlying() },
         { code: 'KeyC', handleEvent: () => this.connector.controls.togglePerspective() },
         { code: 'KeyB', handleEvent: () => this.toggleVoxelTool() },
-        { code: 'KeyG', handleEvent: () => this.setPane('dance') },
-        { code: 'KeyT', handleEvent: () => this.setPane('emote') },
+        { code: 'KeyG', handleEvent: () => togglePopout('dance') },
+        { code: 'KeyT', handleEvent: () => togglePopout('emote') },
         { code: 'KeyZ', handleEvent: () => this.connector.controls.toggleZoom() },
         { code: 'Enter', handleEvent: this.focusChat },
         { code: 'Escape', handleEvent: () => this.onEscape() },
@@ -890,175 +880,15 @@ export default class UserInterface extends Component<UserInterfaceProps, UserInt
       return <Fragment />
     }
 
-    const onClick = (p: UIPanes) => (e: any) => {
-      e.preventDefault()
-      dismissSiteNav()
-      this.setPane(p)
-      exitPointerLock()
-    }
-
     const nearestEditableParcel = selectNearestEditableParcel() ?? null
-    const mintable = app.isAdmin() && nearestEditableParcel?.needsMint
-
-    const canEdit = app.isAdmin() || (nearestEditableParcel ? nearestEditableParcel.canEdit : false)
-    const canEditHere = !!nearestEditableParcel && canEdit
-    const canUseEdit = (this.state.signedIn || isOnSandboxParcel()) && canEdit
-    const editClick = (p: UIPanes) => (e: any) => {
-      e.preventDefault()
-      if (!canUseEdit) return
-      onClick(p)(e)
-    }
-
     const currentPane = this.state.pane
-    const active = (pane: string) => (currentPane === pane ? 'active' : undefined)
     const chat = this.state.chatEnabled && !location.pathname.startsWith('/chat')
 
     return (
       <>
-        <WorldNavPortal>
-          <li>
-            <Link
-              activeClassName="active"
-              href="/avatar"
-              onClick={() => {
-                dismissSiteNav()
-                exitPointerLock()
-              }}
-            >
-              Avatar
-            </Link>
-          </li>
-          {app.isAdmin() && nearestEditableParcel && (
-            <>
-              <li>
-                <a
-                  href="#"
-                  onClick={(e) => {
-                    e.preventDefault()
-                    dismissSiteNav()
-                    void nearestEditableParcel.resave()
-                  }}
-                >
-                  resave
-                </a>
-              </li>
-              <li>
-                <a
-                  href="#"
-                  onClick={(e) => {
-                    e.preventDefault()
-                    dismissSiteNav()
-                    void spamhaus(nearestEditableParcel)
-                  }}
-                >
-                  spamhaus
-                </a>
-              </li>
-            </>
-          )}
-          <li>
-            <Link
-              activeClassName="active"
-              href="/dance"
-              onClick={() => {
-                dismissSiteNav()
-                exitPointerLock()
-              }}
-            >
-              Dance
-            </Link>
-          </li>
-          <li>
-            <Link
-              activeClassName="active"
-              href="/emote"
-              onClick={() => {
-                dismissSiteNav()
-                exitPointerLock()
-              }}
-            >
-              Emote
-            </Link>
-          </li>
-          <li>
-            <a
-              class={canEditHere && this.voxelTool.enabled.value ? 'active' : undefined}
-              title="Build with voxels"
-              href="/build"
-              onClick={(e) => {
-                e.preventDefault()
-                dismissSiteNav()
-                exitPointerLock()
-                if (canEditHere) this.openBuildToolbelt()
-                else route('/build')
-              }}
-            >
-              Build
-            </a>
-          </li>
-          <li class={canUseEdit ? undefined : 'disabled'}>
-            <a class={canUseEdit ? active('add') : undefined} title="Add things to your thing" href="#add" onClick={editClick('add')} accessKey="a">
-              Add
-            </a>
-          </li>
-          <li class={canUseEdit ? undefined : 'disabled'}>
-            <a class={canUseEdit ? active('nfts') : undefined} href="#nfts" onClick={editClick('nfts')}>
-              NFTs
-            </a>
-          </li>
-          <li class={canUseEdit ? undefined : 'disabled'}>
-            <a class={canUseEdit ? active('parcelSnapshots') : undefined} href="#snapshots" onClick={editClick('parcelSnapshots')}>
-              Shots
-            </a>
-          </li>
-          <li class={canUseEdit ? undefined : 'disabled'}>
-            <a class={canUseEdit ? active('edit') : undefined} href="#edit" onClick={editClick('edit')}>
-              Edit
-            </a>
-          </li>
-          <li class={canUseEdit ? undefined : 'disabled'}>
-            <a class={canUseEdit ? active('voxels') : undefined} href="#voxels" onClick={editClick('voxels')}>
-              Voxels
-            </a>
-          </li>
-          {this.state.voiceEnabled && (
-            <li title="Microphone">
-              <div class="voice-toggle">
-                Voice
-                <Toggle
-                  checked={this.state.voice === 'live'}
-                  onChange={() => {
-                    dismissSiteNav()
-                    this.toggleVoice()
-                  }}
-                />
-              </div>
-            </li>
-          )}
-          {mintable && (
-            <li>
-              <a
-                href="#"
-                onClick={(e) => {
-                  e.preventDefault()
-                  dismissSiteNav()
-                  void nearestEditableParcel?.requestMint()
-                }}
-              >
-                Mint
-              </a>
-            </li>
-          )}
-          {app.isAdmin() && (
-            <li>
-              <a class={active('debugTool')} href="#" onClick={onClick('debugTool')}>
-                Debug
-              </a>
-            </li>
-          )}
-        </WorldNavPortal>
         {isPageTool(currentPane) && <PageToolPortal>{this.paneContent(currentPane!)}</PageToolPortal>}
         <div class="canvasdom">
+          <Location />
           <FirstTimeInstructions />
 
           {chat && <ChatOverlay />}

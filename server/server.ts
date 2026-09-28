@@ -524,7 +524,11 @@ app.get(
 )
 
 app.get('/api/parcels/cached.json', cache('60 seconds', true), createRequestHandlerForQuery(db, 'get-parcels-cached', 'parcels'))
-app.get('/api/activity.json', cache('15 seconds'), createRequestHandlerForQuery(db, 'get-parcel-activity', 'transfers'))
+app.get(
+  '/api/activity.json',
+  cache('15 seconds'),
+  createRequestHandlerForQuery(db, 'get-parcel-activity', 'transfers', (req) => [Number.isSafeInteger(Number(req.query.parcel)) && Number(req.query.parcel) > 0 ? Number(req.query.parcel) : null]),
+)
 
 const parcelProxy = proxy('https://www.voxels.com', {
   proxyReqPathResolver: (req) => req.originalUrl,
