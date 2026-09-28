@@ -11,6 +11,6 @@ test('parcel shows its name', async () => {
     },
   })
 
-  const root = await renderView('parcel', h(Parcel, { id: 42 }), 'h2')
-  expect(root.querySelector('h2')!.textContent).toContain('the pier')
+  const root = await renderView('parcel', h(Parcel, { id: 42 }), 'h1')
+  expect(root.querySelector('h1')!.textContent).toContain('the pier')
 })
