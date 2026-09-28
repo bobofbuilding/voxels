@@ -97,8 +97,10 @@ export class Contributor extends Component<Props, State> {
     if (contributorsParcels.length === 0) return null
 
     return (
-      <>
-        <h2>collaborations</h2>
+      <details class="inspector-section" open>
+        <summary>
+          collaborations <small>{total}</small>
+        </summary>
         <table class="parcels">
           <tbody>{contributorsParcels}</tbody>
         </table>
@@ -115,7 +117,7 @@ export class Contributor extends Component<Props, State> {
             </a>
           </p>
         )}
-      </>
+      </details>
     )
   }
 }

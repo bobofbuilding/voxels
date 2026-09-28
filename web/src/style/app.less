@@ -1683,6 +1683,77 @@ section.login {
 /* Account page (your own profile) */
 
 section.profile {
+  hgroup {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+  }
+
+  article > p {
+    line-height: 1.55;
+    overflow-wrap: anywhere;
+  }
+
+  .profile-properties {
+    display: grid;
+    grid-template-columns: 5rem minmax(0, 1fr);
+    gap: 0.65rem 1rem;
+    margin: 1rem 0;
+
+    dt,
+    dd {
+      margin: 0;
+      overflow-wrap: anywhere;
+    }
+
+    dt {
+      color: var(--muted);
+    }
+  }
+
+  summary small {
+    float: right;
+    color: var(--muted);
+    font-weight: normal;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .inspector-section table {
+    width: 100%;
+    margin-top: 0.5rem;
+    border-collapse: collapse;
+
+    td {
+      padding: 0.5rem;
+      vertical-align: top;
+      overflow-wrap: anywhere;
+    }
+
+    tr:hover,
+    tr:focus-within {
+      background: var(--hover);
+    }
+
+    b {
+      font-weight: normal;
+    }
+
+    small {
+      color: var(--muted);
+    }
+  }
+
+  table.parcels td:first-child {
+    width: 3.5rem;
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+  }
+
+  table.parcels td:last-child:empty {
+    display: none;
+  }
+
   ul.identities {
     padding: 0;
     margin: 0 0 1rem;
@@ -2120,7 +2191,8 @@ table.spaces {
 }
 
 // Explore Online: pack radar / live / womps a bit tighter so more fits in the sidebar
-.explorer {
+.explorer,
+section.profile {
   .wrap-grid {
     grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 0.25rem;

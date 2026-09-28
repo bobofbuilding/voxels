@@ -105,8 +105,10 @@ export class Parcels extends Component<Props, State> {
     if (parcels.length === 0) return null
 
     return (
-      <>
-        <h2>parcels</h2>
+      <details class="inspector-section" open>
+        <summary>
+          parcels <small>{total}</small>
+        </summary>
         <table class="parcels">
           <tbody>{parcels}</tbody>
         </table>
@@ -123,7 +125,7 @@ export class Parcels extends Component<Props, State> {
             </a>
           </p>
         )}
-      </>
+      </details>
     )
   }
 }

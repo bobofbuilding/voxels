@@ -77,16 +77,15 @@ export default function Profile(props: Props) {
         )}
         {avatar?.description && <p>{avatar.description}</p>}
 
-        <dl>
+        <dl class="profile-properties">
           {hasWallet && (
             <>
-              <dt>wallet address</dt>
+              <dt>wallet</dt>
               <dd>
-                <a onClick={copyWallet} title="click to copy">
+                <button type="button" onClick={copyWallet} title="Copy wallet address">
                   {ethTrunc(walletOrUUId)}
-                </a>{' '}
-                &mdash;{' '}
-                <a href={`https://etherscan.io/address/${walletOrUUId}`} target="_blank">
+                </button>{' '}
+                <a href={`https://etherscan.io/address/${walletOrUUId}`} target="_blank" rel="noopener noreferrer">
                   etherscan
                 </a>
               </dd>
@@ -97,13 +96,16 @@ export default function Profile(props: Props) {
             <>
               <dt>homepages</dt>
               <dd>
-                <a href={avatar.social_link_1} target="_blank">
+                <a href={avatar.social_link_1} target="_blank" rel="noopener noreferrer">
                   {truncate(avatar.social_link_1, { length: 48 })}
                 </a>
-                <br />
-                <a href={avatar.social_link_2!} target="_blank">
-                  {truncate(avatar.social_link_2!, { length: 48 })}
-                </a>
+                {avatar.social_link_2 && (
+                  <div>
+                    <a href={avatar.social_link_2} target="_blank" rel="noopener noreferrer">
+                      {truncate(avatar.social_link_2, { length: 48 })}
+                    </a>
+                  </div>
+                )}
               </dd>
             </>
           )}
@@ -126,8 +128,10 @@ export default function Profile(props: Props) {
         <Spaces wallet={walletOrUUId} isOwner={isOwner} />
 
         {collections.length > 0 && (
-          <>
-            <h2>collections</h2>
+          <details class="inspector-section" open>
+            <summary>
+              collections <small>{collections.length}</small>
+            </summary>
             <table>
               <tbody>
                 {collections.map((c) => (
@@ -139,12 +143,14 @@ export default function Profile(props: Props) {
                 ))}
               </tbody>
             </table>
-          </>
+          </details>
         )}
 
         {costumes.length > 0 && (
-          <>
-            <h2>costumes</h2>
+          <details class="inspector-section" open>
+            <summary>
+              costumes <small>{costumes.length}</small>
+            </summary>
             <table>
               <tbody>
                 {costumes.map((c) => (
@@ -156,10 +162,13 @@ export default function Profile(props: Props) {
                 ))}
               </tbody>
             </table>
-          </>
+          </details>
         )}
 
-        <WompsList title="womps" numberToShow={20} collapsed={false} ttl={60} fetch={`/womps/by/${walletOrUUId}`} quiet />
+        <details class="inspector-section" open>
+          <summary>womps</summary>
+          <WompsList numberToShow={16} collapsed={false} ttl={60} fetch={`/womps/by/${walletOrUUId}`} quiet />
+        </details>
       </article>
     </section>
   )

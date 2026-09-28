@@ -60,8 +60,10 @@ export class Spaces extends Component<Props, State> {
     if (spaces.length === 0) return null
 
     return (
-      <div>
-        <h2>spaces</h2>
+      <details class="inspector-section" open>
+        <summary>
+          spaces <small>{total}</small>
+        </summary>
         <ul>
           {spaces.map((s) => (
             <li>
@@ -83,7 +85,7 @@ export class Spaces extends Component<Props, State> {
             </a>
           </p>
         )}
-      </div>
+      </details>
     )
   }
 }
