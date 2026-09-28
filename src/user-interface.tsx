@@ -37,7 +37,6 @@ import {
   uiAsideTick,
   uiPane,
   sidebarClosed,
-  dismissSiteNav,
   isOnSandboxParcel,
   worldUi,
   mic,
@@ -560,7 +559,6 @@ export default class UserInterface extends Component<UserInterfaceProps, UserInt
     if (pane === 'broadcast') return
     const path = ROUTE_PANES[pane]
     if (path) {
-      dismissSiteNav()
       exitPointerLock()
       route(path)
       return

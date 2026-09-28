@@ -12,7 +12,7 @@ import Toggle from './components/toggle'
 import { messageList } from '../../src/connector'
 import { spamhaus } from '../../src/markov-haus'
 import { exitPointerLock } from '../../common/helpers/ui-helpers'
-import { dismissSiteNav, isOnSandboxParcel, mic, micEnabled, nearestEditableParcel, siteNavOpen, toggleSiteNav, uiPane, worldUi } from '../../src/store'
+import { isOnSandboxParcel, mic, micEnabled, nearestEditableParcel, uiPane, worldUi } from '../../src/store'
 import UserMenu from './components/user-menu'
 import { loadMe, me } from './auth/identities'
 type Props = {
@@ -58,15 +58,6 @@ function markChatSeen() {
   try {
     localStorage.setItem(CHAT_LAST_SEEN, String(Date.now()))
   } catch {}
-}
-
-function SiteNavToggle() {
-  const open = siteNavOpen.value
-  return (
-    <button class="hamburger site-nav-toggle" type="button" aria-label={open ? 'Close menu' : 'Open menu'} aria-expanded={open} onClick={toggleSiteNav}>
-      {open ? 'x' : '='}
-    </button>
-  )
 }
 
 export default class WebHeader extends Component<Props, State> {
@@ -119,7 +110,6 @@ export default class WebHeader extends Component<Props, State> {
 
   componentDidUpdate(prevProps: Props) {
     if (prevProps.path !== this.props.path) {
-      dismissSiteNav()
       if (this.navPath() === '/chat') {
         markChatSeen()
         this.setState({ chatN: 0 })
@@ -236,7 +226,6 @@ export default class WebHeader extends Component<Props, State> {
           onClick={(e) => {
             e.preventDefault()
             if (!on) return
-            dismissSiteNav()
             exitPointerLock()
             go()
           }}
@@ -270,7 +259,6 @@ export default class WebHeader extends Component<Props, State> {
 
     return (
       <>
-        <SiteNavToggle />
         <header class="menu">
           <nav ref={(el) => void (this.nav = el)} onKeyDown={this.onKeys}>
             <ul>
@@ -326,7 +314,6 @@ export default class WebHeader extends Component<Props, State> {
                           <Toggle
                             checked={mic.value === 'live'}
                             onChange={() => {
-                              dismissSiteNav()
                               ui.toggleVoice()
                             }}
                           />

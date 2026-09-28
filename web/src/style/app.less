@@ -767,45 +767,9 @@ header.menu {
   }
 }
 
-// phone: left nav is a closed hamburger overlay (desktop keeps the column)
 @media @narrow {
   header.menu {
-    position: fixed;
-    top: 0;
-    left: 0;
-    bottom: 0;
-    width: min(16rem, 85vw);
-    z-index: 1000;
-    background: var(--bg);
-    transform: translateX(-100%);
-    transition:
-      transform 150ms ease-out,
-      opacity 0.5s;
-    pointer-events: none;
-  }
-
-  body.site-nav-open header:has(nav),
-  header:has(nav).nav-open {
-    transform: none;
-    pointer-events: auto;
-  }
-}
-
-main > button.site-nav-toggle {
-  display: none;
-}
-
-@media @narrow {
-  main > button.site-nav-toggle {
-    display: block;
-    position: fixed;
-    left: max(1rem, env(safe-area-inset-left, 0px));
-    top: max(0.5rem, env(safe-area-inset-top, 0px));
-    z-index: 1001;
-    pointer-events: auto;
-    background: var(--bg);
-    color: var(--fg);
-    box-shadow: 1px 1px 3px rgba(0, 0, 0, 0.4);
+    display: none;
   }
 }
 
@@ -944,8 +908,7 @@ main {
   grid-template-columns: auto 1fr 23rem;
   grid-template-rows: 1fr;
 
-  > header,
-  > .site-nav-toggle {
+  > header {
     grid-column: 1;
     grid-row: 1;
   }
@@ -1045,8 +1008,7 @@ main {
     grid-template-columns: 1fr;
     grid-template-rows: 50vh 1fr;
 
-    > header,
-    > .site-nav-toggle {
+    > header {
       grid-column: 1;
       grid-row: 1;
     }
