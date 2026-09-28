@@ -154,13 +154,18 @@ export function distanceEnable(mesh: BABYLON.AbstractMesh | undefined, playerMes
 }
 
 export function createBaseMeshes(scene: BABYLON.Scene) {
+  const style = getComputedStyle(document.documentElement)
+  const mesh = (name: string, token: string) => {
+    const c = BABYLON.Color3.FromHexString(style.getPropertyValue(token).trim())
+    return createPMesh(name, scene, c.r, c.g, c.b)
+  }
   return {
-    parcel: createPMesh('parcel-default', scene, 0.4, 0.4, 0.4),
-    sandbox: createPMesh('parcel-sandbox', scene, 0.91, 0.78, 0.18),
-    common: createPMesh('parcel-common', scene, 0.1, 0.62, 0.05),
-    owner: createPMesh('parcel-owner', scene, 0.98, 0.36, 0.14),
-    contributor: createPMesh('parcel-contributor', scene, 0.47, 0.93, 0.83),
-    listed: createPMesh('parcel-listed', scene, 0.98, 0.36, 0.14),
+    parcel: mesh('parcel-default', '--map-parcel'),
+    sandbox: mesh('parcel-sandbox', '--map-sale'),
+    common: mesh('parcel-common', '--map-common'),
+    owner: mesh('parcel-owner', '--accent'),
+    contributor: mesh('parcel-contributor', '--axis-y'),
+    listed: mesh('parcel-listed', '--map-sale'),
   }
 }
 
@@ -195,8 +200,7 @@ export async function loadIslands(scene: BABYLON.Scene, parent?: BABYLON.Transfo
   const root = parent ?? new BABYLON.TransformNode('map_islands', scene)
   const islandMaterial = new BABYLON.StandardMaterial('map-island', scene)
   islandMaterial.disableLighting = true
-  const g = bright ? 0.9 : 0.2
-  islandMaterial.emissiveColor.set(g, g, g)
+  islandMaterial.emissiveColor = BABYLON.Color3.FromHexString(getComputedStyle(document.documentElement).getPropertyValue('--map-land').trim())
   if (bright) islandMaterial.backFaceCulling = false
   islandMaterial.freeze()
   const content = await fetchIslands()
@@ -283,7 +287,6 @@ export class VoxelsMap {
   private scene: BABYLON.Scene
   private camera: BABYLON.FreeCamera
   private islands: Island[] = []
-  private parcels: MapParcel[] = []
   private rows: ParcelData[] = []
   private meshes?: ReturnType<typeof createBaseMeshes>
   private playerMesh?: BABYLON.Mesh
@@ -301,6 +304,8 @@ export class VoxelsMap {
   private wallet?: string
   private overlay: HTMLDivElement
   private markers = new Set<MapMarker>()
+  private labelsDirty = true
+  private labelView = new Float64Array(5)
   private popup: HTMLDivElement | null = null
   private popupX = 0
   private popupZ = 0
@@ -338,7 +343,7 @@ export class VoxelsMap {
 
     this.engine = new BABYLON.Engine(canvas, true, { audioEngine: true, preserveDrawingBuffer: true, stencil: true })
     this.scene = new BABYLON.Scene(this.engine)
-    this.scene.clearColor = OCEAN
+    this.scene.clearColor = BABYLON.Color4.FromHexString(getComputedStyle(document.documentElement).getPropertyValue('--map-water').trim() + 'ff')
     this.scene.skipPointerMovePicking = true
     this.scene.skipPointerDownPicking = true
     this.scene.skipPointerUpPicking = true
@@ -397,8 +402,6 @@ export class VoxelsMap {
     this.closePopup()
     for (const m of [...this.markers]) m.remove()
     this.overlay.remove()
-    this.parcels.forEach((p) => p.dispose())
-    this.parcels = []
     this.islands.forEach((i) => i.dispose())
     this.scene.dispose()
     this.engine.dispose()
@@ -407,8 +410,41 @@ export class VoxelsMap {
   setWallet(wallet?: string) {
     this.wallet = wallet
     if (!this.meshes || !this.rows.length) return
-    this.parcels.forEach((p) => p.dispose())
-    this.parcels = this.rows.filter((p) => p.visible !== false).map((p) => new MapParcel(this.scene, p, pickParcelMesh(p, this.meshes!, this.wallet)))
+    this.buildParcels()
+  }
+
+  // thin instances: one static matrix buffer per colour, no per-parcel cpu work per frame
+  private buildParcels() {
+    if (!this.meshes) return
+    const groups = new Map<BABYLON.Mesh, ParcelData[]>()
+    for (const p of this.rows) {
+      if (p.visible === false) continue
+      const m = pickParcelMesh(p, this.meshes, this.wallet)
+      if (!groups.has(m)) groups.set(m, [])
+      groups.get(m)!.push(p)
+    }
+    const rot = BABYLON.Quaternion.RotationAxis(BABYLON.Axis.X, Math.PI / 2)
+    const scale = new BABYLON.Vector3()
+    const pos = new BABYLON.Vector3()
+    const mat = new BABYLON.Matrix()
+    for (const m of Object.values(this.meshes)) {
+      const list = groups.get(m) ?? []
+      const buf = new Float32Array(list.length * 16)
+      list.forEach((p, i) => {
+        const w = p.x2 - p.x1 - 0.5
+        const d = p.z2 - p.z1 - 0.5
+        scale.set(w, d, 1)
+        pos.set(p.x1 + w / 2, 1, p.z1 + d / 2)
+        BABYLON.Matrix.ComposeToRef(scale, rot, pos, mat)
+        mat.copyToArray(buf, i * 16)
+      })
+      m.position.set(0, 0, 0)
+      m.rotation.set(0, 0, 0)
+      m.alwaysSelectAsActiveMesh = true
+      m.thinInstanceSetBuffer('matrix', buf, 16, true)
+      // zero thin instances and babylon draws the bare plane at the origin
+      m.setEnabled(list.length > 0)
+    }
   }
 
   getParcels() {
@@ -496,6 +532,7 @@ export class VoxelsMap {
   }
 
   addMarker(opts: MapMarkerOpts): MapMarker {
+    this.labelsDirty = true
     const el = document.createElement('div')
     el.className = opts.className || 'voxels-map-marker'
     el.style.cssText = 'position:absolute;transform:translate(-50%,-50%);pointer-events:auto;cursor:pointer'
@@ -515,6 +552,7 @@ export class VoxelsMap {
       setPos: (x, z) => {
         marker.x = x
         marker.z = z
+        this.labelsDirty = true
       },
       setRotation: (deg) => {
         el.style.transform = `translate(-50%,-50%) rotate(${deg}deg)`
@@ -525,6 +563,7 @@ export class VoxelsMap {
       remove: () => {
         el.remove()
         this.markers.delete(marker)
+        this.labelsDirty = true
       },
     }
     this.markers.add(marker)
@@ -549,11 +588,44 @@ export class VoxelsMap {
     this.popup = null
   }
 
+  refreshMarkers() {
+    this.labelsDirty = true
+  }
+
   private syncOverlay() {
+    let active: HTMLElement | null = null
     for (const m of this.markers) {
       const { px, py } = this.worldToScreen(m.x, m.z)
       m.el.style.left = `${px}px`
       m.el.style.top = `${py}px`
+      if (m.el.classList.contains('active')) active = m.el
+    }
+    const x = this.camera.position.x
+    const z = this.camera.position.z
+    const width = this.engine.getRenderWidth()
+    const height = this.engine.getRenderHeight()
+    const view = this.labelView
+    if (this.labelsDirty || view[0] !== x || view[1] !== z || view[2] !== this.ortho || view[3] !== width || view[4] !== height) {
+      this.labelsDirty = false
+      view[0] = x
+      view[1] = z
+      view[2] = this.ortho
+      view[3] = width
+      view[4] = height
+      const placed: { x: number; y: number; w: number; h: number }[] = []
+      // Selected parcel gets first claim; overlapping prices wait until you zoom in.
+      const pins = [...this.markers].filter((m) => m.el.classList.contains('for-sale-pin'))
+      pins.sort((a, b) => Number(b.el === active) - Number(a.el === active))
+      for (const m of pins) {
+        const { px, py } = this.worldToScreen(m.x, m.z)
+        const w = m.el.offsetWidth + 8
+        const h = m.el.offsetHeight + 6
+        const x = px - w / 2
+        const y = py - h / 2
+        const visible = x >= 0 && y >= 0 && x + w <= this.overlay.clientWidth && y + h <= this.overlay.clientHeight && !placed.some((r) => x < r.x + r.w && x + w > r.x && y < r.y + r.h && y + h > r.y)
+        m.el.style.visibility = visible ? 'visible' : 'hidden'
+        if (visible) placed.push({ x, y, w, h })
+      }
     }
     if (this.popup) {
       const { px, py } = this.worldToScreen(this.popupX, this.popupZ)
@@ -603,7 +675,7 @@ export class VoxelsMap {
     this.meshes = createBaseMeshes(this.scene)
     const rows = await fetchMapParcels()
     this.rows = rows
-    this.parcels = rows.filter((p) => p.visible !== false).map((p) => new MapParcel(this.scene, p, pickParcelMesh(p, this.meshes!, this.wallet)))
+    this.buildParcels()
   }
 
   private createTriangleMesh(name: string) {

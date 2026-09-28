@@ -17,6 +17,11 @@
 }
 
 :root {
+  --map-water: #111722;
+  --map-land: #26303b;
+  --map-parcel: #663b49;
+  --map-sale: #a64b62;
+  --map-common: #30555d;
   --gap: 0.2rem;
   --bg: #2e2c2f;
   --fg: #d6d4d7;
@@ -4689,11 +4694,23 @@ main:has(.worldmap) {
 }
 
 .for-sale-pin {
-  border: var(--border);
-  border-width: 2px;
-  border-radius: 1rem;
-  padding: 0.2rem 0.5rem;
-  box-shadow: 3px 3px 3px rgba(0, 0, 0, 0.2);
+  border: 1px solid var(--muted);
+  padding: 0.25rem 0.45rem;
+  background: var(--bg);
+  color: var(--fg);
+  white-space: nowrap;
+  font-size: 12px;
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
+  box-shadow: 0 2px 6px var(--map-water);
+
+  &.active,
+  &:hover {
+    background: var(--bg);
+    color: var(--accent);
+    border-color: var(--accent);
+    z-index: 3;
+  }
 }
 
 // explore sidebar tabs (pruned out of client.less by mistake - without flex they

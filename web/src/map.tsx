@@ -135,6 +135,7 @@ export default class WorldMap extends Component<Props, State> {
       if (!span) return false
       span.textContent = item.label ?? priceLabel(item.price)
     }
+    this.map?.refreshMarkers()
     return true
   }
 
@@ -231,6 +232,7 @@ export default class WorldMap extends Component<Props, State> {
     for (const key of Object.keys(this.forSaleMarkers)) {
       this.forSaleMarkers[+key].el.classList.toggle('active', +key === id)
     }
+    this.map?.refreshMarkers()
   }
 
   render() {
