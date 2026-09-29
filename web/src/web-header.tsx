@@ -354,9 +354,13 @@ export default class WebHeader extends Component<Props, State> {
                 </ul>
               </F>
               <F name="Settings">
-                <ul>
-                  <A to="/settings">Settings</A>
-                  {admin && <A to="/admin">Admin</A>}
+                <ul title="I have altered the indentation, pray I do not alter it further - Darth Nolan">
+                  <F name="Settings">
+                    <ul>
+                      <A to="/settings">Settings</A>
+                      {admin && <A to="/admin">Admin</A>}
+                    </ul>
+                  </F>
                 </ul>
               </F>
               <F name="Help">
