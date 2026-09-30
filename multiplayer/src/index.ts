@@ -20,6 +20,8 @@ process.once('SIGINT', () => {
   process.once('SIGINT', () => process.exit(0))
 })
 
+process.once('SIGTERM', () => shutdownSignaller.abort('ABORT:SIGTERM received'))
+
 const RADAR_CHANNEL = 'radar:updates'
 const RADAR_TTL = 60
 const RADAR_HEARTBEAT_MS = 30_000
@@ -90,7 +92,7 @@ async function start(signal: AbortSignal) {
   })
 
   const port = process.env.PORT ? parseInt(process.env.PORT) : 3780
-  server.server.listen(port, () => {
+  server.server.listen(port, process.env.BIND_HOST || '0.0.0.0', () => {
     console.log('Listening on port ' + port)
   })
 }

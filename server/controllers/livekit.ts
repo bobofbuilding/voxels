@@ -21,6 +21,10 @@ function roomViewers(rooms: { name: string; numParticipants?: number }[], room: 
 }
 
 export default async function LivekitController(db: Db, passport: PassportStatic, app: Express) {
+  if (!process.env.LIVEKIT_API_KEY || !process.env.LIVEKIT_API_SECRET) {
+    app.use(['/api/rooms', '/api/live', '/api/clusters'], (_req, res) => res.status(503).json({ success: false, error: 'Voice and broadcast services are not configured' }))
+    return
+  }
   const svc = livekitService
   const receiver = new WebhookReceiver(process.env.LIVEKIT_API_KEY!, process.env.LIVEKIT_API_SECRET!)
 
