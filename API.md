@@ -12,6 +12,7 @@ Generated from `server/openapi.yaml` by `npm run docs:api`. Edit the spec, not t
 
 ## what is in here
 
+- [media-cache](#media-cache), 2 routes
 - [parcels](#parcels), 21 routes
 - [womps](#womps), 6 routes
 - [avatars](#avatars), 15 routes
@@ -27,6 +28,43 @@ Generated from `server/openapi.yaml` by `npm run docs:api`. Edit the spec, not t
 - [account](#account), 5 routes
 - [federation](#federation), 8 routes
 - [schemas](#schemas), 28 shapes
+
+## media-cache
+
+- [`GET /media-cache/status`](#get-media-cachestatus) Read public media cache capacity and NAS availability
+- [`GET /media-cache/asset`](#get-media-cacheasset) Stream and cache a public parcel media reference
+
+### GET /media-cache/status
+
+Read public media cache capacity and NAS availability
+
+**answers**
+
+- `200` Enabled state, stored and reserved bytes, node and NAS limits, NAS availability and retention policy
+
+### GET /media-cache/asset
+
+Stream and cache a public parcel media reference
+
+Opt-in browser sharing uses this relay. The host validates the URL against the public parcel, pins public DNS addresses, omits credentials, and stores completed responses by SHA-256. node reservations include in-flight bytes. Overflow requires a mounted NAS; full storage bypasses caching without deleting existing media. Only finite supported media responses up to 2 GB are eligible. Private, credentialed, active and live-stream content is excluded.
+
+**parameters**
+
+- `parcel` (query, required) integer
+- `url` (query, required) string
+- `Range` (header) string
+
+**answers**
+
+- `200` Complete media response
+- `206` Requested byte range; complete range responses can be cached separately
+- `400` Invalid reference
+- `403` Media is not referenced by a public parcel
+- `416` Unsupported range
+- `422` Source is not eligible; clients should load directly
+- `429` Request limit reached
+- `502` Source retrieval failed
+- `503` Cache disabled or busy; clients should load directly
 
 ## parcels
 
