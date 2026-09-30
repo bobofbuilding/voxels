@@ -50,13 +50,15 @@ python3 create-torrent.py /archive/seed snapshot.torrent
 
 Reuse the publisher key for subsequent snapshots; do not regenerate it. Publish only the small manifests, signatures, public key and torrent descriptor in GitHub. Keep chunks on seed storage. Publishing and mirroring should each have a single writer per target directory.
 
-## Pi pilot
+## Active world on the Pi
 
-`bittrees.world` is the temporary public hostname. The Pi runs the existing multiplayer protocol, a separate PostgreSQL database, a read-only archive service, a bounded public gateway and a Cloudflare Tunnel. MyCloud supplies a mounted archive directory with a decimal **1 TB hard quota** (950 GB soft threshold). The quota caps use; it does not reserve physical disk space. Mount free-space reports may show the whole NAS capacity rather than this account's quota.
+`https://bittrees.world` opens this repository's playable client at `/play`. The Pi runs the full world HTTP/grid server, multiplayer server, PostgreSQL 18 database, private Redis presence cache, archive service and Cloudflare Tunnel. Current public builds are imported into the live database; historical versions remain in the archive. See [world setup](../world/README.md).
 
-The public gateway permits the landing page, snapshot metadata, multiplayer status and up to 32 WebSocket connections. It blocks archive chunks and mutation APIs. Bulk sharing uses BitTorrent, capped at 128 KB/s on the pilot. The snapshot contains no live player activity. PostgreSQL remains on the Pi, reachable only through a private local socket. Automatic deletion/retention is not enabled.
+MyCloud supplies a mounted archive directory with a decimal **1 TB hard quota** (950 GB soft threshold). The quota caps use; it does not reserve physical disk space. Mount free-space reports may show the whole NAS capacity rather than this account's quota.
 
-This is an archive and multiplayer pilot, not a deployed playable world client or completed wallet login integration. The multiplayer database starts with fresh avatar/account state. The standalone schema is not the full application's database. The Pi's existing firewall, DHCP and monitoring services remain separate.
+The gateway forwards application requests and up to 64 combined grid/player WebSocket connections. `/archive/` provides snapshot metadata; bulk archive chunks are not exposed through the public gateway. BitTorrent sharing is capped at 128 KB/s on this deployment. PostgreSQL uses a private local socket; Redis listens only on loopback. Player activity is separate from the public archive. Automatic deletion/retention is not enabled.
+
+The launch uses `PARCEL_EDIT_POLICY=admin`: visiting and multiplayer are public, while parcel editing is restricted to the configured administrator wallet until the ownership migration is deployed. Imported public profiles do not confer contributor or moderator permissions. Optional email, voice, uploads and Ethereum integrations need their own credentials/configuration; this deployment does not provision those external services. The Pi's firewall, DHCP and monitoring services remain separate.
 
 Use WebSockets for authoritative player state. [Cloudflare Tunnel](https://developers.cloudflare.com/tunnel/) provides the public connection. [TURN](https://developers.cloudflare.com/realtime/turn/) is useful if WebRTC voice or data channels later need a relay; it does not synchronize or store world state. Keep bulk transfers off the ordinary Cloudflare proxy unless using a service whose terms support that workload.
 
