@@ -1,4 +1,5 @@
-﻿import crypto from 'crypto'
+import { getConfig } from '../config'
+import crypto from 'crypto'
 import path from 'path'
 import { Express, Response } from 'express'
 import { SignJWT, decodeJwt } from 'jose'
@@ -14,8 +15,7 @@ import log from '../lib/logger'
 import type GridSocket from '../grid/GridSocket'
 import { noCache } from '../cache'
 
-const JWT_SECRET = process.env.JWT_SECRET || 'secret'
-const JWT_SECRET_KEY = new TextEncoder().encode(JWT_SECRET)
+const JWT_SECRET_KEY = getConfig().jwtKey
 
 // 1 hour - guest must keep the connection alive; token won't be re-issued after revoke
 const GUEST_JWT_TTL_SECONDS = 60 * 60

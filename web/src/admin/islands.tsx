@@ -1,3 +1,4 @@
+import { Config as deployment } from '../../../common/config'
 import { Component, createRef, Fragment } from 'preact'
 import { ParcelMetaCodec, type ParcelMeta } from '../../../common/types'
 import ndarray, { NdArray } from 'ndarray'
@@ -445,7 +446,7 @@ export default class IslandsAdmin extends Component<Props, State> {
       id: parcel.id,
       address: `${number} ${this.state.name}`,
       island: this.state.name,
-      owner: app.state.wallet || '0x2D891ED45C4C3EAB978513DF4B92a35Cf131d2e2',
+      owner: app.state.wallet || deployment.ownerAddress,
       x1: parcel.x1 * scale + this.state.center[0],
       y1: parcel.y1,
       z1: parcel.z1 * scale + this.state.center[1],

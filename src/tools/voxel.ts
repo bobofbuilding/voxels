@@ -8,7 +8,7 @@ import { AudioEngine } from '../audio/audio-engine'
 import type { Tool } from '../user-interface'
 import { signal } from '@preact/signals'
 import { createGlassMaterial } from '../materials/glass'
-import { hasPointerLock } from '../../common/helpers/ui-helpers'
+import { hasPointerLock } from '../../client/ui/helpers'
 import { track } from '../../web/src/helpers/umami'
 
 /*

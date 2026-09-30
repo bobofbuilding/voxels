@@ -1,6 +1,8 @@
+import { getConfig } from '../config'
 import { Signature, type SignatureLike, verifyMessage } from 'ethers'
 import type { Request, Response } from 'express'
 import { SignJWT } from 'jose'
+import { randomInt } from 'node:crypto'
 import { Resend } from 'resend'
 import Avatar from '../avatar'
 import { doesAvatarExist } from '../does-avatar-exist'
@@ -10,10 +12,8 @@ import { named } from '../lib/logger'
 import db from '../pg'
 
 const log = named('sign_in')
-const Base24 = require('base24')
 
-const JWT_SECRET = process.env.JWT_SECRET || 'secret'
-const JWT_SECRET_KEY = new TextEncoder().encode(JWT_SECRET)
+const JWT_SECRET_KEY = getConfig().jwtKey
 
 const MESSAGE = `# Terms of Service
 
@@ -36,6 +36,8 @@ type SignInOptions = {
   providerName?: string
   /** Saves to avatars.name (e.g. passkey signup username). */
   preferredDisplayName?: string
+  /** Identity that signed in, kept in the JWT while acting as a delegate wallet. */
+  account?: string
 }
 
 type PersonalSignIn = {
@@ -49,21 +51,50 @@ type PersonalSignIn = {
 
 type SIM = PersonalSignIn
 
-async function getEmailCode(email: string): Promise<{ code: string; expiry: string }> {
-  // fixme - make dates stable in case people submit at midnight UTC
-  const date = new Date().toISOString().split('T')[0]
+const CODE_TTL_MINUTES = 10
+const CODE_MAX_ATTEMPTS = 5
 
-  // fixme - dont put the salt in the public codebase?
-  const salted = 'yarr-the-saltiness-' + email.toString().replace(/^\s+/, '').replace(/\s+$/, '') + '-' + date.toString()
-  const key = JWT_SECRET
+/** One live code per email. Requesting again replaces it. */
+async function issueEmailCode(email: string): Promise<string> {
+  const code = randomInt(0, 1_000_000).toString().padStart(6, '0')
+  await db.query(
+    'signin/issue-code',
+    `insert into email_codes (email, code, expires_at, attempts)
+     values ($1, $2, now() + make_interval(mins => $3), 0)
+     on conflict (email) do update set code = excluded.code, expires_at = excluded.expires_at, attempts = 0`,
+    [email, code, CODE_TTL_MINUTES],
+  )
+  return code
+}
 
-  const cryptoKey = await globalThis.crypto.subtle.importKey('raw', new TextEncoder().encode(key), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign'])
-  const signatureBuffer = await globalThis.crypto.subtle.sign('HMAC', cryptoKey, new TextEncoder().encode(salted))
-  const buffer = new Uint8Array(signatureBuffer)
-  const code = Base24.encode24(buffer).slice(0, 5)
-  const expiry = new Date().toISOString().split('T')[0]
+/** A code is single use and dies after CODE_MAX_ATTEMPTS wrong guesses or CODE_TTL_MINUTES. */
+export async function verifyEmailCode(email: string, code: string): Promise<boolean> {
+  const r = await db.query('signin/check-code', 'select code, expires_at, attempts from email_codes where email = $1', [email])
+  const row = r.rows[0]
+  if (!row) return false
 
-  return { code, expiry }
+  if (new Date(row.expires_at).getTime() < Date.now()) {
+    await db.query('signin/expire-code', 'delete from email_codes where email = $1', [email])
+    return false
+  }
+
+  if (row.code !== code.trim()) {
+    if (row.attempts + 1 >= CODE_MAX_ATTEMPTS) {
+      await db.query('signin/burn-code', 'delete from email_codes where email = $1', [email])
+    } else {
+      await db.query('signin/count-attempt', 'update email_codes set attempts = attempts + 1 where email = $1', [email])
+    }
+    return false
+  }
+
+  await db.query('signin/consume-code', 'delete from email_codes where email = $1', [email])
+  return true
+}
+
+/** The uuid that stands in for a wallet on email accounts, creating the avatar row on first use. */
+export async function emailUuid(email: string): Promise<string> {
+  const r = await db.query('embedded/get-user-uuid', 'select get_or_create_user_uuid($1) as uuid', [email.toLowerCase()])
+  return r.rows[0].uuid
 }
 
 export async function EmailCode(req: Request<any, any>, res: Response) {
@@ -80,7 +111,7 @@ export async function EmailCode(req: Request<any, any>, res: Response) {
     return
   }
 
-  const { code, expiry } = await getEmailCode(email)
+  const code = await issueEmailCode(email)
 
   const html = `
     <p>Kia Ora!</p>
@@ -98,7 +129,7 @@ export async function EmailCode(req: Request<any, any>, res: Response) {
     <hr />
 
     <p style="opacity: 0.5">
-      ps: This code is valid on ${expiry}. If you are not trying to log into voxels.com with this email, please ignore this message.
+      ps: This code works for ${CODE_TTL_MINUTES} minutes. If you are not trying to log into voxels.com with this email, please ignore this message.
     </p>
   `
 
@@ -109,15 +140,13 @@ Your voxels login code is: ${code}
 <3 Nga Mihi - voxels.com
 
 ----
-ps: This code is valid on ${expiry}. If you are not trying to log into voxels.com with this email, please ignore this message.
+ps: This code works for ${CODE_TTL_MINUTES} minutes. If you are not trying to log into voxels.com with this email, please ignore this message.
 `
-
-  console.log('sending email to', email, 'code:', code)
-  console.log(text)
 
   const resendToken = process.env.RESEND_TOKEN
   if (!resendToken) {
-    console.error('RESEND_TOKEN not set')
+    // No mailer in dev: the code only shows up here.
+    console.log('RESEND_TOKEN not set, login code for', email, 'is', code)
     res.json({ success: true })
     return
   }
@@ -149,25 +178,18 @@ export async function SignIn(req: Request<any, Params>, res: Response) {
   const params = req.body as Partial<SIM>
 
   if (params.email && params.code) {
-    const { code } = params
-    let { email } = params
-    email = email.toLowerCase()
+    const email = params.email.toLowerCase()
 
-    const expected = await getEmailCode(email)
-
-    if (code != expected.code) {
-      console.log(`Expected ${expected.code}, got ${code} for email ${email} with expiry ${expected.expiry}`)
-      res.json({ success: false, error: `Invalid code ${expected.code} for email ${email} with expiry ${expected.expiry}` })
-
+    if (!(await verifyEmailCode(email, params.code))) {
+      res.json({ success: false, error: 'Invalid code' })
       return
     }
 
-    // Successful authentication
-
-    const r = await db.query('embedded/get-user-uuid', 'select get_or_create_user_uuid($1) as uuid', [email])
-    const wallet = r && r.rows[0] && r.rows[0].uuid
-
-    const { token, name, isNewUser } = await getUserInfo(res, wallet, {})
+    // emailUuid inserts the avatar row, so check for a new user before it runs
+    const existing = await db.query('signin/email-exists', 'select 1 from avatars where lower(email) = $1 limit 1', [email])
+    const isNewUser = existing.rows.length === 0
+    const wallet = await emailUuid(email)
+    const { token, name } = await getUserInfo(res, wallet, {})
     res.json({ success: true, token, name, isNewUser })
     return
   }
@@ -266,7 +288,7 @@ export async function getUserInfo(res: Response, wallet: string, options: SignIn
   const maxAgeMs = 61 * 24 * 60 * 60 * 1000 // ~2 months
   const expiresAtMs = Date.now() + maxAgeMs
 
-  const payload = { wallet, moderator: isMod({ user: { wallet } }) }
+  const payload = { wallet, ...(options.account && { account: options.account }), moderator: isMod({ user: { wallet } }) }
   const token = await new SignJWT(payload as any)
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuedAt()

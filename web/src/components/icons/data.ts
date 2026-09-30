@@ -92,6 +92,51 @@ const RAW_ICONS = {
     .#.#.
   `,
 
+  // camera body + lens
+  camera: `
+    .#...
+    #####
+    #.#.#
+    #####
+    .....
+  `,
+
+  // magnifying glass
+  zoom: `
+    ###..
+    #.#..
+    ###..
+    ...#.
+    ....#
+  `,
+
+  // wings
+  fly: `
+    .....
+    #...#
+    ##.##
+    .###.
+    ..#..
+  `,
+
+  // stick figure, arm up
+  dance: `
+    ..#.#
+    .###.
+    #.#..
+    .#.#.
+    #...#
+  `,
+
+  // smiley
+  emote: `
+    #####
+    #.#.#
+    #####
+    #...#
+    .###.
+  `,
+
   // arrow pointing right out of a doorway
   logout: `
     ###..
@@ -99,6 +144,15 @@ const RAW_ICONS = {
     #.###
     #.#..
     ###..
+  `,
+
+  // four corners
+  fullscreen: `
+    ##.##
+    #...#
+    .....
+    #...#
+    ##.##
   `,
 
   // speech bubble with tail

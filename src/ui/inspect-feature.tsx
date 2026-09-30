@@ -1,6 +1,6 @@
 import { render } from 'preact'
 import Feature from '../features/feature'
-import { openDialog } from '../../common/helpers/ui-helpers'
+import { openDialog } from '../../client/ui/helpers'
 import { decodeCoords, encodeCoords } from '../../common/helpers/utils'
 import ParcelHelper, { featurePlayCoordsFromRecord } from '../../common/helpers/parcel-helper'
 

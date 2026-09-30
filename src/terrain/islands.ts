@@ -111,7 +111,7 @@ export class Island {
     })
     this._mesh.visibility = 1
 
-    // nerfed collider: one cube for the whole island bounds. good enough to walk on and yeet at.
+    // nerfed collider: one cube for the whole island bounds. good enough to walk on.
     const bb = this._mesh.getBoundingInfo().boundingBox
     const c = bb.center.add(this._mesh.position)
     addCuboid(`island-${this.name}`, { x: bb.extendSize.x, y: bb.extendSize.y, z: bb.extendSize.z }, { x: c.x, y: c.y, z: c.z })

@@ -31,6 +31,7 @@ tags:
   - name: search
   - name: ghosts
   - name: chat
+  - name: account
 
 paths:
   /api/chat.json:
@@ -137,6 +138,67 @@ paths:
                     type: array
                     items:
                       $ref: '#/components/schemas/ParcelSummary'
+
+  /api/activity.json:
+    get:
+      operationId: listParcelTransfers
+      tags: [parcels]
+      summary: The last 100 parcel transfers on chain
+      description: |
+        Newest first. A mint has `from.owner` set to the zero address. `synced`
+        is only set on the newest transfer of each parcel, and is false when our
+        owner hasn't caught up with the chain yet.
+      parameters:
+        - name: parcel
+          in: query
+          description: Filter to this parcel before taking the latest 100 transfers.
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  transfers:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        hash:
+                          type: string
+                        block:
+                          type: integer
+                        parcel_id:
+                          type: integer
+                        created_at:
+                          type: string
+                          format: date-time
+                        name:
+                          type: [string, 'null']
+                        address:
+                          type: [string, 'null']
+                        from:
+                          type: object
+                          properties:
+                            owner:
+                              type: string
+                            name:
+                              type: [string, 'null']
+                        to:
+                          type: object
+                          properties:
+                            owner:
+                              type: string
+                            name:
+                              type: [string, 'null']
+                        synced:
+                          type: [boolean, 'null']
 
   /api/parcels/cached.json:
     get:
@@ -251,25 +313,24 @@ paths:
                     items:
                       type: object
 
-  /api/parcels/search.json:
+  /api/parcels/search:
     get:
       operationId: searchParcels
       tags: [parcels]
       summary: Search minted, non-common parcels
       description: |
-        `q` matches address, island, parcel name, owner wallet or owner avatar
-        name. A bare wallet or a bare integer take their own code paths. Each row
-        carries `pagination_count`, the total the filter matched.
+        `q` is a prefix match on parcel name or address. A bare wallet matches
+        the owner exactly instead. No total count, a full page means there may
+        be another.
       parameters:
         - name: q
           in: query
-          required: true
-          description: Missing `q` is a 400.
+          description: Empty matches everything.
           schema:
             type: string
         - name: limit
           in: query
-          description: Capped at 50.
+          description: Capped at 50, defaults to 50.
           schema:
             type: integer
         - name: page
@@ -279,14 +340,14 @@ paths:
             type: integer
         - name: sort
           in: query
-          description: Anything else falls back to `id` descending.
+          description: Anything else falls back to `id`.
           schema:
             type: string
             enum: [id, name, height, island, distance]
             default: id
         - name: asc
           in: query
-          description: The string `true` flips the order.
+          description: The string `true` sorts ascending, otherwise descending.
           schema:
             type: string
       responses:
@@ -302,15 +363,20 @@ paths:
                   parcels:
                     type: array
                     items:
-                      allOf:
-                        - $ref: '#/components/schemas/ParcelSummary'
-                        - type: object
-                          properties:
-                            pagination_count:
-                              type: [integer, string]
-                              description: Total rows the filter matched, before limit.
-        '400':
-          $ref: '#/components/responses/Failure'
+                      type: object
+                      properties:
+                        id: { type: integer }
+                        name: { type: [string, 'null'] }
+                        address: { type: [string, 'null'] }
+                        island: { type: [string, 'null'] }
+                        kind: { type: [string, 'null'] }
+                        x1: { type: integer }
+                        x2: { type: integer }
+                        y1: { type: integer }
+                        y2: { type: integer }
+                        z1: { type: integer }
+                        z2: { type: integer }
+                        height: { type: integer }
 
   /api/parcels/favorites.json:
     get:
@@ -906,6 +972,43 @@ paths:
                     wallet:
                       type: string
 
+  /api/avatars/refs.json:
+    get:
+      operationId: getAvatarRefs
+      tags: [avatars]
+      summary: Look up a batch of avatars by wallet or name
+      description: |
+        Chat uses this to turn every sender into an avatar in one hit.
+        Exact match, case insensitive, 200 keys at most. Unknown keys are
+        left out of the result.
+      parameters:
+        - name: q
+          in: query
+          description: comma separated wallets and/or names
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  avatars:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: integer
+                        name:
+                          type: [string, 'null']
+                        owner:
+                          type: string
+                        created_at:
+                          type: string
+
   /api/avatars/{wallet}/assets:
     get:
       operationId: getAvatarAssets
@@ -1051,6 +1154,37 @@ paths:
                     type: array
                     items:
                       type: object
+
+  /api/free-avatars.json:
+    get:
+      operationId: listFreeAvatars
+      tags: [avatars]
+      summary: VRM avatars anyone can wear
+      description: >
+        Wear one by posting its src to /api/avatar/appearance. Thumbs come from
+        the renderer at /renderer/v1/avatar/{id}.webp.
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  avatars:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: integer
+                        name:
+                          type: string
+                        src:
+                          type: string
+                          example: ugc://avatars/woody.vrm
 
   /api/costumes/{id}:
     get:
@@ -2132,6 +2266,191 @@ paths:
                     items:
                       $ref: '#/components/schemas/SearchResult'
 
+  /api/account/me:
+    get:
+      operationId: accountMe
+      tags: [account]
+      summary: Who am I, and which identities can I switch to
+      description: |
+        JWT required. An email account is a uuid that stands in for a wallet.
+        Delegations link an email uuid to real wallets; every identity in the
+        link set can switch to any other with `appoint`. `wallet` is the
+        identity you are acting as, `account` is the one that signed in (null
+        unless acting as a delegate), and `identities` is the base identity
+        followed by everything linked to it.
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  wallet:
+                    type: string
+                  account:
+                    type: [string, 'null']
+                  email:
+                    type: [string, 'null']
+                  identities:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Identity'
+        '401':
+          $ref: '#/components/responses/Failure'
+
+  /api/delegations:
+    post:
+      operationId: createDelegation
+      tags: [account]
+      summary: Link a wallet to my email account
+      description: |
+        JWT required, and the signed-in identity must be an email account. Sign
+        the message `I volunteer <email> as my delegate for voxels.com.` with
+        the wallet (personal_sign) and post the signature. The recovered
+        address becomes a linked identity. Posting the same wallet twice is a
+        no-op with `added: false`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [signature]
+              properties:
+                signature:
+                  type: string
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  wallet:
+                    type: string
+                    description: Lowercased address recovered from the signature.
+                  added:
+                    type: boolean
+        '400':
+          $ref: '#/components/responses/Failure'
+        '401':
+          $ref: '#/components/responses/Failure'
+
+  /api/delegations/attach:
+    post:
+      operationId: attachEmail
+      tags: [account]
+      summary: Link an email to my wallet account
+      description: |
+        JWT required, and the signed-in identity must be a wallet. Request a
+        code with `POST /api/signin/code {email}` first, then post the email
+        and code here. The email account is created if it does not exist yet
+        and linked to the wallet.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, code]
+              properties:
+                email:
+                  type: string
+                code:
+                  type: string
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  wallet:
+                    type: string
+                    description: The uuid of the email account.
+                  added:
+                    type: boolean
+        '400':
+          $ref: '#/components/responses/Failure'
+        '401':
+          $ref: '#/components/responses/Failure'
+
+  /api/delegations/{wallet}:
+    delete:
+      operationId: removeDelegation
+      tags: [account]
+      summary: Unlink an identity
+      description: |
+        JWT required. Removes the link between the signed-in identity and
+        `wallet`, from either side: an email account passes the wallet, a
+        wallet passes the email account uuid.
+      parameters:
+        - name: wallet
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  removed:
+                    type: boolean
+        '401':
+          $ref: '#/components/responses/Failure'
+
+  /api/delegations/appoint:
+    post:
+      operationId: appointIdentity
+      tags: [account]
+      summary: Switch the session to a linked identity
+      description: |
+        JWT required. `wallet` must be the signed-in identity or one linked to
+        it. Sets a new `jwt` cookie acting as that identity and returns the
+        token. The token keeps the signed-in identity in `account`, so
+        switching back is another call to this route with the base identity.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [wallet]
+              properties:
+                wallet:
+                  type: string
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  token:
+                    type: string
+                  name:
+                    type: string
+        '401':
+          $ref: '#/components/responses/Failure'
+
 components:
   parameters:
     ParcelId:
@@ -2210,6 +2529,18 @@ components:
           const: false
         message:
           type: string
+
+    Identity:
+      type: object
+      properties:
+        wallet:
+          type: string
+          description: Lowercased wallet address, or the uuid of an email account.
+        name:
+          type: [string, 'null']
+        email:
+          type: [string, 'null']
+          description: Set for email accounts.
 
     AvatarRef:
       description: |
@@ -2585,6 +2916,13 @@ components:
           type: [string, 'null']
         image_url:
           type: [string, 'null']
+        metadata:
+          description: |
+            Who and what was in the shot when it was taken. Null on older womps.
+            Screenspace `x`/`y` are normalized 0-1 over the image (top-left origin).
+          oneOf:
+            - $ref: '#/components/schemas/WompMetadata'
+            - type: 'null'
         image_supplied:
           type: boolean
           description: |
@@ -2595,6 +2933,52 @@ components:
           type: string
         updated_at:
           type: string
+
+    WompMetadata:
+      description: |
+        Scene context for a womp: avatars in the camera frustum, and nft-image
+        features within 5m that were also in view.
+      type: object
+      properties:
+        avatars:
+          type: array
+          items:
+            $ref: '#/components/schemas/WompMetadataAvatar'
+        art:
+          type: array
+          items:
+            $ref: '#/components/schemas/WompMetadataArt'
+
+    WompMetadataAvatar:
+      type: object
+      required: [avatar, x, y]
+      properties:
+        avatar:
+          $ref: '#/components/schemas/AvatarRef'
+        x:
+          type: number
+          description: Screenspace X of the avatar centroid, 0-1.
+        y:
+          type: number
+          description: Screenspace Y of the avatar centroid, 0-1.
+
+    WompMetadataArt:
+      type: object
+      required: [x, y, src]
+      properties:
+        name:
+          type: [string, 'null']
+          description: NFT title when known at capture time.
+        x:
+          type: number
+          description: Screenspace X of the art centroid, 0-1.
+        y:
+          type: number
+          description: Screenspace Y of the art centroid, 0-1.
+        src:
+          type: string
+          description: |
+            CAIP-19 asset id, e.g. `eip155:1/erc721:0xabc.../42`.
 
     Avatar:
       description: A citizen.
@@ -2627,7 +3011,7 @@ components:
           description: |
             Which body the citizen wears. Everything but `woody` is deprecated
             and you are unlikely to meet one.
-          enum: [woody, vidda, zuck, bnolan, null]
+          enum: [woody, vidda, zuck, legacy, null]
         settings:
           type: [object, 'null']
         costume_id:

@@ -3,10 +3,10 @@ import Controls, { CAMERA_DISTANCE, featureFromPick, MAX_CAMERA_DISTANCE, MIN_CA
 import PlayerCamera from '../utils/player-camera'
 import { LocaleKeyboardMoveInput } from '../utils/locale-keyboard-move-input'
 import { clamp } from 'lodash'
-import { unmountComponentAtNode } from 'preact/compat'
+import { render } from 'preact'
 import { createFirstPersonCamera } from '../utils/fps-camera'
 import { decodeCoordsFromURL } from '../../utils/helpers'
-import { hasPointerLock, isFastviewBlocking } from '../../../common/helpers/ui-helpers'
+import { hasPointerLock, isFastviewBlocking } from '../../../client/ui/helpers'
 import { uiPane } from '../../store'
 import { app, AppEvent } from '../../../web/src/state'
 import { pointerOverGizmo } from '../../tools/gizmos'
@@ -15,6 +15,7 @@ export default class DesktopControls extends Controls {
   keyboardInput?: LocaleKeyboardMoveInput
   private lockListener?: () => void
   private nerfClick = false
+  private hoverFrame = -1
   private mouseLookAttached = false
 
   constructor(scene: BABYLON.Scene, canvas: HTMLCanvasElement) {
@@ -98,6 +99,7 @@ export default class DesktopControls extends Controls {
 
     // sidebar buttons are unclickable while locked - fade them out of the way
     document.body.classList.toggle('walking', locked)
+    document.body.classList.toggle('locked', locked)
 
     this.scene.preventDefaultOnPointerDown = locked
     this.scene.preventDefaultOnPointerUp = locked
@@ -224,47 +226,14 @@ export default class DesktopControls extends Controls {
         break
 
       case BABYLON.PointerEventTypes.POINTERMOVE:
+        // mice fire way faster than frames, one hover pick per frame is plenty
+        if (this.hoverFrame === this.scene.getRenderId()) break
+        this.hoverFrame = this.scene.getRenderId()
         const pick = hasPointerLock() ? this.pickAtView(undefined, undefined, false, (m) => this.reticuleHighlightPredicate(m)) : eventData.pickInfo
         const feature = featureFromPick(pick)
         const distance = pick?.distance || Infinity
         this.setActiveReticule(!!feature?.isInteract && distance < this.MAX_PICK_DISTANCE)
-        this.updateMuteHint(eventData)
     }
-  }
-
-  private muteHintEl: HTMLDivElement | null = null
-  private updateMuteHint(eventData: BABYLON.PointerInfo) {
-    const avatar = eventData.pickInfo?.pickedMesh?.metadata?.avatar as { uuid: string } | undefined
-    const vc = window.persona?.voiceChat
-    const near = (eventData.pickInfo?.distance ?? Infinity) < this.MAX_PICK_DISTANCE
-    const show = !!avatar && !!vc?.on && avatar.uuid !== window.persona?.uuid && near
-    if (!show) {
-      if (this.muteHintEl) this.muteHintEl.style.opacity = '0'
-      return
-    }
-    if (!this.muteHintEl) {
-      const el = document.createElement('div')
-      Object.assign(el.style, {
-        position: 'fixed',
-        zIndex: '999998',
-        pointerEvents: 'none',
-        padding: '4px 8px',
-        background: 'rgba(13,13,13,0.85)',
-        color: '#f5f5f0',
-        fontFamily: '"Source Code Pro", monospace',
-        fontSize: '12px',
-        whiteSpace: 'nowrap',
-        transform: 'translate(-50%, -140%)',
-        transition: 'opacity 0.12s',
-        opacity: '0',
-      })
-      document.body.appendChild(el)
-      this.muteHintEl = el
-    }
-    this.muteHintEl.textContent = vc!.mutedUuids.has(avatar!.uuid) ? 'right-click to unmute' : 'right-click to mute'
-    this.muteHintEl.style.left = `${eventData.event.clientX}px`
-    this.muteHintEl.style.top = `${eventData.event.clientY}px`
-    this.muteHintEl.style.opacity = '1'
   }
 
   handlePointerWheel(delta: number) {
@@ -432,7 +401,7 @@ export default class DesktopControls extends Controls {
 
   requestPointerLock() {
     document.querySelectorAll('.pointer-lock-close').forEach((element) => {
-      unmountComponentAtNode(element)
+      render(null, element)
       element.remove()
     })
     ;(window as any).engine?.setBlur?.(false)

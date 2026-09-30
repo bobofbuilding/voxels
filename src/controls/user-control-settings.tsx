@@ -1,4 +1,4 @@
-import { isSafari } from '../../common/helpers/detector'
+import { isSafari } from '../../client/platform'
 import { createEvent, TypedEventTarget } from '../utils/EventEmitter'
 
 const getSaved = (): number | null => {

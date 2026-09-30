@@ -1,20 +1,19 @@
 import type { Signal } from '@preact/signals'
 import { effect } from '@preact/signals'
-import { Component, Fragment } from 'preact'
+import { Component, Fragment, type ComponentChildren } from 'preact'
+import { createPortal } from 'preact/compat'
 import { route } from 'preact-router'
 import { isPlayPath } from '../web/src/helpers/coords-nav'
-import { isMobileMedia } from '../common/helpers/detector'
-import { exitPointerLock, hasPointerLock, requestPointerLock } from '../common/helpers/ui-helpers'
-import { onBeginUpload, onCompleteUpload, onFailUpload } from '../common/helpers/upload-media'
-import { shorterWallet } from '../common/helpers/utils'
+import { isMobileMedia } from '../client/platform'
+import { exitPointerLock, hasPointerLock, requestPointerLock } from '../client/ui/helpers'
+import { onBeginUpload, onCompleteUpload, onFailUpload } from '../client/media/upload'
 import { Login } from '../web/src/auth/login'
 import { PanelType } from '../web/src/components/panel'
 import Snackbar from '../web/src/components/snackbar'
-import Toggle from '../web/src/components/toggle'
 import { app, AppEvent } from '../web/src/state'
 import { KeyboardHandler } from './components/keyboard-handler'
 import { OnlyMobile } from './components/utils'
-import Connector, { messageList } from './connector'
+import Connector from './connector'
 import DesktopControls from './controls/desktop/controls'
 import { createFeature } from './features/create'
 import Feature from './features/feature'
@@ -22,7 +21,6 @@ import type { FeatureTemplate } from './features/_metadata'
 import type Grid from './grid'
 import type { MinimapSettings } from './minimap'
 import Parcel from './parcel'
-import { Animations } from './avatar-animations'
 import {
   selectCurrentOrNearestParcel,
   selectNearestEditableParcel,
@@ -39,6 +37,12 @@ import {
   uiAsideTick,
   uiPane,
   sidebarClosed,
+  isOnSandboxParcel,
+  worldUi,
+  mic,
+  micEnabled,
+  pageToolEl,
+  isPageTool,
   pendingWomp,
   closeTakeWomp,
   broadcastLiveStartedAt,
@@ -53,19 +57,14 @@ import { MaterialDebugTab } from './ui/debug/material-debug-tab'
 import { OceanDebugTab } from './ui/debug/ocean-debug-tab'
 import { PumpDebugTab } from './ui/debug/pump-debug-tab'
 import { FeatureEditor } from './ui/features/misc'
-import { openExplore } from '../web/src/helpers/open-explore'
 import HomeButton from './ui/home-button'
 import { ChatOverlay, chatSettings } from './ui/interact/chat'
 import { voiceSettings } from './voice-settings'
-import { DancePane } from './ui/interact/dance-pane'
-import { EmotePane } from './ui/interact/emote-pane'
-import { YeetPane } from './ui/interact/yeet-pane'
+import { togglePopout } from './ui/interact/popout'
 import { HelpOverlay } from './ui/interact/help'
-import { SandboxGuide, SandboxGuideMini } from './ui/sandbox-guide'
 import { FirstTimeInstructions } from '../web/src/components/first-time-instructions'
 import { BroadcastSidebarTab } from '../web/src/broadcast-sidebar-tab'
 import { ShowboxBroadcastPane } from '../web/src/showbox-broadcast-pane'
-import { SidebarClose } from '../web/src/sidebar-close'
 import { WompOverlay } from './ui/interact/womps'
 import MobileButtons from './ui/mobile/buttons'
 import OpenLink from './ui/open-link'
@@ -78,32 +77,38 @@ import ParcelSnapshots from './ui/parcel-snapshots'
 import { SettingsUI } from './ui/settings'
 import { AvatarTab } from './ui/avatar-tab'
 import TakeWomp from './ui/take-womp'
-import WompButton from './ui/womp-button'
 
 const NUMBER_KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'] as const
 
-const wantsLearnQuery = () => typeof location !== 'undefined' && new URLSearchParams(location.search).get('learn') === 'true'
-
-const isOnSandboxParcel = () => {
-  const p = selectNearestEditableParcel() ?? (typeof window !== 'undefined' ? window.grid?.nearestEditableParcel?.() : null)
-  return !!(p as any)?.sandbox
+function PageToolPortal({ children }: { children: ComponentChildren }) {
+  const el = pageToolEl.value
+  if (!el) return null
+  return createPortal(children, el)
 }
 
-const wantsSandboxGuide = () => wantsLearnQuery() || isOnSandboxParcel()
+const ROUTE_PANES: Partial<Record<UIPanes, string>> = {
+  settings: '/settings',
+  avatar: '/avatar',
+}
 
-const Location = (props: { scene: BABYLON.Scene; signedIn: any }) => {
-  const currentOrNearestParcel = selectCurrentOrNearestParcel()
-  if (!currentOrNearestParcel) {
-    return <a href="/">Home</a>
-  }
-
-  const owner = currentOrNearestParcel.owner ? shorterWallet(currentOrNearestParcel.owner) : 'nobody'
-
-  const link = `/parcels/${currentOrNearestParcel.id}`
+const Location = () => {
+  const parcel = selectCurrentOrNearestParcel()
+  if (!parcel) return null
 
   return (
-    <a key={currentOrNearestParcel.id} class="address" href={link}>
-      {currentOrNearestParcel.name || currentOrNearestParcel.address}
+    <a
+      class="parcel-location"
+      href={`/parcels/${parcel.id}?coords=${encodeURIComponent(window.connector?.controls.getCoords() || '')}`}
+      onClick={(e) => {
+        if (e.button || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return
+        e.preventDefault()
+        exitPointerLock()
+        sidebarClosed.value = false
+        route(`/parcels/${parcel.id}`, true)
+      }}
+    >
+      <strong>{parcel.name || parcel.address}</strong>
+      <span>{parcel.name ? parcel.address : parcel.island}</span>
     </a>
   )
 }
@@ -116,7 +121,7 @@ export enum Mode {
   Avatar,
 }
 
-export type UIPanes = 'add' | 'edit' | 'voxels' | 'debugTool' | 'nfts' | 'chat' | 'dance' | 'emote' | 'yeet' | 'settings' | 'avatar' | 'womp' | 'takeWomp' | 'help' | 'login' | 'parcelSnapshots' | 'broadcast'
+export type UIPanes = 'add' | 'edit' | 'voxels' | 'debugTool' | 'nfts' | 'settings' | 'avatar' | 'womp' | 'takeWomp' | 'help' | 'login' | 'parcelSnapshots' | 'broadcast'
 
 export interface Tool {
   activate: () => void
@@ -154,16 +159,8 @@ type UserInterfaceState = {
   publishAsset?: FeatureTemplate | string
   /** Shown next to minimap expand; same source as Explore radar */
   onlineCount: number
-  sandboxGuideOpen?: boolean
-  sandboxGuideMini?: boolean
-  sandboxGuideRestart?: boolean
-  sandboxGuideKey?: number
   chatEnabled: boolean
   dragging?: boolean
-  voice?: 'off' | 'live' | 'muted'
-  voiceEnabled: boolean
-  /** new public womp since last time Explore was opened */
-  newWomp: boolean
 }
 
 export default class UserInterface extends Component<UserInterfaceProps, UserInterfaceState> {
@@ -182,14 +179,9 @@ export default class UserInterface extends Component<UserInterfaceProps, UserInt
 
   presenceEs: EventSource | null = null
   presenceUuids = new Set<string>()
-  chatLastReadAt = Date.now()
-  chatListDispose?: () => void
   parcelEditDispose?: () => void
   uiPaneDispose?: () => void
-  sandboxGuideParcelDispose?: () => void
   sandboxLookDispose?: () => void
-  wompPollTimer: ReturnType<typeof setInterval> | null = null
-  latestWompId = 0
   sandboxRollingBack = false
   compileTimer: ReturnType<typeof setTimeout> | null = null
 
@@ -218,9 +210,8 @@ export default class UserInterface extends Component<UserInterfaceProps, UserInt
       currentOrNearestParcel: null,
       onlineCount: 0,
       chatEnabled: chatSettings.enabled,
-      voiceEnabled: voiceSettings.enabled,
-      newWomp: false,
     }
+    micEnabled.value = voiceSettings.enabled
   }
 
   get engine() {
@@ -248,19 +239,19 @@ export default class UserInterface extends Component<UserInterfaceProps, UserInt
     if (!voiceSettings.enabled) return
     const vc = this.connector.persona?.voiceChat
     if (!vc) return
-    if (this.state.voice === 'live') {
+    if (mic.value === 'live') {
       vc.setMuted(true)
-      this.setState({ voice: 'muted' })
+      mic.value = 'muted'
       return
     }
     if (!vc.on) {
       void vc.enable().then(() => {
-        if (vc.on) this.setState({ voice: 'live' })
+        if (vc.on) mic.value = 'live'
       })
       return
     }
     vc.setMuted(false)
-    this.setState({ voice: 'live' })
+    mic.value = 'live'
   }
 
   openEditor(editor: FeatureEditor, feature: Feature) {
@@ -316,6 +307,7 @@ export default class UserInterface extends Component<UserInterfaceProps, UserInt
   }
 
   componentDidMount() {
+    worldUi.value = this
     app.on(AppEvent.Change, this.onAppChange)
     document.addEventListener('pointerlockchange', this.onPointerLockChange)
     if (isMobileMedia()) {
@@ -361,31 +353,10 @@ export default class UserInterface extends Component<UserInterfaceProps, UserInt
       window.engine?.resize()
     })
 
-    this.chatListDispose = effect(() => {
-      messageList.value
-      this.forceUpdate()
-    })
-
     // show/hide Add/Edit/etc as you walk onto parcels you can or can't edit
     this.parcelEditDispose = effect(() => {
       nearestEditableParcel.value
       this.forceUpdate()
-    })
-
-    // teach Explore: badge when a new public womp lands while you're in world
-    void this.pollNewWomp()
-    this.wompPollTimer = setInterval(() => void this.pollNewWomp(), 45_000)
-
-    if ((wantsLearnQuery() || isOnSandboxParcel()) && !isMobileMedia()) {
-      this.setState({ sandboxGuideOpen: true, sandboxGuideMini: false, sandboxGuideRestart: false })
-    }
-
-    this.sandboxGuideParcelDispose = effect(() => {
-      nearestEditableParcel.value
-      if (isMobileMedia()) return
-      if (!isOnSandboxParcel()) return
-      if (this.state.sandboxGuideOpen || this.state.sandboxGuideRestart) return
-      this.setState({ sandboxGuideOpen: true, sandboxGuideMini: false, sandboxGuideRestart: false })
     })
 
     this.sandboxLookDispose = effect(() => {
@@ -394,81 +365,6 @@ export default class UserInterface extends Component<UserInterfaceProps, UserInt
       try {
         window._color?.setSandboxLook?.(on)
       } catch {}
-    })
-  }
-
-  private static WOMP_SEEN_KEY = 'voxels-explore-last-womp'
-
-  private readSeenWompId() {
-    try {
-      return parseInt(localStorage.getItem(UserInterface.WOMP_SEEN_KEY) || '0', 10) || 0
-    } catch {
-      return 0
-    }
-  }
-
-  private writeSeenWompId(id: number) {
-    try {
-      localStorage.setItem(UserInterface.WOMP_SEEN_KEY, String(id))
-    } catch {}
-  }
-
-  private pollNewWomp = async () => {
-    try {
-      const r = await fetch('/api/womps.json?limit=1')
-      const d = await r.json()
-      const id = d?.womps?.[0]?.id
-      if (!id || typeof id !== 'number') return
-      this.latestWompId = id
-      const seen = this.readSeenWompId()
-      if (!seen) {
-        // first run: baseline so we don't badge the whole archive
-        this.writeSeenWompId(id)
-        return
-      }
-      if (id > seen && !this.state.newWomp) this.setState({ newWomp: true })
-    } catch {}
-  }
-
-  private markWompsSeen = () => {
-    if (this.latestWompId) this.writeSeenWompId(this.latestWompId)
-    else {
-      const seen = this.readSeenWompId()
-      if (seen) this.writeSeenWompId(seen)
-    }
-    if (this.state.newWomp) this.setState({ newWomp: false })
-  }
-
-  enterSandboxGuideMini = () => {
-    exitPointerLock()
-    uiPane.value = 'add'
-    this.setState({ pane: 'add', sandboxGuideMini: true })
-  }
-
-  celebrateSandboxGuideComplete = () => {
-    exitPointerLock()
-    this.connector.emote('🔥')
-    this.connector.persona.playEmote(Animations.Dance)
-    this.setState({ sandboxGuideOpen: false, sandboxGuideMini: false, sandboxGuideRestart: true })
-  }
-
-  restartSandboxGuide = () => {
-    uiPane.value = undefined
-    this.setState({
-      sandboxGuideMini: false,
-      sandboxGuideKey: (this.state.sandboxGuideKey || 0) + 1,
-      pane: undefined,
-    })
-  }
-
-  openSandboxGuide = () => {
-    uiPane.value = undefined
-    this.setState({
-      sandboxGuideOpen: true,
-      sandboxGuideMini: false,
-      sandboxGuideRestart: false,
-      sandboxGuideKey: (this.state.sandboxGuideKey || 0) + 1,
-      pane: undefined,
     })
   }
 
@@ -496,9 +392,6 @@ export default class UserInterface extends Component<UserInterfaceProps, UserInt
   }
 
   componentDidUpdate(_prevProps: UserInterfaceProps, prevState: UserInterfaceState) {
-    if (!prevState.pane && this.state.pane) {
-      this.chatLastReadAt = Date.now()
-    }
     if (prevState.pane !== this.state.pane || prevState.feature?.uuid !== this.state.feature?.uuid) {
       uiAsideTick.value++
     }
@@ -511,29 +404,25 @@ export default class UserInterface extends Component<UserInterfaceProps, UserInt
   onVoiceSettingsChange = () => {
     if (!voiceSettings.enabled) {
       void this.connector.persona?.voiceChat?.disable()
-      this.setState({ voiceEnabled: false, voice: 'off' })
+      micEnabled.value = false
+      mic.value = 'off'
       return
     }
-    this.setState({ voiceEnabled: true })
+    micEnabled.value = true
   }
 
   updateCanEdit = () => {}
 
   componentWillUnmount() {
+    worldUi.value = null
     this.presenceEs?.close()
     this.presenceEs = null
-    if (this.wompPollTimer) {
-      clearInterval(this.wompPollTimer)
-      this.wompPollTimer = null
-    }
     app.removeListener(AppEvent.Change, this.onAppChange)
     document.removeEventListener('pointerlockchange', this.onPointerLockChange)
     chatSettings.removeEventListener('changed', this.onChatSettingsChange)
     voiceSettings.removeEventListener('changed', this.onVoiceSettingsChange)
-    this.chatListDispose?.()
     this.parcelEditDispose?.()
     this.uiPaneDispose?.()
-    this.sandboxGuideParcelDispose?.()
     this.sandboxLookDispose?.()
     try {
       window._color?.setSandboxLook?.(false)
@@ -614,21 +503,14 @@ export default class UserInterface extends Component<UserInterfaceProps, UserInt
         { code: 'KeyF', handleEvent: () => this.connector.controls.toggleFlying() },
         { code: 'KeyC', handleEvent: () => this.connector.controls.togglePerspective() },
         { code: 'KeyB', handleEvent: () => this.toggleVoxelTool() },
-        { code: 'KeyG', handleEvent: () => this.setPane('dance') },
-        { code: 'KeyT', handleEvent: () => this.setPane('emote') },
-        { code: 'KeyY', handleEvent: () => this.setPane('yeet') },
+        { code: 'KeyG', handleEvent: () => togglePopout('dance') },
+        { code: 'KeyT', handleEvent: () => togglePopout('emote') },
         { code: 'KeyZ', handleEvent: () => this.connector.controls.toggleZoom() },
         { code: 'Enter', handleEvent: this.focusChat },
         { code: 'Escape', handleEvent: () => this.onEscape() },
         {
           code: 'Tab',
           handleEvent: (e: KeyboardEvent) => {
-            if (wantsSandboxGuide() && this.state.sandboxGuideOpen) {
-              e.preventDefault()
-              this.setPane('add')
-              return
-            }
-
             if (this.state.pane) return
 
             this.setPane('add')
@@ -674,8 +556,11 @@ export default class UserInterface extends Component<UserInterfaceProps, UserInt
   }
 
   setPane(pane: UIPanes) {
-    if (wantsSandboxGuide() && this.state.sandboxGuideOpen && pane === 'add') {
-      this.enterSandboxGuideMini()
+    if (pane === 'broadcast') return
+    const path = ROUTE_PANES[pane]
+    if (path) {
+      exitPointerLock()
+      route(path)
       return
     }
 
@@ -781,19 +666,10 @@ export default class UserInterface extends Component<UserInterfaceProps, UserInt
 
     exitPointerLock()
 
-    const input = document.querySelector('.canvasdom div.chat input') as HTMLInputElement
-
-    if (!input) {
-      return
-    }
-
-    if (document.activeElement === input) {
-      // input.blur()
-    } else {
-      setTimeout(() => {
-        input.focus()
-      })
-    }
+    const input = document.querySelector<HTMLInputElement>('.canvasdom div.chat input')
+    if (!input || document.activeElement === input) return
+    // defer so the Enter keydown that opened chat does not land in the input
+    setTimeout(() => input.focus())
   }
 
   setTool(tool: Tool | null) {
@@ -961,14 +837,6 @@ export default class UserInterface extends Component<UserInterfaceProps, UserInt
         return <Login />
       case 'debugTool':
         return <DebugTools parcel={currentOrNearestParcel} scene={this.props.scene} />
-      case 'chat':
-        return <ChatOverlay scene={this.props.scene} />
-      case 'dance':
-        return <DancePane />
-      case 'emote':
-        return <EmotePane />
-      case 'yeet':
-        return <YeetPane />
       case 'settings':
         return <SettingsUI scene={this.props.scene} minimapSettings={this.props.minimapSettings} />
       case 'avatar':
@@ -978,25 +846,15 @@ export default class UserInterface extends Component<UserInterfaceProps, UserInt
       case 'takeWomp': {
         const w = pendingWomp.value
         if (!w) return null
-        return <TakeWomp coords={w.coords} parcel={w.parcel} image={w.image} scene={this.props.scene} onClose={closeTakeWomp} />
+        return <TakeWomp coords={w.coords} parcel={w.parcel} image={w.image} metadata={w.metadata} scene={this.props.scene} onClose={closeTakeWomp} />
       }
       case 'help':
-        return <HelpOverlay scene={this.props.scene} onShowSandboxGuide={wantsSandboxGuide() ? this.openSandboxGuide : undefined} />
+        return <HelpOverlay scene={this.props.scene} />
       case 'broadcast':
         return <ShowboxBroadcastPane />
       default:
         return null
     }
-  }
-
-  enterFullscreen = (e: Event) => {
-    e.preventDefault()
-    window.engine.enterFullscreen(true)
-  }
-
-  enterTheatre = (e: Event) => {
-    e.preventDefault()
-    document.body.classList.toggle('theatre-mode')
   }
 
   showNotificationBanner(message: string, duration = 5000, onClick?: () => void) {
@@ -1013,210 +871,23 @@ export default class UserInterface extends Component<UserInterfaceProps, UserInt
       return <Fragment />
     }
 
-    const onClick = (p: UIPanes) => (e: any) => {
-      e.preventDefault()
-      this.setPane(p)
-      exitPointerLock()
-    }
-
     const nearestEditableParcel = selectNearestEditableParcel() ?? null
-    const mintable = app.isAdmin() && nearestEditableParcel?.needsMint
-    const selectedFeature = selectSelectedFeature()
-
-    const onHover = (pane: string) => (e: any) => {
-      // e.preventDefault()
-      // this.setState({ hover: pane })
-    }
-
-    const onBlur = (e: any) => {
-      e.preventDefault()
-      this.setState({ hover: undefined })
-    }
-
-    const canEdit = app.isAdmin() || (nearestEditableParcel ? nearestEditableParcel.canEdit : false)
-
     const currentPane = this.state.pane
-    const active = (pane: string, disabled?: boolean) => (currentPane === pane ? 'active' : disabled ? 'disabled' : '')
-
-    const unreadChat = this.state.chatEnabled && !this.state.pane ? messageList.value.some((m) => m.timestamp > this.chatLastReadAt) : false
+    const chat = this.state.chatEnabled && !location.pathname.startsWith('/chat')
 
     return (
       <>
+        {isPageTool(currentPane) && <PageToolPortal>{this.paneContent(currentPane!)}</PageToolPortal>}
         <div class="canvasdom">
+          <Location />
           <FirstTimeInstructions />
-          <Snackbar />
 
-          {!isMobileMedia() && (
-            <div class="top-right">
-              <WompButton onClick={() => this.takeWomp(this.props.scene)} />
-            </div>
-          )}
-          {isMobileMedia() && <WompButton onClick={() => this.takeWomp(this.props.scene)} />}
-
-          <aside data-active={!!this.state.pane}>
-            <ul class="ui-sidebar" onMouseLeave={onBlur}>
-              {!!broadcastShowboxUuid.value && (
-                <li class={active('broadcast')}>
-                  <a href="#broadcast" title="Broadcast" onClick={onClick('broadcast')}>
-                    Live
-                  </a>
-                </li>
-              )}
-              <li>
-                <a href="#" title="Theatre" onClick={this.enterTheatre}>
-                  Theatre
-                </a>
-              </li>
-              <li>
-                <a href="#" title="Fullscreen" onClick={this.enterFullscreen}>
-                  Fullscreen
-                </a>
-              </li>
-              <li>
-                <a
-                  href="/"
-                  onClick={(e) => {
-                    e.preventDefault()
-                    this.markWompsSeen()
-                    openExplore()
-                    exitPointerLock()
-                  }}
-                  title={this.state.newWomp ? 'new womp - open Explore' : 'Explore'}
-                >
-                  Explore{this.state.newWomp ? <span class="explore-new-dot" aria-label="new womp" /> : null}
-                </a>
-              </li>
-
-              <li class={active('settings')}>
-                <a href="#preferences" onMouseOver={onHover('settings')} onClick={onClick('settings')}>
-                  Settings
-                </a>
-              </li>
-              <li class={active('avatar')}>
-                <a href="#avatar" onMouseOver={onHover('avatar')} onClick={onClick('avatar')}>
-                  Avatar
-                </a>
-              </li>
-              {app.isAdmin() && nearestEditableParcel && (
-                <li>
-                  <a
-                    href="#"
-                    onClick={(e) => {
-                      e.preventDefault()
-                      void nearestEditableParcel.resave()
-                    }}
-                  >
-                    resave
-                  </a>
-                </li>
-              )}
-              <li class={active('dance')}>
-                <a href="#dance" onMouseOver={onHover('dance')} onClick={onClick('dance')}>
-                  Dance
-                </a>
-              </li>
-              <li class={active('emote')}>
-                <a href="#emote" onMouseOver={onHover('emote')} onClick={onClick('emote')}>
-                  Emote
-                </a>
-              </li>
-              <li class={active('yeet')}>
-                <a href="#yeet" onMouseOver={onHover('yeet')} onClick={onClick('yeet')}>
-                  Yeet
-                </a>
-              </li>
-              {(this.state.signedIn || wantsSandboxGuide()) && canEdit && (
-                <>
-                  <li class={this.voxelTool.enabled.value ? 'active' : ''}>
-                    <a
-                      title="Build with voxels"
-                      href="#build"
-                      onClick={(e) => {
-                        e.preventDefault()
-                        exitPointerLock()
-                        this.openBuildToolbelt()
-                      }}
-                    >
-                      Build
-                    </a>
-                  </li>
-                  <li class={active('add')}>
-                    <a title="Add things to your thing" href="#add" onMouseOver={onHover('add')} onClick={onClick('add')} accessKey="a">
-                      Add
-                    </a>
-                  </li>
-                  <li class={active('nfts')}>
-                    <a href="#nfts" onClick={onClick('nfts')}>
-                      NFTs
-                    </a>
-                  </li>
-                  <li class={active('parcelSnapshots')}>
-                    <a href="#snapshots" onMouseOver={onHover('parcelSnapshots')} onClick={onClick('parcelSnapshots')}>
-                      Shots
-                    </a>
-                  </li>
-                  <li class={active('edit')}>
-                    <a href="#edit" onMouseOver={onHover('edit')} onClick={onClick('edit')}>
-                      Edit
-                    </a>
-                  </li>
-                  <li class={active('voxels')}>
-                    <a href="#voxels" onMouseOver={onHover('voxels')} onClick={onClick('voxels')}>
-                      Voxels
-                    </a>
-                  </li>
-                </>
-              )}
-
-              {this.state.voiceEnabled && (
-                <li title="Microphone">
-                  <div class="voice-toggle">
-                    Voice
-                    <Toggle checked={this.state.voice === 'live'} onChange={() => this.toggleVoice()} />
-                  </div>
-                </li>
-              )}
-
-              {mintable && (
-                <u
-                  onClick={async (e) => {
-                    e.preventDefault()
-                    await nearestEditableParcel?.requestMint()
-                  }}
-                >
-                  Mint
-                </u>
-              )}
-
-              {app.isAdmin() && (
-                <li class={active('debugTool')}>
-                  <a href="#" onMouseOver={onHover('debugTool')} onClick={onClick('debugTool')}>
-                    Debug
-                  </a>
-                </li>
-              )}
-            </ul>
-
-            {this.state.chatEnabled && !location.pathname.startsWith('/chat') && <ChatOverlay scene={this.props.scene} />}
-          </aside>
+          {chat && <ChatOverlay />}
 
           {nearestEditableParcel?.sandbox && nearestEditableParcel.canEdit && (
             <div class="sandbox-rollback">
               <button type="button" class="linkish" onClick={this.rollBackSandbox}>
                 roll back
-              </button>
-            </div>
-          )}
-
-          {this.state.sandboxGuideOpen && !this.state.sandboxGuideMini && <SandboxGuide key={this.state.sandboxGuideKey || 0} voxelTool={this.voxelTool} onComplete={this.celebrateSandboxGuideComplete} />}
-
-          {this.state.sandboxGuideOpen && this.state.sandboxGuideMini && <SandboxGuideMini onGotIt={this.celebrateSandboxGuideComplete} onStartOver={this.restartSandboxGuide} />}
-
-          {!this.state.sandboxGuideOpen && this.state.sandboxGuideRestart && wantsSandboxGuide() && (
-            <div class="sandbox-guide-restart">
-              <a href="/shop">get a parcel in the shop</a>
-              <button type="button" class="linkish" onClick={this.openSandboxGuide}>
-                start over
               </button>
             </div>
           )}
@@ -1231,13 +902,6 @@ export default class UserInterface extends Component<UserInterfaceProps, UserInt
           <CongaJoinHintOverlay />
           <CongaStatusOverlay />
         </div>
-
-        {currentPane && (
-          <div class={['ui-pane', currentPane === 'broadcast' ? '-broadcast' : '', sidebarClosed.value ? '-closed' : ''].filter(Boolean).join(' ')}>
-            <SidebarClose onClick={() => this.closeInteractOverlay()} />
-            {this.paneContent(currentPane)}
-          </div>
-        )}
       </>
     )
   }

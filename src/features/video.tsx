@@ -1,5 +1,5 @@
 import { duckRadio, unduckRadio } from '../../web/src/radio/global'
-import { isBatterySaver, isChrome } from '../../common/helpers/detector'
+import { isBatterySaver, isChrome } from '../../client/platform'
 import { ProxyAssetOpensea } from '../../common/messages/api-opensea'
 import { VideoRecord } from '../../common/messages/feature'
 import { Position, Rotation, Scale, Behaviours, EditorProps } from '../../web/src/components/editor'
@@ -73,6 +73,10 @@ export default class Video extends Feature2D<VideoRecord> implements AudioFeatur
 
   get autoplay() {
     return !!this.description.autoplay
+  }
+
+  get src() {
+    return this.videoUrl()
   }
 
   get hasAudio() {
@@ -360,7 +364,7 @@ export default class Video extends Feature2D<VideoRecord> implements AudioFeatur
         this.fadeIn(AUTOPLAY_FADE_TIME)
       }
       this.playing = true
-      this.hasAudio && duckRadio(this)
+      this.hasAudio && duckRadio(this, this.src)
       return
     }
 
@@ -473,7 +477,7 @@ export default class Video extends Feature2D<VideoRecord> implements AudioFeatur
       { signal: this.abortController.signal },
     )
     // pause soundtrack
-    this.hasAudio && duckRadio(this)
+    this.hasAudio && duckRadio(this, this.src)
   }
 
   fadeIn(timeConstant: number, fromZero = false) {

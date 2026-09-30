@@ -13,7 +13,7 @@
   },
 
   // Install and seed once, so the container is ready to `pnpm run dev`
-  "postCreateCommand": "pnpm install && .devcontainer/setup-db.sh",
+  "postCreateCommand": "pnpm install && pnpm run setup:env && .devcontainer/setup-db.sh",
 
   // Set env var so psql knows which DB to connect to by default
   "containerEnv": {

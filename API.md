@@ -12,9 +12,9 @@ Generated from `server/openapi.yaml` by `npm run docs:api`. Edit the spec, not t
 
 ## what is in here
 
-- [parcels](#parcels), 20 routes
+- [parcels](#parcels), 21 routes
 - [womps](#womps), 6 routes
-- [avatars](#avatars), 13 routes
+- [avatars](#avatars), 15 routes
 - [collectibles](#collectibles), 3 routes
 - [collections](#collections), 9 routes
 - [wearables](#wearables), 8 routes
@@ -24,16 +24,18 @@ Generated from `server/openapi.yaml` by `npm run docs:api`. Edit the spec, not t
 - [search](#search), 1 route
 - [ghosts](#ghosts), 1 route
 - [chat](#chat), 1 route
-- [schemas](#schemas), 24 shapes
+- [account](#account), 5 routes
+- [schemas](#schemas), 28 shapes
 
 ## parcels
 
 - [`GET /api/parcels.json`](#get-apiparcelsjson) List parcels, or fetch a batch by id
+- [`GET /api/activity.json`](#get-apiactivityjson) The last 100 parcel transfers on chain
 - [`GET /api/parcels/cached.json`](#get-apiparcelscachedjson) Every visible parcel
 - [`GET /api/parcels/summary.json`](#get-apiparcelssummaryjson) id, address, island and name for every visible parcel
 - [`GET /api/parcels/xyz.json`](#get-apiparcelsxyzjson) Bounds and geometry only, for every parcel
 - [`GET /api/parcels/map.json`](#get-apiparcelsmapjson) The map layer's parcel list
-- [`GET /api/parcels/search.json`](#get-apiparcelssearchjson) Search minted, non-common parcels
+- [`GET /api/parcels/search`](#get-apiparcelssearch) Search minted, non-common parcels
 - [`GET /api/parcels/favorites.json`](#get-apiparcelsfavoritesjson) Parcels somebody has favorited
 - [`GET /api/parcels/{id}.json`](#get-apiparcelsidjson) One parcel with its build
 - [`GET /api/parcels/{id}.vox`](#get-apiparcelsidvox) The parcel's build as a MagicaVoxel file
@@ -65,6 +67,35 @@ Without `parcel_ids` this lists minted parcels and each row carries `parcel_user
 - `200` object
   - `success` boolean
   - `parcels` array of [`ParcelSummary`](#parcelsummary)
+
+### GET /api/activity.json
+
+The last 100 parcel transfers on chain
+
+Newest first. A mint has `from.owner` set to the zero address. `synced` is only set on the newest transfer of each parcel, and is false when our owner hasn't caught up with the chain yet.
+
+**parameters**
+
+- `parcel` (query) integer: Filter to this parcel before taking the latest 100 transfers.
+
+**answers**
+
+- `200` object
+  - `success` boolean
+  - `transfers` array of object
+    - `hash` string
+    - `block` integer
+    - `parcel_id` integer
+    - `created_at` string
+    - `name` string or null
+    - `address` string or null
+    - `from` object
+      - `owner` string
+      - `name` string or null
+    - `to` object
+      - `owner` string
+      - `name` string or null
+    - `synced` boolean or null
 
 ### GET /api/parcels/cached.json
 
@@ -123,28 +154,37 @@ The map layer's parcel list
   - `success` boolean
   - `parcels` array of object
 
-### GET /api/parcels/search.json
+### GET /api/parcels/search
 
 Search minted, non-common parcels
 
-`q` matches address, island, parcel name, owner wallet or owner avatar name. A bare wallet or a bare integer take their own code paths. Each row carries `pagination_count`, the total the filter matched.
+`q` is a prefix match on parcel name or address. A bare wallet matches the owner exactly instead. No total count, a full page means there may be another.
 
 **parameters**
 
-- `q` (query, required) string: Missing `q` is a 400.
-- `limit` (query) integer: Capped at 50.
+- `q` (query) string: Empty matches everything.
+- `limit` (query) integer: Capped at 50, defaults to 50.
 - `page` (query) integer: Zero-based, multiplied by `limit` for the offset.
-- `sort` (query) string, one of `id`, `name`, `height`, `island`, `distance`, defaults to `id`: Anything else falls back to `id` descending.
-- `asc` (query) string: The string `true` flips the order.
+- `sort` (query) string, one of `id`, `name`, `height`, `island`, `distance`, defaults to `id`: Anything else falls back to `id`.
+- `asc` (query) string: The string `true` sorts ascending, otherwise descending.
 
 **answers**
 
 - `200` object
   - `success` boolean
-  - `parcels` array of [`ParcelSummary`](#parcelsummary) plus object
-    - everything in [`ParcelSummary`](#parcelsummary)
-    - `pagination_count` integer or string: Total rows the filter matched, before limit.
-- `400` The lookup did not land. Some handlers send this with status 200.
+  - `parcels` array of object
+    - `id` integer
+    - `name` string or null
+    - `address` string or null
+    - `island` string or null
+    - `kind` string or null
+    - `x1` integer
+    - `x2` integer
+    - `y1` integer
+    - `y2` integer
+    - `z1` integer
+    - `z2` integer
+    - `height` integer
 
 ### GET /api/parcels/favorites.json
 
@@ -474,11 +514,13 @@ Matches `womps.author` exactly, so the wallet has to be cased the way it was sto
 - [`GET /api/avatars/{wallet}.json`](#get-apiavatarswalletjson) One citizen by wallet
 - [`GET /api/avatars/by/{nameOrWallet}.json`](#get-apiavatarsbynameorwalletjson) One citizen by name or wallet
 - [`GET /api/avatars/search`](#get-apiavatarssearch) Name or wallet substring match, ten at most
+- [`GET /api/avatars/refs.json`](#get-apiavatarsrefsjson) Look up a batch of avatars by wallet or name
 - [`GET /api/avatars/{wallet}/assets`](#get-apiavatarswalletassets) Wearables this wallet can wear or authored
 - [`GET /api/avatars/{wallet}/wearables`](#get-apiavatarswalletwearables) The collectibles in this citizen's current costume
 - [`GET /api/avatars/{wallet}/costume.json`](#get-apiavatarswalletcostumejson) The costume this citizen is wearing
 - [`GET /api/avatars/{wallet}/costumes`](#get-apiavatarswalletcostumes) Every costume this citizen has saved
 - [`GET /api/avatars/{wallet}/score.json`](#get-apiavatarswalletscorejson) This citizen's scores
+- [`GET /api/free-avatars.json`](#get-apifree-avatarsjson) VRM avatars anyone can wear
 - [`GET /api/costumes/{id}`](#get-apicostumesid) One costume by id
 - [`GET /api/avatar/{wallet}/name.json`](#get-apiavatarwalletnamejson) This citizen's display name
 - [`GET /api/avatar/{wallet}/names`](#get-apiavatarwalletnames) Every name this wallet holds
@@ -532,6 +574,25 @@ The odd one out: it answers with a bare array, no envelope, and an empty `q` giv
 - `200` array of object
   - `name` string or null
   - `wallet` string
+
+### GET /api/avatars/refs.json
+
+Look up a batch of avatars by wallet or name
+
+Chat uses this to turn every sender into an avatar in one hit. Exact match, case insensitive, 200 keys at most. Unknown keys are left out of the result.
+
+**parameters**
+
+- `q` (query) string: comma separated wallets and/or names
+
+**answers**
+
+- `200` object
+  - `avatars` array of object
+    - `id` integer
+    - `name` string or null
+    - `owner` string
+    - `created_at` string
 
 ### GET /api/avatars/{wallet}/assets
 
@@ -615,6 +676,21 @@ This citizen's scores
 - `200` object
   - `success` boolean
   - `scores` array of object
+
+### GET /api/free-avatars.json
+
+VRM avatars anyone can wear
+
+Wear one by posting its src to /api/avatar/appearance. Thumbs come from the renderer at /renderer/v1/avatar/{id}.webp.
+
+**answers**
+
+- `200` object
+  - `success` boolean
+  - `avatars` array of object
+    - `id` integer
+    - `name` string
+    - `src` string
 
 ### GET /api/costumes/{id}
 
@@ -1296,6 +1372,107 @@ Returns up to 200 unmoderated chat messages in chronological order. Used by the 
     - `avatar` anything: AvatarRef snapshot at send time
     - `moderated` boolean
 
+## account
+
+- [`GET /api/account/me`](#get-apiaccountme) Who am I, and which identities can I switch to
+- [`POST /api/delegations`](#post-apidelegations) Link a wallet to my email account
+- [`POST /api/delegations/attach`](#post-apidelegationsattach) Link an email to my wallet account
+- [`DELETE /api/delegations/{wallet}`](#delete-apidelegationswallet) Unlink an identity
+- [`POST /api/delegations/appoint`](#post-apidelegationsappoint) Switch the session to a linked identity
+
+### GET /api/account/me
+
+Who am I, and which identities can I switch to
+
+JWT required. An email account is a uuid that stands in for a wallet. Delegations link an email uuid to real wallets; every identity in the link set can switch to any other with `appoint`. `wallet` is the identity you are acting as, `account` is the one that signed in (null unless acting as a delegate), and `identities` is the base identity followed by everything linked to it.
+
+**answers**
+
+- `200` object
+  - `success` boolean
+  - `wallet` string
+  - `account` string or null
+  - `email` string or null
+  - `identities` array of [`Identity`](#identity)
+- `401` The lookup did not land. Some handlers send this with status 200.
+
+### POST /api/delegations
+
+Link a wallet to my email account
+
+JWT required, and the signed-in identity must be an email account. Sign the message `I volunteer <email> as my delegate for voxels.com.` with the wallet (personal_sign) and post the signature. The recovered address becomes a linked identity. Posting the same wallet twice is a no-op with `added: false`.
+
+**body**
+
+- `application/json` object
+  - `signature` string
+
+**answers**
+
+- `200` object
+  - `success` boolean
+  - `wallet` string: Lowercased address recovered from the signature.
+  - `added` boolean
+- `400` The lookup did not land. Some handlers send this with status 200.
+- `401` The lookup did not land. Some handlers send this with status 200.
+
+### POST /api/delegations/attach
+
+Link an email to my wallet account
+
+JWT required, and the signed-in identity must be a wallet. Request a code with `POST /api/signin/code {email}` first, then post the email and code here. The email account is created if it does not exist yet and linked to the wallet.
+
+**body**
+
+- `application/json` object
+  - `email` string
+  - `code` string
+
+**answers**
+
+- `200` object
+  - `success` boolean
+  - `wallet` string: The uuid of the email account.
+  - `added` boolean
+- `400` The lookup did not land. Some handlers send this with status 200.
+- `401` The lookup did not land. Some handlers send this with status 200.
+
+### DELETE /api/delegations/{wallet}
+
+Unlink an identity
+
+JWT required. Removes the link between the signed-in identity and `wallet`, from either side: an email account passes the wallet, a wallet passes the email account uuid.
+
+**parameters**
+
+- `wallet` (path, required) string
+
+**answers**
+
+- `200` object
+  - `success` boolean
+  - `removed` boolean
+- `401` The lookup did not land. Some handlers send this with status 200.
+
+### POST /api/delegations/appoint
+
+Switch the session to a linked identity
+
+JWT required. `wallet` must be the signed-in identity or one linked to it. Sets a new `jwt` cookie acting as that identity and returns the token. The token keeps the signed-in identity in `account`, so switching back is another call to this route with the base identity.
+
+**body**
+
+- `application/json` object
+  - `wallet` string
+
+**answers**
+
+- `200` object
+  - `success` boolean
+  - `token` string
+  - `name` string
+- `401` The lookup did not land. Some handlers send this with status 200.
+
 ## schemas
 
 The shapes the routes above hand back.
@@ -1304,6 +1481,12 @@ The shapes the routes above hand back.
 
 - `success` boolean, always `false`
 - `message` string
+
+### Identity
+
+- `wallet` string: Lowercased wallet address, or the uuid of an email account.
+- `name` string or null
+- `email` string or null: Set for email accounts.
 
 ### AvatarRef
 
@@ -1483,9 +1666,30 @@ A photograph somebody took in world.
 - `parcel_island` string or null
 - `space_name` string or null
 - `image_url` string or null
+- `metadata` [`WompMetadata`](#wompmetadata) or null: Who and what was in the shot when it was taken. Null on older womps. Screenspace `x`/`y` are normalized 0-1 over the image (top-left origin).
 - `image_supplied` boolean: True when the bytes are in the database, which is what makes `/api/womps/{id}.jpg` work. False means the picture only lives at `image_url`. Absent on `/api/womps/{id}.json`.
 - `created_at` string
 - `updated_at` string
+
+### WompMetadata
+
+Scene context for a womp: avatars in the camera frustum, and nft-image features within 5m that were also in view.
+
+- `avatars` array of [`WompMetadataAvatar`](#wompmetadataavatar)
+- `art` array of [`WompMetadataArt`](#wompmetadataart)
+
+### WompMetadataAvatar
+
+- `avatar` [`AvatarRef`](#avatarref)
+- `x` number: Screenspace X of the avatar centroid, 0-1.
+- `y` number: Screenspace Y of the avatar centroid, 0-1.
+
+### WompMetadataArt
+
+- `name` string or null: NFT title when known at capture time.
+- `x` number: Screenspace X of the art centroid, 0-1.
+- `y` number: Screenspace Y of the art centroid, 0-1.
+- `src` string: CAIP-19 asset id, e.g. `eip155:1/erc721:0xabc.../42`.
 
 ### Avatar
 
@@ -1499,7 +1703,7 @@ A citizen.
 - `social_link_1` string or null
 - `social_link_2` string or null
 - `moderator` boolean
-- `type` string or null, one of `woody`, `vidda`, `zuck`, `bnolan`, `null`: Which body the citizen wears. Everything but `woody` is deprecated and you are unlikely to meet one.
+- `type` string or null, one of `woody`, `vidda`, `zuck`, `legacy`, `null`: Which body the citizen wears. Everything but `woody` is deprecated and you are unlikely to meet one.
 - `settings` object or null
 - `costume_id` string or null
 - `costume` [`Costume`](#costume)

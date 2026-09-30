@@ -3,11 +3,18 @@ import Feature from './features/feature'
 import Group from './features/group'
 import { effect, signal } from '@preact/signals'
 import Grid from './grid'
+import type { AvatarRef } from '../common/messages/avatar-ref'
+import type UserInterface from './user-interface'
 export type CheckedFeatures = Record<string, Feature>
 
 const TICK = 500
 
 setInterval(() => {
+  // no window under test teardown; the timer outlives the jsdom env
+  if (typeof window === 'undefined') {
+    return
+  }
+
   const grid = window.grid as Grid
 
   if (!grid) {
@@ -120,6 +127,11 @@ export const selectNearestEditableParcel = () => {
   return nearestEditableParcel.value
 }
 
+export const isOnSandboxParcel = () => {
+  const p = selectNearestEditableParcel() ?? (typeof window !== 'undefined' ? window.grid?.nearestEditableParcel?.() : null)
+  return !!(p as any)?.sandbox
+}
+
 export const currentOrNearestParcel = signal<Parcel | undefined>(undefined)
 
 export const selectCurrentOrNearestParcel = () => {
@@ -150,31 +162,26 @@ export const uiPane = signal<string | undefined>(undefined)
 // tapping back into the world); contextual build/edit panes dismiss on canvas re-engage.
 // broadcast: the host's dock must stay up for the whole show - only its own close/stop ends it.
 // open on purpose, survive canvas re-engage, closed via the sidebar X
-export const PERSISTENT_PANES = new Set(['settings', 'avatar', 'help', 'dance', 'emote', 'yeet', 'broadcast'])
+export const PERSISTENT_PANES = new Set(['settings', 'avatar', 'help', 'broadcast'])
 export const isPersistentPane = (p?: string) => !!p && PERSISTENT_PANES.has(p)
-
-export const yeetCollectionId = signal<string | undefined>(undefined)
-export const equippedWid = signal<string | undefined>(undefined)
 
 export const uiAsideTick = signal(0)
 export const sidebarClosed = signal(false)
 
-// phone: closed overlay. desktop ignores this (left column stays).
-export const siteNavOpen = signal(false)
+// mounted in-world UI, header renders the world links off it
+export const worldUi = signal<UserInterface | null>(null)
+export const mic = signal<'off' | 'live' | 'muted'>('off')
+export const micEnabled = signal(false)
 
-effect(() => {
-  document.body.classList.toggle('site-nav-open', siteNavOpen.value)
-  window.engine?.resize()
-})
+// .page mounts this; world tools (add, edit, …) portal into it and cover the route
+export const pageToolEl = signal<HTMLElement | null>(null)
 
-if (typeof window !== 'undefined' && typeof window.matchMedia === 'function') {
-  window.matchMedia('(max-width: 50em)').addEventListener('change', (e) => {
-    if (e.matches) siteNavOpen.value = false
-  })
-}
+const PAGE_TOOLS = new Set(['add', 'edit', 'voxels', 'debugTool', 'nfts', 'womp', 'takeWomp', 'help', 'login', 'parcelSnapshots'])
 
-export function toggleSiteNav() {
-  siteNavOpen.value = !siteNavOpen.value
+export const isPageTool = (p?: string) => !!p && PAGE_TOOLS.has(p)
+
+export function clearPageTool() {
+  if (isPageTool(uiPane.value)) uiPane.value = undefined
 }
 
 export const broadcastShowboxUuid = signal<string | undefined>(undefined)
@@ -193,17 +200,29 @@ export const closeBroadcastSidebar = () => {
   uiAsideTick.value++
 }
 
-// while the broadcast dock is open it is the sidebar's home: hopping into edit/settings/a tool
-// swaps the pane (the pulsing live tab appears), and when that pane closes we snap back to the
-// dock. stop/close clears the uuid first, which ends this.
-effect(() => {
-  if (!uiPane.value && broadcastShowboxUuid.value) uiPane.value = 'broadcast'
-})
+export type WompMetadataAvatar = {
+  avatar: AvatarRef
+  x: number
+  y: number
+}
+
+export type WompMetadataArt = {
+  name: string | null
+  x: number
+  y: number
+  src: string
+}
+
+export type WompMetadata = {
+  avatars: WompMetadataAvatar[]
+  art: WompMetadataArt[]
+}
 
 export type PendingWomp = {
   coords: string
   parcel: Parcel
   image: string
+  metadata: WompMetadata
 }
 
 export const pendingWomp = signal<PendingWomp | null>(null)

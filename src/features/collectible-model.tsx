@@ -1,4 +1,4 @@
-import { voxImporter } from '../../common/vox-import/vox-import'
+import { voxImporter } from '../../client/world/vox-import'
 import type { FeatureTrigger } from './feature'
 import { Feature3D } from './feature'
 import { Advanced, Animation, CollectibleTryBone, CollectibleTryPosition, CollectibleTryRotation, CollectibleTryScale, FeatureEditor, FeatureEditorProps, FeatureID, Toolbar, SourceInput } from '../ui/features'

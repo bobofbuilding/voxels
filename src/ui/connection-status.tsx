@@ -1,7 +1,7 @@
 import { Component } from 'preact'
 import type Connector from '../connector'
 import type Grid from '../grid'
-import { isLocal } from '../../common/helpers/detector'
+import { isLocal } from '../../client/platform'
 import { ConnectionState } from '../utils/socket-client'
 interface Props {
   grid: Grid

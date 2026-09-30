@@ -1,8 +1,6 @@
 import { Component } from 'preact'
 import UploadButton from './components/upload-button'
 import { app } from './state'
-import { YeetPane } from '../../src/ui/interact/yeet-pane'
-import { yeetCollectionId } from '../../src/store'
 import { deployCollection, mintWearable } from './helpers/mint-collection'
 import { PanelType } from './components/panel'
 
@@ -31,18 +29,10 @@ export default class CollectionPage extends Component<Props, State> {
   }
 
   componentDidMount() {
-    if (this.props.id) yeetCollectionId.value = this.props.id
     this.fetch()
   }
 
-  componentWillUnmount() {
-    // leave yeetCollectionId so in-world yeet pane still has a collection
-  }
-
   componentDidUpdate(_prevProps: Props, prevState: State) {
-    if (this.props.id && this.props.id !== yeetCollectionId.value) {
-      yeetCollectionId.value = this.props.id
-    }
     if (this.state.collection?.id !== prevState.collection?.id) {
       this.fetch()
     }
@@ -111,7 +101,7 @@ export default class CollectionPage extends Component<Props, State> {
     const deployed = !!c.address
 
     return (
-      <section class="columns">
+      <section>
         <article>
           <h1>{c.name}</h1>
           {c.description && <p>{c.description}</p>}
@@ -168,7 +158,6 @@ export default class CollectionPage extends Component<Props, State> {
         </article>
 
         <aside>
-          <YeetPane />
           {(app.isAdmin() || this.isOwner) && <a href={`/collections/${this.props.id}/edit`}>Edit</a>}
           {empty ? null : upload}
         </aside>

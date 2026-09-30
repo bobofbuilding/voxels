@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'preact/hooks'
 import cachedFetch, { invalidateUrl } from '../../../web/src/helpers/cached-fetch'
 import { imageUrlViaProxy } from '../../utils/helpers'
-import { requestPointerLock } from '../../../common/helpers/ui-helpers'
+import { requestPointerLock } from '../../../client/ui/helpers'
 import type { OpenSeaNFTV2Extended } from '../../../common/messages/api-opensea'
 import { truncate } from '../../../web/src/lib/string-utils'
 

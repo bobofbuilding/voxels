@@ -756,7 +756,14 @@ function refreshFromFeature(feature: CollectibleModel, avatar: Avatar) {
 }
 
 export function Advanced(props: any) {
-  return <>{props.children}</>
+  return (
+    <dd class="full">
+      <details class="inspector-section">
+        <summary>options</summary>
+        <dl class="props">{props.children}</dl>
+      </details>
+    </dd>
+  )
 }
 
 export function SpecularColorSetting(props: { feature: Feature & { description: { specularColor?: [number, number, number] } } }) {

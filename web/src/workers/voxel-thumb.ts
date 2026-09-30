@@ -2,7 +2,7 @@
 // ABOUTME: Parallel fetch, serial GPU render, OPFS cache (memory fallback). Scene logic in common/renderable.
 
 import * as Comlink from 'comlink'
-import { createThumbScene, renderVoxThumb } from '../../../common/renderable/vox-thumb'
+import { createThumbScene, renderVoxThumb } from '../../../client/rendering/vox-thumb'
 import type { ThumbScene } from '../../../common/renderable/types'
 
 // babylon via importScripts before anything touches BABYLON
