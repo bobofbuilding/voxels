@@ -77,7 +77,7 @@ Reconnection is eventual, not instant. Logs survive server restarts. A host can 
 
 Player poses travel from browser to its selected host and then over HTTPS between hosts, without browser-to-browser connections. Only anonymous positions, orientations, animation and host-scoped random IDs are forwarded. Other hosts see the relay host's address, not the browser's address. The selected host and its tunnel/proxy provider still see the visitor's network address. External media providers may also receive browser requests. Remote avatars are labeled “Remote traveler”; a host signature proves the host, not a person's identity. Public hosts can invent avatars. Presence expires after 15 seconds and is limited to 64 players per host and 16 remote hosts. Movement updates are roughly once per second, suitable for an initial shared presence implementation rather than competitive game physics.
 
-This node protocol is separate from the planned opt-in browser upload cache. It does not enable WebRTC or promise anonymity from the connected host. GitHub distributes code and small snapshot references, not live traffic or bulk archives.
+Public media storage has its own opt-in sharing setting; see [Media cache](../world/MEDIA_CACHE.md). It does not enable WebRTC or promise anonymity from the connected host. GitHub distributes code and small snapshot references, not live traffic or bulk archives.
 
 ## Verification
 
@@ -86,3 +86,7 @@ This node protocol is separate from the planned opt-in browser upload cache. It 
 ## Upgrade from the owner-only pilot
 
 All participating hosts must upgrade to protocol version 2 before exchanging delegated edits. Back up first. Nodes whose original import excluded roles can run `selfhost/world/restore-parcel-rights.mjs VERIFIED_INVENTORY` with their private database configuration **before** starting this version with `PARCEL_EDIT_POLICY=parcel`. The one-time restore refuses existing roles, changed ownership or initialized permission genesis. It imports only parcel-specific roles, never global moderators, credentials or sessions. New installer imports already preserve these records. Do not overwrite a running permission history with a fresh archive.
+
+## Public media storage
+
+Optional visitor-assisted media caching and the 75 GB Pi/MyCloud overflow configuration are documented in [Media cache](../world/MEDIA_CACHE.md). Browser sharing is opt-in; the world host independently validates public references.
