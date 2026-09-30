@@ -2,7 +2,7 @@
 
 This installer runs the playable world, multiplayer server, PostgreSQL and Redis with Docker Compose. Each host keeps its own database and accepts wallet-signed public build edits without contacting another host. Connected hosts exchange those edits and player positions; disconnected hosts catch up when a peer becomes reachable.
 
-Anyone can operate a node. Hosting does not grant editing permission. This first version preserves the migration launch policy: the network's configured `OWNER_ADDRESS` is the only editor. Legacy NFT ownership does not grant editing rights. Per-parcel permissions need a separate migration-aware authorization protocol.
+Anyone can operate a node. Hosting does not grant editing permission. The pinned public snapshot preserves each parcel's owner and delegated managers/builders. Every edit carries that wallet's signature and a permission revision; a node operator cannot grant themselves access. The network owner retains its existing administrator override. Historical renter records are retained without being promoted to builder or manager. Malformed wallet entries are preserved separately for explicit review; they are never silently repaired into grants. These rights reflect the archived snapshot; they do not claim that a new NFT migration or live on-chain ownership transfer has occurred.
 
 ## Requirements
 
@@ -29,7 +29,7 @@ Open `http://localhost:8787/play`. The starter contains one unminted parcel; set
 
 ## Join another host
 
-Hosts must agree on the world identifier, editor wallet and exact initial parcel data. A world ID is a `0x`-prefixed 32-byte identifier, not a contract address. Starter worlds derive it deterministically from the owner address. For archive-based worlds, obtain the world ID and pinned snapshot from the network publisher through a trusted channel.
+Hosts must agree on the world identifier, network administrator, archived parcel rights and exact initial parcel data. A world ID is a `0x`-prefixed 32-byte identifier, not a contract address. Starter worlds derive it deterministically from the owner address. For archive-based worlds, obtain the world ID and pinned snapshot from the network publisher through a trusted channel.
 
 ```sh
 node selfhost/node/setup.mjs init \
@@ -61,7 +61,7 @@ node selfhost/node/setup.mjs init \
 node selfhost/node/setup.mjs up --directory "$HOME/voxels-node"
 ```
 
-`--network` checks the island-file hash and sets the pinned owner, world ID, expected parcel count and peer. Archive verification remains a separate required step. Trust the network reference only from a reviewed repository revision. The Pi is the first pilot peer; adding more independently reachable hosts improves resilience. This does not change who may edit or complete the NFT migration.
+`--network` checks the island-file hash and sets the pinned owner, world ID, expected parcel count and peer. Archive verification remains a separate required step. Trust the network reference only from a reviewed repository revision. The Pi is the first pilot peer; adding more independently reachable hosts improves resilience. The parcel manager preserves the archived role assignments; joining does not grant the host operator parcel rights or complete the NFT migration.
 
 ## Publish safely
 
@@ -71,9 +71,9 @@ Only operator-configured HTTP(S) origins are contacted. HTTPS is required for pu
 
 ## Synchronization and privacy
 
-Each accepted edit retains its wallet signature, world, parcel, starting hash, parent revision, causal counter and nonce in PostgreSQL. Nodes independently verify signatures and permissions before applying it. Edits replay in causal-counter then content-hash order, so arrival order does not decide the result. Changes to different voxels or feature properties survive; competing changes to the same field have a deterministic winner. The signed history retains both alternatives. Full voxel-field replacement intentionally replaces earlier voxel changes. There is no automatic history deletion or compaction; a parcel stops accepting edits at 10,000 events until an explicit upgrade provides safe compaction.
+Each accepted edit retains its wallet signature, world, parcel, starting hash, parent revision, causal counter and nonce in PostgreSQL. Nodes independently verify signatures and permissions before applying it. Edits replay in causal-counter then content-hash order, so arrival order does not decide the result. Changes to different voxels or feature properties survive; competing changes to the same field have a deterministic winner. The signed history retains both alternatives. Permission changes explicitly retain acknowledged builds. Unsynced changes under an older permission revision remain pending for the parcel owner to review; revocation never silently grants a revoked wallet fresh authority. Concurrent manager permission branches pause building for that parcel until its owner settles them. New owner epochs supersede old manager branches. Rights propagate eventually; an online host is not proof of instantaneous agreement across a partition. Full voxel-field replacement intentionally replaces earlier voxel changes. There is no automatic history deletion or compaction; a parcel stops accepting edits at 10,000 events until an explicit upgrade provides safe compaction.
 
-Reconnection is eventual, not instant. Logs survive server restarts. A host can save builds while disconnected from peers, but the browser still needs a connection to that host. There is no browser offline outbox. Metadata edits through the legacy parcel API are disabled in shared-world mode. Public build synchronization covers voxels, features, palette, tileset and brightness. Accounts, chat, voice, vehicles, scripted runtime state, private parcels and NFT migration state are not synchronized.
+Reconnection is eventual, not instant. Logs survive server restarts. A host can save builds while disconnected from peers, but the browser still needs a connection to that host. There is no browser offline outbox. Entry checks a live host before booting the world, and every save rechecks permissions at that host. A cached page is not authorization to edit. Unsigned metadata edits through the legacy parcel API are disabled in shared-world mode. The existing parcel manager signs changes to names/descriptions and delegated roles, and supports signed build import/revert. Public build synchronization covers voxels, features, palette, tileset, brightness and full build replacements. Accounts, chat, voice, vehicles, scripted runtime state, private parcels and NFT migration state are not synchronized.
 
 Player poses travel from browser to its selected host and then over HTTPS between hosts, without browser-to-browser connections. Only anonymous positions, orientations, animation and host-scoped random IDs are forwarded. Other hosts see the relay host's address, not the browser's address. The selected host and its tunnel/proxy provider still see the visitor's network address. External media providers may also receive browser requests. Remote avatars are labeled “Remote traveler”; a host signature proves the host, not a person's identity. Public hosts can invent avatars. Presence expires after 15 seconds and is limited to 64 players per host and 16 remote hosts. Movement updates are roughly once per second, suitable for an initial shared presence implementation rather than competitive game physics.
 
@@ -82,3 +82,7 @@ This node protocol is separate from the planned opt-in browser upload cache. It 
 ## Verification
 
 `node --test selfhost/node/setup.test.mjs` checks installer isolation and credential retention. The regular test suite checks signed edits, convergence and presence validation. `sync-smoke.ts` is an explicit integration harness for two disposable local nodes and a throwaway editor wallet; it must never receive a real wallet key. It can test a temporary network partition, restart recovery, replay rejection, convergence, cross-host avatars and departure cleanup. Production deployment still requires testing the wallet flow with the intended wallet and checking resource use under expected load.
+
+## Upgrade from the owner-only pilot
+
+All participating hosts must upgrade to protocol version 2 before exchanging delegated edits. Back up first. Nodes whose original import excluded roles can run `selfhost/world/restore-parcel-rights.mjs VERIFIED_INVENTORY` with their private database configuration **before** starting this version with `PARCEL_EDIT_POLICY=parcel`. The one-time restore refuses existing roles, changed ownership or initialized permission genesis. It imports only parcel-specific roles, never global moderators, credentials or sessions. New installer imports already preserve these records. Do not overwrite a running permission history with a fresh archive.

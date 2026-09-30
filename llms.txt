@@ -1,6 +1,6 @@
 # Voxels public read API
 
-> 85 routes on https://www.voxels.com, covering parcels, womps, avatars, collectibles, collections, wearables, islands, spaces, events, search, ghosts, chat, account, federation. Most are unauthenticated GET. Handlers answer {"success": true, "<field>": ...}, where the field is plural for a list and singular for one record, and {"success": false} when the lookup misses.
+> 86 routes on https://www.voxels.com, covering parcels, womps, avatars, collectibles, collections, wearables, islands, spaces, events, search, ghosts, chat, account, federation. Most are unauthenticated GET. Handlers answer {"success": true, "<field>": ...}, where the field is plural for a list and singular for one record, and {"success": false} when the lookup misses.
 
 ## docs
 
@@ -23,4 +23,4 @@
 - [ghosts](https://www.voxels.com/api/ghosts): 1 route.
 - [chat](https://www.voxels.com/api/chat.json): 1 route.
 - [account](https://www.voxels.com/api/account/me): 5 routes.
-- [federation](https://www.voxels.com/federation/info): 7 routes.
+- [federation](https://www.voxels.com/federation/info): 8 routes.

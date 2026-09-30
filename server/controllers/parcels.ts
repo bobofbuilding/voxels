@@ -161,8 +161,8 @@ export default function (db: Db, passport: PassportStatic, app: Express) {
     let result: { success: boolean; id?: number }
     if (id) {
       // We have been given a version id; this means we want that version id to be a snapshot, not the current parcel content.
-      const r = await db.query('embedded/update-property-version-snapshot', `update property_versions set is_snapshot = true,updated_at=now() where id = $1 returning id`, [id])
-      result = { success: !r.rows[0]?.id, id: r?.rows[0]?.id }
+      const r = await db.query('embedded/update-property-version-snapshot', `update property_versions set is_snapshot = true,updated_at=now() where id = $1 and parcel_id=$2 returning id`, [id, parcel_id])
+      result = { success: !!r.rows[0]?.id, id: r?.rows[0]?.id }
     } else {
       result = await parcel.takeSnapshot()
     }
@@ -198,9 +198,9 @@ export default function (db: Db, passport: PassportStatic, app: Express) {
       return
     }
 
-    const r = await db.query('embedded/remove-property-version-snapshot', `update property_versions set is_snapshot = false,updated_at=now() where id = $1 returning id`, [version.id])
+    const r = await db.query('embedded/remove-property-version-snapshot', `update property_versions set is_snapshot = false,updated_at=now() where id = $1 and parcel_id=$2 returning id`, [version.id, version.parcel_id])
 
-    res.status(200).send({ success: !!r.rows[0], id: r.rows[0].id || null })
+    res.status(200).send({ success: !!r.rows[0], id: r.rows[0]?.id || null })
   })
 
   // Route to edit snapshot attributes (just name atm)
@@ -211,9 +211,11 @@ export default function (db: Db, passport: PassportStatic, app: Express) {
       res.status(200).send({ success: false })
       return
     }
+    const parcel = await Parcel.load(version.parcel_id)
+    if (!parcel || (await authParcel(parcel, req.user as VoxelsUser | null)) !== 'Owner') return res.status(403).json({ success: false, error: 'Only parcel owners and managers may edit snapshots' })
     let r
-    if (name) {
-      r = await db.query('embedded/update-property-version-snapshot_name', `update property_versions set snapshot_name = $1,updated_at=now() where id = $2 returning id`, [name, version.id])
+    if (typeof name === 'string' && name.length > 0 && name.length <= 256) {
+      r = await db.query('embedded/update-property-version-snapshot_name', `update property_versions set snapshot_name = $1,updated_at=now() where id = $2 and parcel_id=$3 returning id`, [name, version.id, version.parcel_id])
     }
 
     if (!r) {

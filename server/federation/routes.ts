@@ -7,7 +7,7 @@ import { acceptEdit, baseAndClock, federationWorld, initializeFederation } from 
 
 export function installFederation(app: Express) {
   if (!federationWorld) return
-  if (process.env.PARCEL_EDIT_POLICY !== 'admin') throw Error('Federation currently requires the shared admin-wallet editing policy')
+  if (!['admin', 'parcel'].includes(process.env.PARCEL_EDIT_POLICY || '')) throw Error('Federation requires an explicit admin or parcel editing policy')
   const ready = initializeFederation().then(() => db.query('federation/cursors', 'CREATE TABLE IF NOT EXISTS federation_cursors(peer text PRIMARY KEY, seq bigint NOT NULL)'))
   const presence = new Map<string, PresencePacket>()
   const redis = createClient({ url: process.env.REDIS_URL })
@@ -67,7 +67,15 @@ export function installFederation(app: Express) {
   )
   router.get(
     '/info',
-    handle((_req: any, res: any) => res.json({ version: 1, world: federationWorld, editor: process.env.OWNER_ADDRESS, policy: 'wallet-signed-public-builds', node: process.env.FEDERATION_NODE })),
+    handle((_req: any, res: any) =>
+      res.json({
+        version: 2,
+        world: federationWorld,
+        editor: process.env.OWNER_ADDRESS,
+        policy: process.env.PARCEL_EDIT_POLICY === 'parcel' ? 'wallet-signed-parcel-rights' : 'wallet-signed-public-builds',
+        node: process.env.FEDERATION_NODE,
+      }),
+    ),
   )
   router.get(
     '/parcel/:id',
@@ -79,7 +87,19 @@ export function installFederation(app: Express) {
   )
   router.post(
     '/edits',
-    handle(async (req: any, res: any) => res.json({ id: await acceptEdit(req.body) })),
+    handle(async (req: any, res: any) => res.json({ id: await acceptEdit(req.body, true) })),
+  )
+  router.get(
+    '/edit/:id',
+    handle(async (req: any, res: any) => {
+      if (!/^0x[a-f0-9]{64}$/.test(req.params.id)) throw Error('Invalid edit identifier')
+      const result = await db.query('federation/read-edit', 'SELECT e.event FROM federation_edits e JOIN properties p ON p.id=e.parcel WHERE e.id=$1 AND p.visible', [req.params.id])
+      if (!result.rows.length) {
+        res.status(404).json({ error: 'Public edit not found' })
+        return
+      }
+      res.json(result.rows[0].event)
+    }),
   )
   router.get(
     '/events',

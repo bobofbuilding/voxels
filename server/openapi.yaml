@@ -35,6 +35,20 @@ tags:
   - name: federation
 
 paths:
+  /federation/edit/{id}:
+    get:
+      tags: [federation]
+      summary: Review a retained public signed edit
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, pattern: '^0x[a-f0-9]{64}$' }
+      responses:
+        '200':
+          description: The complete signed edit or permission change
+        '404':
+          description: Public edit not found
   /federation/info:
     get:
       tags: [federation]
@@ -54,14 +68,14 @@ paths:
           schema: { type: integer, minimum: 1 }
       responses:
         '200':
-          description: Base hash, clock and parent edit identifier (null at genesis)
+          description: Base hash, causal clock, parent, active parcel permission revision, preserved edit IDs and pending review IDs
         '400':
           description: Invalid or non-public parcel
   /federation/edits:
     post:
       tags: [federation]
       summary: Verify and durably apply a wallet-signed public build edit
-      description: Requires the configured world editor's personal-message signature. Legacy account tokens do not authorize edits. See selfhost/node/README.md and common/federation/edit.ts for canonical signing, supported patches and bounds. Requests are limited to 2 MiB; signed envelopes to 1,900,000 UTF-8 bytes.
+      description: Version 2 requires a parcel owner, manager or builder wallet signature bound to a permission revision. Hosts independently verify archived authority and signed permission changes. Conflicting manager branches pause writes until the parcel owner resolves them. Superseded-authority edits remain pending unless explicitly preserved or approved. Version 1 remains restricted to the network owner for compatibility. Legacy account tokens do not authorize edits. See selfhost/node/README.md and common/federation/edit.ts for canonical signing, supported patches and bounds. Requests are limited to 2 MiB; signed envelopes to 1,900,000 UTF-8 bytes.
       requestBody:
         required: true
         content:

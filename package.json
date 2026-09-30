@@ -73,7 +73,7 @@
     "typecheck:compressor": "tsc --noEmit --project compressor/tsconfig.json",
     "typecheck:renderer": "tsc --noEmit --project renderer/tsconfig.json",
     "node:setup": "node selfhost/node/setup.mjs",
-    "test:node": "node --test selfhost/node/setup.test.mjs selfhost/seed/gateway.test.mjs"
+    "test:node": "node --test selfhost/node/setup.test.mjs selfhost/seed/gateway.test.mjs selfhost/world/parcel-rights.test.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.472.0",

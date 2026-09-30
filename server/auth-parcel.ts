@@ -1,3 +1,4 @@
+import { permissionForWallet } from './federation/store'
 import { isAdminWallet } from './permissions'
 import Avatar from './avatar'
 import ParcelUserRight from './parcel-user-right'
@@ -10,6 +11,11 @@ import { FeatureRecord } from '../common/messages/feature'
 import { ParcelAuthResult } from '../common/messages/parcel'
 
 export default async function authParcel(parcel: ParcelAuthRef, user: VoxelsUser | null): Promise<ParcelAuthResult> {
+  if (process.env.FEDERATION_WORLD && process.env.PARCEL_EDIT_POLICY === 'parcel') {
+    if (!user?.wallet || user.suspended) return false
+    const { role } = await permissionForWallet(parcel.id, user.wallet)
+    return role === 'owner' ? 'Owner' : role === 'contributor' ? 'Collaborator' : false
+  }
   if (process.env.PARCEL_EDIT_POLICY === 'admin' && !isAdminWallet(user?.wallet)) return false
   if (parcel.sandbox === true) {
     if (!user) return 'Sandbox'

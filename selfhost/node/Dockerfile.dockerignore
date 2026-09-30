@@ -17,6 +17,7 @@
 !web/**
 !selfhost/seed/gateway.mjs
 !selfhost/world/import-world.mjs
+!selfhost/world/parcel-rights.mjs
 !selfhost/node/*.mjs
 **/node_modules
 **/.env*
