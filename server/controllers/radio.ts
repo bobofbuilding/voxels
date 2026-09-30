@@ -1,7 +1,7 @@
 import { createClient } from 'redis'
 import type { Express } from 'express'
 import { Db } from '../pg'
-import { buildSchedule, buildSpots, clip, generateSpot, Schedule, utcDay } from '../lib/radio'
+import { buildSchedule, clip, generateSpot, Schedule, utcDay } from '../lib/radio'
 
 const CHANNEL = 'radio:updates'
 const DAY = 86400
@@ -64,7 +64,7 @@ export default function RadioController(db: Db, app: Express) {
     try {
       const day = utcDay()
       const now = Date.now() / 1000
-      for (const spot of buildSpots(day)) {
+      for (const spot of buildSchedule(day).spots) {
         const until = day * DAY + spot.atOffset - now
         if (until > WINDOW || until < -PAST) continue // next 5 min + last hour only
         if (await pub.hExists(HASH(day), spot.id)) continue
@@ -116,7 +116,9 @@ export default function RadioController(db: Db, app: Express) {
 
   app.get('/api/radio/live', async (req, res) => {
     res.setHeader('Content-Type', 'text/event-stream')
-    res.setHeader('Cache-Control', 'no-cache')
+    // Compression buffers small SSE updates; intermediaries must stream them immediately.
+    res.setHeader('Cache-Control', 'no-cache, no-transform')
+    res.setHeader('X-Accel-Buffering', 'no')
     res.setHeader('Connection', 'keep-alive')
     res.flushHeaders()
 
