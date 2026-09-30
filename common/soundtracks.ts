@@ -1,6 +1,5 @@
-// The radio's full track list, in order. Lives in common/ so both the server
-// schedule builder and the client radio can import it (the server webpack build
-// excludes src/). Files live at https://sounds.crvox.com/music/<fileName>.
+// Shared radio metadata. The active world score is served locally by every host.
+// Historical station metadata remains below for reference.
 
 export interface Track {
   fileName: string
@@ -9,7 +8,10 @@ export interface Track {
   volume?: number
 }
 
-export const MUSIC_URI = 'https://sounds.crvox.com/music'
+export const MUSIC_URI = '/music'
+
+// Original, locally hosted score. Every node serves the same small audio asset.
+export const worldTracks: Track[] = [{ fileName: 'neon-transit-v1.mp3', duration: 80, volume: 0.65 }]
 
 export const tracks: Track[] = [
   { fileName: 'synthdad.webm', fallback: 'synthdad-AAC.m4a', duration: 2136 },
