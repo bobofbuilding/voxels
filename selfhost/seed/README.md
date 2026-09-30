@@ -1,6 +1,6 @@
 # Seed the public Voxels archive
 
-A small Node.js service and standard BitTorrent snapshot let a Raspberry Pi verify and seed public parcel builds. Node 24 LTS is sufficient for these standalone tools. The full application retains its own runtime requirements.
+A small Node.js service and standard BitTorrent snapshot let a node verify and seed public parcel builds. Node 24 LTS is sufficient for these standalone tools. The full application retains its own runtime requirements.
 
 The initial snapshot contains **8,807 public parcels and 485,181 saved historical versions**, totaling 4,668,741,062 bytes of compressed archive data. External images, video, audio, and models are **not included**. Non-public parcels were excluded at collection time. This is an archive observation, not an Ethereum ownership snapshot for migration claims.
 
@@ -32,7 +32,7 @@ To offer read-only HTTP access on your own network:
 node seed.mjs serve /path/to/seed 8788 0.0.0.0
 ```
 
-Use an HTTPS reverse proxy for public HTTP access. Never expose an archive write interface or a torrent client's administration interface. BitTorrent peers can see each other's IP addresses. The Pi pilot disables automatic router port forwarding; outside connectivity depends on reachable peers and NAT conditions.
+Use an HTTPS reverse proxy for public HTTP access. Never expose an archive write interface or a torrent client's administration interface. BitTorrent peers can see each other's IP addresses. The node pilot disables automatic router port forwarding; outside connectivity depends on reachable peers and NAT conditions.
 
 ## Snapshot format
 
@@ -50,15 +50,15 @@ python3 create-torrent.py /archive/seed snapshot.torrent
 
 Reuse the publisher key for subsequent snapshots; do not regenerate it. Publish only the small manifests, signatures, public key and torrent descriptor in GitHub. Keep chunks on seed storage. Publishing and mirroring should each have a single writer per target directory.
 
-## Active world on the Pi
+## Active world on the node
 
-`https://bittrees.world` opens this repository's playable client at `/play`. The Pi runs the full world HTTP/grid server, multiplayer server, PostgreSQL 18 database, private Redis presence cache, archive service and Cloudflare Tunnel. Current public builds are imported into the live database; historical versions remain in the archive. See [world setup](../world/README.md).
+`https://bittrees.world` opens this repository's playable client at `/play`. The node runs the full world HTTP/grid server, multiplayer server, PostgreSQL 18 database, private Redis presence cache, archive service and Cloudflare Tunnel. Current public builds are imported into the live database; historical versions remain in the archive. See [world setup](../world/README.md).
 
-MyCloud supplies a mounted archive directory with a decimal **1 TB hard quota** (950 GB soft threshold). The quota caps use; it does not reserve physical disk space. Mount free-space reports may show the whole NAS capacity rather than this account's quota.
+archive storage supplies a mounted archive directory with a decimal **1.5 TB hard quota** (1.45 TB soft threshold). The quota caps use; it does not reserve physical disk space. Mount free-space reports may show the whole NAS capacity rather than this account's quota.
 
 The gateway forwards application requests and up to 64 combined grid/player WebSocket connections. `/archive/` provides snapshot metadata; bulk archive chunks are not exposed through the public gateway. BitTorrent sharing is capped at 128 KB/s on this deployment. PostgreSQL uses a private local socket; Redis listens only on loopback. Player activity is separate from the public archive. Automatic deletion/retention is not enabled.
 
-The launch uses `PARCEL_EDIT_POLICY=admin`: visiting and multiplayer are public, while parcel editing is restricted to the configured administrator wallet until the ownership migration is deployed. Imported public profiles do not confer contributor or moderator permissions. Optional email, voice, uploads and Ethereum integrations need their own credentials/configuration; this deployment does not provision those external services. The Pi's firewall, DHCP and monitoring services remain separate.
+The shared world uses `PARCEL_EDIT_POLICY=parcel`: visiting and multiplayer are public, while edits require the existing signed parcel ownership or delegated build rights. Imported public profiles do not confer contributor or moderator permissions. Optional email, voice, uploads and Ethereum integrations need their own credentials/configuration; this deployment does not provision those external services. The node's firewall, DHCP and monitoring services remain separate.
 
 Use WebSockets for authoritative player state. [Cloudflare Tunnel](https://developers.cloudflare.com/tunnel/) provides the public connection. [TURN](https://developers.cloudflare.com/realtime/turn/) is useful if WebRTC voice or data channels later need a relay; it does not synchronize or store world state. Keep bulk transfers off the ordinary Cloudflare proxy unless using a service whose terms support that workload.
 

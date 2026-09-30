@@ -3,6 +3,9 @@ import { validPresence, type PresencePacket } from '../../services/federation-pr
 import express, { Express } from 'express'
 import rateLimit from 'express-rate-limit'
 import db from '../pg'
+import { id } from 'ethers'
+import { nodeScope, hostsParcel, intersectParcels } from '../../common/node-scope.mjs'
+import { coverage } from '../node-scope'
 import { acceptEdit, baseAndClock, federationWorld, initializeFederation } from './store'
 
 export function installFederation(app: Express) {
@@ -70,6 +73,8 @@ export function installFederation(app: Express) {
     handle((_req: any, res: any) =>
       res.json({
         version: 2,
+        scopedSync: 1,
+        coverage,
         world: federationWorld,
         editor: process.env.OWNER_ADDRESS,
         policy: process.env.PARCEL_EDIT_POLICY === 'parcel' ? 'wallet-signed-parcel-rights' : 'wallet-signed-public-builds',
@@ -93,7 +98,10 @@ export function installFederation(app: Express) {
     '/edit/:id',
     handle(async (req: any, res: any) => {
       if (!/^0x[a-f0-9]{64}$/.test(req.params.id)) throw Error('Invalid edit identifier')
-      const result = await db.query('federation/read-edit', 'SELECT e.event FROM federation_edits e JOIN properties p ON p.id=e.parcel WHERE e.id=$1 AND p.visible', [req.params.id])
+      const result = await db.query('federation/read-edit', 'SELECT e.event FROM federation_edits e JOIN properties p ON p.id=e.parcel WHERE e.id=$1 AND p.visible AND ($2::int[] IS NULL OR e.parcel=ANY($2))', [
+        req.params.id,
+        coverage.parcels,
+      ])
       if (!result.rows.length) {
         res.status(404).json({ error: 'Public edit not found' })
         return
@@ -101,23 +109,27 @@ export function installFederation(app: Express) {
       res.json(result.rows[0].event)
     }),
   )
-  router.get(
-    '/events',
-    handle(async (req: any, res: any) => {
-      const after = Number(req.query.after || 0)
-      if (!Number.isSafeInteger(after) || after < 0) throw Error('Invalid cursor')
-      const result = await db.query('federation/feed', 'SELECT e.seq::text,e.event FROM federation_edits e JOIN properties p ON p.id=e.parcel WHERE e.seq>$1 AND p.visible ORDER BY e.seq LIMIT 16', [after])
-      const rows = []
-      let bytes = 0
-      for (const row of result.rows) {
-        const size = Buffer.byteLength(JSON.stringify(row))
-        if (rows.length && bytes + size > 2_000_000) break
-        rows.push(row)
-        bytes += size
-      }
-      res.json({ world: federationWorld, events: rows, next: rows.length ? Number(rows[rows.length - 1].seq) : after })
-    }),
-  )
+  const events = handle(async (req: any, res: any) => {
+    const after = Number(req.query.after || 0)
+    if (!Number.isSafeInteger(after) || after < 0) throw Error('Invalid cursor')
+    const requested = req.method === 'POST' ? nodeScope('partial', req.body.parcels).parcels : null
+    const selected = intersectParcels(coverage.parcels, requested)
+    const result = await db.query('federation/feed', 'SELECT e.seq::text,e.event FROM federation_edits e JOIN properties p ON p.id=e.parcel WHERE e.seq>$1 AND p.visible AND ($2::int[] IS NULL OR e.parcel=ANY($2)) ORDER BY e.seq LIMIT 16', [
+      after,
+      selected,
+    ])
+    const rows = []
+    let bytes = 0
+    for (const row of result.rows) {
+      const size = Buffer.byteLength(JSON.stringify(row))
+      if (rows.length && bytes + size > 2_000_000) break
+      rows.push(row)
+      bytes += size
+    }
+    res.json({ world: federationWorld, events: rows, next: rows.length ? Number(rows[rows.length - 1].seq) : after })
+  })
+  router.get('/events', events)
+  router.post('/events', events)
   app.use('/federation', router)
   const peers = String(process.env.FEDERATION_PEERS || '')
     .split(',')
@@ -164,9 +176,27 @@ export function installFederation(app: Express) {
             }
             await presenceResponse.body?.cancel().catch(() => {})
             await redis.set('federation:presence:remote', JSON.stringify([...presence.values()]), { EX: 15 })
+            const infoResponse = await fetch(`${peer}/federation/info`, { signal: AbortSignal.timeout(3000), redirect: 'error' })
+            if (!infoResponse.ok) throw Error('Peer identity unavailable')
+            if (!infoResponse.body) throw Error('Missing peer metadata')
+            const infoChunks: Uint8Array[] = []
+            let infoBytes = 0
+            for await (const chunk of infoResponse.body as any) {
+              infoBytes += chunk.length
+              if (infoBytes > 200000) throw Error('Peer metadata exceeds limit')
+              infoChunks.push(chunk)
+            }
+            const info = JSON.parse(Buffer.concat(infoChunks).toString())
+            if (info.world !== federationWorld || info.version !== 2) throw Error('Peer world/protocol mismatch')
+            const peerCoverage = info.coverage ? nodeScope(info.coverage.mode, info.coverage.parcels || '') : nodeScope()
+            const sharedParcels = intersectParcels(coverage.parcels, peerCoverage.parcels)
             const cursor = await db.query('federation/cursor', 'SELECT seq::text FROM federation_cursors WHERE peer=$1', [peer])
             const after = Number(cursor.rows[0]?.seq || 0)
-            const response = await fetch(`${peer}/federation/events?after=${after}`, { signal: AbortSignal.timeout(5000), redirect: 'error' })
+            const response = await fetch(`${peer}/federation/events?after=${after}`, {
+              ...(coverage.parcels && info.scopedSync === 1 ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ parcels: coverage.parcels }) } : {}),
+              signal: AbortSignal.timeout(5000),
+              redirect: 'error',
+            })
             if (!response.ok || !response.body) {
               await response.body?.cancel()
               throw Error('Peer unavailable')
@@ -187,13 +217,20 @@ export function installFederation(app: Express) {
             for (const row of feed.events) {
               const seq = Number(row.seq)
               if (!Number.isSafeInteger(seq) || seq <= last) throw Error('Invalid event sequence')
-              await acceptEdit(row.event)
+              if (!Number.isSafeInteger(row.event?.parcel) || row.event.parcel < 1) throw Error('Invalid event parcel')
+              // Older full peers can send an unfiltered feed. Discard unrelated events but advance its cursor.
+              if (hostsParcel(coverage, row.event.parcel)) await acceptEdit(row.event)
               last = seq
             }
             if (feed.next !== last) throw Error('Invalid peer cursor')
             await db.query('federation/checkpoint', 'INSERT INTO federation_cursors VALUES($1,$2) ON CONFLICT(peer) DO UPDATE SET seq=excluded.seq', [peer, last])
-            const sent = await db.query('federation/sent', 'SELECT seq::text FROM federation_cursors WHERE peer=$1', [peer + '#out'])
-            const outgoing = await db.query('federation/outgoing', 'SELECT e.seq::text,e.event FROM federation_edits e JOIN properties p ON p.id=e.parcel WHERE p.visible AND e.seq>$1 ORDER BY e.seq LIMIT 1', [sent.rows[0]?.seq || 0])
+            const outgoingKey = peer + '#out#' + id(JSON.stringify(sharedParcels))
+            const sent = await db.query('federation/sent', 'SELECT seq::text FROM federation_cursors WHERE peer=$1', [outgoingKey])
+            const outgoing = await db.query(
+              'federation/outgoing',
+              'SELECT e.seq::text,e.event FROM federation_edits e JOIN properties p ON p.id=e.parcel WHERE p.visible AND e.seq>$1 AND ($2::int[] IS NULL OR e.parcel=ANY($2)) ORDER BY e.seq LIMIT 1',
+              [sent.rows[0]?.seq || 0, sharedParcels],
+            )
             if (outgoing.rows.length) {
               const response = await fetch(`${peer}/federation/batch`, {
                 method: 'POST',
@@ -204,7 +241,7 @@ export function installFederation(app: Express) {
               })
               await response.body?.cancel()
               if (!response.ok) throw Error('Peer refused outgoing edit')
-              await db.query('federation/sent-checkpoint', 'INSERT INTO federation_cursors VALUES($1,$2) ON CONFLICT(peer) DO UPDATE SET seq=excluded.seq', [peer + '#out', outgoing.rows[0].seq])
+              await db.query('federation/sent-checkpoint', 'INSERT INTO federation_cursors VALUES($1,$2) ON CONFLICT(peer) DO UPDATE SET seq=excluded.seq', [outgoingKey, outgoing.rows[0].seq])
             }
           } catch (e) {
             console.warn(`Federation peer ${peer}: ${e instanceof Error ? e.message : 'sync failed'}`)

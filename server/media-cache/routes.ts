@@ -70,7 +70,7 @@ export function installMediaCache(app: Express) {
         await pipeline(createReadStream(store.filename(cached)), res)
         return
       }
-      // Back off to direct origin loading rather than queueing unbounded work on the Pi.
+      // Back off to direct origin loading rather than queueing unbounded work on the node.
       if (active >= 2 || filling.has(key)) return void res.status(503).json({ error: 'Media cache busy; load from source' })
       active++
       filling.add(key)

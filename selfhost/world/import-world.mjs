@@ -1,4 +1,6 @@
 import pg from 'pg'
+import { nodeScope, hostsParcel } from '../../common/node-scope.mjs'
+const coverage = nodeScope(process.env.NODE_MODE || 'full', process.env.NODE_PARCELS || '')
 import { archivedParcelRights } from './parcel-rights.mjs'
 import fs from 'node:fs/promises'
 import path from 'node:path'
@@ -11,6 +13,8 @@ if (existing.rows[0].count !== 0) throw Error('World already has parcels; refusi
 const suburbs = new Map()
 const owners = new Set()
 let count = 0
+let sourceCount = 0
+const seen = new Set()
 await db.query('BEGIN')
 await db.query('CREATE TABLE IF NOT EXISTS parcel_rights_unresolved(parcel_id integer NOT NULL, record jsonb NOT NULL)')
 try {
@@ -18,6 +22,10 @@ try {
     const response = JSON.parse(gunzipSync(await fs.readFile(path.join(root, 'builds', filename))))
     const p = response.parcel
     if (!response.success || !p || !p.visible) throw Error('Unexpected non-public build ' + filename)
+    if (!Number.isSafeInteger(p.id) || String(p.id) + '.json.gz' !== filename || seen.has(p.id)) throw Error('Invalid or duplicate parcel identity')
+    seen.add(p.id)
+    sourceCount++
+    if (!hostsParcel(coverage, p.id)) continue
     let suburbId = null
     if (p.suburb) {
       if (!suburbs.has(p.suburb)) {
@@ -86,7 +94,8 @@ try {
   await db.query('UPDATE properties SET bounds=cube(ARRAY[x1::float8,y1::float8,z1::float8], ARRAY[x2::float8,y2::float8,z2::float8])')
   await db.query("SELECT setval('properties_id_seq', (SELECT max(id) FROM properties)); SELECT setval('islands_id_seq', (SELECT max(id) FROM islands))")
   await db.query('REFRESH MATERIALIZED VIEW mv_property_counts; REFRESH MATERIALIZED VIEW mv_space_counts; REFRESH MATERIALIZED VIEW search_corpus')
-  if (count !== Number(process.env.EXPECTED_PARCELS || 8807)) throw Error('Unexpected imported parcel count ' + count)
+  if (sourceCount !== Number(process.env.EXPECTED_PARCELS || 8807)) throw Error('Unexpected source parcel count ' + sourceCount)
+  if (coverage.parcels && count !== coverage.parcels.length) throw Error('Selected parcels missing from verified inventory')
   await db.query('COMMIT')
   console.log(JSON.stringify({ importedParcels: count, islands: islands.length, suburbs: suburbs.size, publicProfiles: owners.size, parcelRolesImported: true, globalModeratorPermissionsImported: false }))
 } catch (error) {

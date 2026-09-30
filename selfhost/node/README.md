@@ -6,7 +6,7 @@ Anyone can operate a node. Hosting does not grant editing permission. The pinned
 
 ## Requirements
 
-Use a 64-bit Linux or macOS host, Node 24 or newer, and Docker with Compose v2. A Raspberry Pi 4/5 with 8 GB RAM and an SSD is a reasonable starting point; player capacity must be measured. Building the application and importing the world require more disk space than the compressed archive. Keep PostgreSQL on local reliable storage. MyCloud/NAS storage is appropriate for verified archives and private backups, not the live database.
+Use a 64-bit Linux or macOS host, Node 24 or newer, and Docker with Compose v2. A host with 8 GB RAM and an SSD is a reasonable starting point; player capacity must be measured. Building the application and importing the world require more disk space than the compressed archive. Keep PostgreSQL on local reliable storage. Archive storage is appropriate for verified archives and private backups, not the live database.
 
 The software has no mandatory paid synchronization service. Operators supply storage, electricity and bandwidth. HTTPS hosting, domain names and relays may have their own costs.
 
@@ -61,7 +61,7 @@ node selfhost/node/setup.mjs init \
 node selfhost/node/setup.mjs up --directory "$HOME/voxels-node"
 ```
 
-`--network` checks the island-file hash and sets the pinned owner, world ID, expected parcel count and peer. Archive verification remains a separate required step. Trust the network reference only from a reviewed repository revision. The Pi is the first pilot peer; adding more independently reachable hosts improves resilience. The parcel manager preserves the archived role assignments; joining does not grant the host operator parcel rights or complete the NFT migration.
+`--network` checks the island-file hash and sets the pinned owner, world ID, expected parcel count and peer. Archive verification remains a separate required step. Trust the network reference only from a reviewed repository revision. The node is the first pilot peer; adding more independently reachable hosts improves resilience. The parcel manager preserves the archived role assignments; joining does not grant the host operator parcel rights or complete the NFT migration.
 
 ## Publish safely
 
@@ -89,4 +89,20 @@ All participating hosts must upgrade to protocol version 2 before exchanging del
 
 ## Public media storage
 
-Optional visitor-assisted media caching and the 75 GB Pi/MyCloud overflow configuration are documented in [Media cache](../world/MEDIA_CACHE.md). Browser sharing is opt-in; the world host independently validates public references.
+Optional visitor-assisted media caching and the 75 GB node/archive overflow configuration are documented in [Media cache](../world/MEDIA_CACHE.md). Browser sharing is opt-in; the world host independently validates public references.
+
+## Full and partial nodes
+
+A **full node** hosts all public parcels from the verified initial snapshot and synchronizes their signed build and permission history. This describes parcel coverage, not a promise that every linked media file has already been downloaded. A **partial node** imports and synchronizes only the parcel IDs its operator selects. Storage hardware does not determine either role.
+
+The default is full coverage. For a partial node, add these options to the existing `init --network ... --inventory ...` command:
+
+```sh
+--node-mode partial --parcels 1,42,109
+```
+
+The installer validates the entire public source snapshot, then imports only the selected parcels and their original ownership, managers, builders and unresolved rights records. It retains shared island geometry. The host advertises `coverage` in `/federation/info`; peers exchange only their shared parcels. Older full peers are supported by locally discarding unrelated feed events while advancing their cursor.
+
+Selection does not grant editing authority. Every accepted edit and permission change still verifies the wallet signature, world, parcel snapshot, causal parents and current permission history. A partial node refuses reads of federation state and edits for parcels it does not host. Visitors see the hosted portion of the world; there is no automatic cross-node parcel routing. Anonymous world-wide presence packets remain shared; private accounts, messages and access credentials are not replicated.
+
+Coverage is fixed per installation. To change selection, create a new node directory from the same verified snapshot and synchronize its history before switching traffic. Do not edit `NODE_MODE`/`NODE_PARCELS` on an existing database: startup rejects a changed or inconsistent selection. Existing nodes with no coverage setting retain full coverage. A partial node needs a reachable peer with overlapping parcels to receive later changes. The archive downloader is a separate explicit task; choosing partial coverage does not prune or change an already running full-media archive job.

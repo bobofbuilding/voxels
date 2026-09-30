@@ -24,4 +24,4 @@
 - [ghosts](https://www.voxels.com/api/ghosts): 1 route.
 - [chat](https://www.voxels.com/api/chat.json): 1 route.
 - [account](https://www.voxels.com/api/account/me): 5 routes.
-- [federation](https://www.voxels.com/federation/info): 8 routes.
+- [federation](https://www.voxels.com/federation/info): 9 routes.

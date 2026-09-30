@@ -26,27 +26,27 @@ Generated from `server/openapi.yaml` by `npm run docs:api`. Edit the spec, not t
 - [ghosts](#ghosts), 1 route
 - [chat](#chat), 1 route
 - [account](#account), 5 routes
-- [federation](#federation), 8 routes
+- [federation](#federation), 9 routes
 - [schemas](#schemas), 28 shapes
 
 ## media-cache
 
-- [`GET /media-cache/status`](#get-media-cachestatus) Read public media cache capacity and NAS availability
+- [`GET /media-cache/status`](#get-media-cachestatus) Read public media cache capacity and archive availability
 - [`GET /media-cache/asset`](#get-media-cacheasset) Stream and cache a public parcel media reference
 
 ### GET /media-cache/status
 
-Read public media cache capacity and NAS availability
+Read public media cache capacity and archive availability
 
 **answers**
 
-- `200` Enabled state, stored and reserved bytes, Pi and NAS limits, NAS availability and retention policy
+- `200` Enabled state, stored and reserved bytes, local and archive limits, NAS availability and retention policy
 
 ### GET /media-cache/asset
 
 Stream and cache a public parcel media reference
 
-Opt-in browser sharing uses this relay. The host validates the URL against the public parcel, pins public DNS addresses, omits credentials, and stores completed responses by SHA-256. Pi reservations include in-flight bytes. Overflow requires a mounted NAS; full storage bypasses caching without deleting existing media. Only finite supported media responses up to 2 GB are eligible. Private, credentialed, active and live-stream content is excluded.
+Opt-in browser sharing uses this relay. The host validates the URL against the public parcel, pins public DNS addresses, omits credentials, and stores completed responses by SHA-256. Local cache reservations include in-flight bytes. Overflow requires a mounted NAS; full storage bypasses caching without deleting existing media. Only finite supported media responses up to 2 GB are eligible. Private, credentialed, active and live-stream content is excluded.
 
 **parameters**
 
@@ -1520,6 +1520,7 @@ JWT required. `wallet` must be the signed-in identity or one linked to it. Sets 
 - [`POST /federation/edits`](#post-federationedits) Verify and durably apply a wallet-signed public build edit
 - [`POST /federation/batch`](#post-federationbatch) Receive up to 16 independently signed edits
 - [`GET /federation/events`](#get-federationevents) Read a bounded feed of committed public edits
+- [`POST /federation/events`](#post-federationevents) Read public edits for selected hosted parcels
 - [`GET /federation/presence`](#get-federationpresence) Read anonymous, short-lived host-signed player poses
 - [`POST /federation/presence`](#post-federationpresence) Relay host-signed player poses
 
@@ -1602,6 +1603,26 @@ Read a bounded feed of committed public edits
 
 - `200` World identifier, up to 16 sequence/event entries and next cursor
 - `400` Invalid cursor
+
+### POST /federation/events
+
+Read public edits for selected hosted parcels
+
+Applies the intersection of requested parcels and this node's coverage. Permission events and build events use the same filter and signature verification. The cursor is the last returned sequence, or the supplied cursor for an empty page.
+
+**parameters**
+
+- `after` (query) integer, defaults to `0`
+
+**body**
+
+- `application/json` object
+  - `parcels` array of integer
+
+**answers**
+
+- `200` World identifier, up to 16 hosted sequence/event entries and next cursor
+- `400` Invalid cursor or parcel selection
 
 ### GET /federation/presence
 

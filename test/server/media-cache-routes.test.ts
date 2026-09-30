@@ -70,7 +70,7 @@ test('public media streams once, then replays cached bytes after rechecking parc
   expect(first.code).toBe(200)
   expect(Buffer.concat(first.chunks)).toEqual(body)
   const second = await request({ parcel: 1, url })
-  expect(second.headers['X-Voxels-Cache']).toBe('pi')
+  expect(second.headers['X-Voxels-Cache']).toBe('local')
   expect(second.headers['x-frames']).toBe('{"frames":2,"duration":1}')
   expect(Buffer.concat(second.chunks)).toEqual(body)
   expect(openPublicMedia).toHaveBeenCalledTimes(1)

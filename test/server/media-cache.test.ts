@@ -13,27 +13,27 @@ afterEach(async () => {
 async function fixture(online = true) {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'voxels-media-test-'))
   roots.push(root)
-  const options = { hot: path.join(root, 'pi'), cold: path.join(root, 'nas'), hotLimit: 20000, coldLimit: 20000, headroom: 0, coldAvailable: async () => online }
+  const options = { hot: path.join(root, 'local'), cold: path.join(root, 'nas'), hotLimit: 20000, coldLimit: 20000, headroom: 0, coldAvailable: async () => online }
   await fs.mkdir(options.cold)
   const store = new MediaStore(options)
   await store.initialize()
   return { store, options }
 }
 const details = { type: 'image/png', status: 200 }
-test('in-flight reservations enforce the Pi cap and overflow goes to NAS', async () => {
+test('in-flight reservations enforce the node cap and overflow goes to NAS', async () => {
   const { store } = await fixture()
   const first = await store.begin(mediaKey('one'), 11000, details)
   const second = await store.begin(mediaKey('two'), 10000, details)
-  expect(first?.tier).toBe('pi')
-  expect(second?.tier).toBe('mycloud')
+  expect(first?.tier).toBe('local')
+  expect(second?.tier).toBe('archive')
   expect(store.hotBytes + store.reservedHot).toBeLessThanOrEqual(20000)
   await first!.write(Buffer.alloc(11000, 1))
   await second!.write(Buffer.alloc(10000, 2))
   await Promise.all([first!.finish(), second!.finish()])
   expect(store.hotBytes).toBeLessThanOrEqual(20000)
-  expect((await store.find(mediaKey('two')))?.tier).toBe('mycloud')
+  expect((await store.find(mediaKey('two')))?.tier).toBe('archive')
 })
-test('NAS outage and full storage preserve existing files instead of spilling onto the Pi', async () => {
+test('NAS outage and full storage preserve existing files instead of spilling onto the node', async () => {
   const { store, options } = await fixture(false)
   const first = await store.begin(mediaKey('one'), 11000, details)
   await first!.write(Buffer.alloc(11000, 1))
@@ -96,4 +96,22 @@ test('a missing cached payload is recovered rather than trusting a stale dedupli
   await retry!.write(Buffer.alloc(100, 7))
   const recovered = await retry!.finish()
   expect(await fs.readFile(store.filename(recovered!))).toEqual(Buffer.alloc(100, 7))
+})
+
+test('an older cache tier label is recovered from its payload location', async () => {
+  const { store, options } = await fixture()
+  const key = mediaKey('retained')
+  const write = await store.begin(key, 3, details)
+  await write!.write(Buffer.from('abc'))
+  await write!.finish()
+  const index = path.join(options.hot, 'index')
+  for (const file of await fs.readdir(index)) {
+    const entry = JSON.parse(await fs.readFile(path.join(index, file), 'utf8'))
+    entry.tier = 'older-local-label'
+    await fs.writeFile(path.join(index, file), JSON.stringify(entry))
+  }
+  const restarted = new MediaStore(options)
+  await restarted.initialize()
+  expect((await restarted.find(key))?.tier).toBe('local')
+  expect(await fs.readFile(restarted.filename((await restarted.find(key))!), 'utf8')).toBe('abc')
 })

@@ -20,6 +20,7 @@ if (process.env.BUGSNAG_API_KEY) {
 const { runMigrations } = require('./migration/migrate')
 
 void runMigrations()
+  .then(() => require('./validate-node-scope').validateNodeScope())
   .then(() => require('./server'))
   .catch((err: unknown) => {
     console.error('Migrations failed:', err)

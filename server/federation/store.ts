@@ -1,5 +1,6 @@
 import { id } from 'ethers'
 import db from '../pg'
+import { assertHostedParcel } from '../node-scope'
 import { canonical, verifyEdit, editId, WorldEdit } from '../../common/federation/edit'
 import { getFieldShape } from '../../common/voxels/helpers'
 import { materialize } from './materialize'
@@ -18,6 +19,7 @@ export async function initializeFederation() {
   )
 }
 export async function baseAndClock(parcel: number) {
+  assertHostedParcel(parcel)
   const client = await db.connect()
   try {
     await client.query('BEGIN')
