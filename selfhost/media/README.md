@@ -7,7 +7,7 @@ Download **current public-parcel media first**, then media referenced only by sa
 Requires Python 3.9+, a systemd user session, a writable local state directory and a separately mounted archive. No Python packages, wallet keys or API credentials are needed.
 
 1. Clone `https://github.com/bobofbuilding/voxels.git` and open its root directory. Obtain and verify the public inventory using [the signed seed instructions](../seed/README.md); extract its `assets.csv`. Do not substitute a private parcel catalog.
-2. Mount your storage with a real filesystem quota. Avoid an unbounded local write cache. On Bittrees, the dedicated NAS account has a **1.5 TB decimal hard quota** and a **1.45 TB soft threshold**. The existing rclone mount uses `--vfs-cache-mode off`.
+2. Mount your storage with a real filesystem quota. Avoid an unbounded local write cache. On Bittrees, the dedicated NAS account has a **1.5 TB decimal hard quota** and a **1.45 TB soft threshold**. The existing rclone mount uses `--vfs-cache-mode off`; set `MEDIA_ARCHIVE_RESUME=0` for this mode because it cannot append to existing partial files.
 3. Start the downloader:
 
 ```sh
@@ -48,7 +48,7 @@ Current public-parcel media is processed first, including unknown-size current a
 
 Only inventory rows classified `asset` are queued. Ordinary links, embedded data already in the builds, streaming services, and live playlists are not finite asset downloads. Each redirect must resolve to public IP addresses; connections pin the validated address and retain TLS hostname verification. No cookies, authentication headers or private credentials are sent. Public Dropbox shared-file links use their ordinary download option. Login/private/HTML responses are recorded as unavailable; access restrictions are not bypassed.
 
-Completed payloads are hashed while streaming. Interrupted files resume only with an ETag or Last-Modified validator and a correct byte-range response; otherwise the download restarts. Transient failures get up to three attempts. Permanent failures are recorded and the run continues. Unknown-length responses are bounded to 50 GB and 24 hours per attempt; larger files are recorded for review, not silently assumed complete. Current measured files are all below that limit. HTTP Content-Length is checked but reported inventory sizes may have changed.
+Completed payloads are hashed while streaming. When resume is enabled and storage supports append, interrupted files resume only with an ETag or Last-Modified validator and a correct byte-range response; otherwise the download restarts. Transient failures get up to three attempts. Permanent failures are recorded and the run continues. Unknown-length responses are bounded to 50 GB and 24 hours per attempt; larger files are recorded for review, not silently assumed complete. Current measured files are all below that limit. HTTP Content-Length is checked but reported inventory sizes may have changed.
 
 The downloader pauses on its byte budget, missing mount, disk/quota errors, or less than 10 GB free on the underlying filesystem. **A mounted SFTP filesystem may report whole-disk capacity rather than the account quota**: also monitor the dedicated NAS quota and stop this downloader at the 1.45 TB soft threshold. The live cache and backups share the same hard quota. Existing completed files are retained.
 
@@ -60,20 +60,21 @@ Small files can be slow even when little bandwidth is used: each URL may need DN
 
 | Installer setting | Default | Purpose |
 | --- | --- | --- |
+| `MEDIA_ARCHIVE_RESUME` | `1` | Use `0` for mounts that cannot append; interrupted files restart, completed files remain |
 | `MEDIA_ARCHIVE_CONNECTIONS` | `4` (range 1–4) | Overlapping small-file connection setups |
 | `MEDIA_ARCHIVE_RATE` | `8000000` bytes/s | Payload transfer ceiling, not guaranteed throughput |
 | `MEDIA_ARCHIVE_MAX_BYTES` | `1350000000000` bytes | Unique payload budget, not a filesystem quota |
 
-Set these variables when running the installer, including on upgrades if you use custom limits. For example:
+Set these variables when running the installer, including on upgrades if you use custom limits. The following example is for a streaming mount without append support; regular filesystems can keep resume enabled. The direct CLI equivalent is `--no-resume`. No additional local payload cache is required. For example:
 
 ```sh
-MEDIA_ARCHIVE_CONNECTIONS=4 MEDIA_ARCHIVE_RATE=8000000 \
+MEDIA_ARCHIVE_RESUME=0 MEDIA_ARCHIVE_CONNECTIONS=4 MEDIA_ARCHIVE_RATE=8000000 \
   sh selfhost/media/install.sh /path/to/assets.csv.gz /mnt/archive
 ```
 
 A four-file request benchmark on the initial host measured 1.36 seconds sequentially versus 0.16 seconds with overlapping requests. This excludes archive writes and is not an end-to-end speed guarantee. Compare completed URL counts and unique bytes over several monitoring intervals; a small-file group may add many files but few bytes.
 
-Catalog checkpoints temporarily pause fetching at startup, every 15 minutes and shutdown. A large catalog can take several minutes to copy to remote storage. A growing `media/catalog.sqlite.pending` indicates checkpoint progress. Raising the transfer cap will not fix per-file latency or a slow archive mount.
+Catalog checkpoints run at startup, between files when the 15-minute interval is due, and shutdown. Large active transfers defer the checkpoint until their output is closed. Progress continues updating locally during transfers; the archive copy is updated between files. Prefetched connections are closed before checkpointing to avoid idle timeouts. A large catalog can take several minutes to copy to remote storage. A growing `media/catalog.sqlite.pending` indicates checkpoint progress. Raising the transfer cap will not fix per-file latency or a slow archive mount.
 
 ## Upgrade an existing queue
 

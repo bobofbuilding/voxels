@@ -144,7 +144,7 @@ class Archive:
         self.db.execute('PRAGMA journal_mode=WAL')
         self.db.execute('PRAGMA synchronous=FULL')
         self.stopping = False
-        self.last_status = self.last_snapshot = 0
+        self.last_status = self.last_snapshot = time.monotonic() - 901
         self.current = None
         self.used = self.db.execute('SELECT COALESCE(SUM(bytes),0) FROM blobs').fetchone()[0]
 
@@ -253,8 +253,9 @@ class Archive:
         local.unlink()
         self.last_snapshot = time.monotonic()
 
-    def report(self, state='running', force=False, error=None):
-        if not force and time.monotonic() - self.last_status < 30:
+    def report(self, state='running', force=False, error=None, allow_checkpoint=True):
+        checkpoint_due = time.monotonic() - self.last_snapshot > 900
+        if not force and time.monotonic() - self.last_status < 30 and not (allow_checkpoint and checkpoint_due):
             return
         counts = dict(self.db.execute('SELECT status,COUNT(*) FROM assets GROUP BY status'))
         groups = [dict(r) for r in self.db.execute('''SELECT type,COUNT(*) urls,SUM(expected) reported_bytes,
@@ -267,7 +268,7 @@ class Archive:
                  'limit_bytes': self.args.max_bytes, 'current': self.current, 'groups': groups, 'error': error,
                  'priority_counts': [dict(r) for r in self.db.execute('SELECT priority,status,COUNT(*) urls FROM assets GROUP BY priority,status')],
                  'source_sha256': self.db.execute("SELECT value FROM meta WHERE key='source_sha256'").fetchone()[0]}
-        for folder in (self.state, self.root):
+        for folder in ((self.state, self.root) if allow_checkpoint else (self.state,)):
             try:
                 if folder == self.root:
                     self.check_mount()
@@ -279,7 +280,8 @@ class Archive:
                     raise
         print(json.dumps({k: value[k] for k in ['updated_at', 'state', 'counts', 'unique_bytes', 'current', 'error']}), flush=True)
         self.last_status = time.monotonic()
-        if state in ('complete', 'blocked', 'stopped') or time.monotonic() - self.last_snapshot > 900:
+        if allow_checkpoint and (state in ('complete', 'blocked', 'stopped') or checkpoint_due):
+            self.close_prepared()
             try:
                 self.check_mount()
                 self.snapshot()
@@ -313,7 +315,7 @@ class Archive:
         saved = json.loads(meta.read_text()) if meta.exists() else {}
         offset = part.stat().st_size if part.exists() else 0
         validator = saved.get('validator')
-        if not validator:
+        if not validator or getattr(self.args, 'no_resume', False):
             offset = 0
         headers = {'Range': f'bytes={offset}-', 'If-Range': validator} if offset else {}
         prepared = self.prepared.pop(row['id'], None)
@@ -377,7 +379,7 @@ class Archive:
                     f.write(data)
                     digest.update(data)
                     self.current['bytes'] = size
-                    self.report()
+                    self.report(allow_checkpoint=False)
                     delay = (size - offset) / self.args.rate - (time.monotonic() - started)
                     if delay > 0:
                         time.sleep(min(delay, 2))
@@ -405,20 +407,23 @@ class Archive:
             response.close()
             conn.close()
 
+    def close_prepared(self):
+        for future in self.prepared.values():
+            try:
+                conn, response, _ = future.result()
+                response.close()
+                conn.close()
+            except Exception:
+                pass  # Unused headers never change catalog outcomes.
+        self.prepared.clear()
+
     def run(self):
         with ThreadPoolExecutor(max_workers=getattr(self.args, 'connections', 4)) as pool:
             self.pool = pool
             try:
                 return self.run_queue()
             finally:
-                for future in self.prepared.values():
-                    try:
-                        conn, response, _ = future.result()
-                        response.close()
-                        conn.close()
-                    except Exception:
-                        pass  # Unused headers never change catalog outcomes.
-                self.prepared.clear()
+                self.close_prepared()
                 self.pool = None
 
     def run_queue(self):
@@ -476,6 +481,7 @@ def parser():
     p.add_argument('--root', required=True, help='Media directory on archive storage')
     p.add_argument('--state', required=True, help='Local state directory (not on SFTP/NFS)')
     p.add_argument('--csv', help='Public inventory assets.csv with current_references, for import/prioritize')
+    p.add_argument('--no-resume', action='store_true', help='Restart incomplete files for storage that cannot append (e.g. rclone VFS cache off)')
     p.add_argument('--connections', type=int, choices=range(1, 5), default=4, help='Concurrent small-file connection setups (bodies remain sequential)')
     p.add_argument('--mount', help='Require this separate storage mount before writing')
     p.add_argument('--max-bytes', type=int, default=1_350_000_000_000)
