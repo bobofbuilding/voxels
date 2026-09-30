@@ -145,3 +145,49 @@ test('a moved cube instance updates its collision surface', async () => {
   advance({ x: 1, y: 0, z: 0 }, 1)
   expect(body.position.x).toBeGreaterThan(3)
 })
+
+for (const fps of [30, 60, 90, 120, 144]) {
+  test(`standing height stays stable at ${fps} FPS`, () => {
+    advance(still, 3, fps)
+    const heights: number[] = []
+    for (let i = 0; i < fps * 3; i++) {
+      body.step(still, 1 / fps)
+      heights.push(body.position.y)
+    }
+    expect(Math.max(...heights) - Math.min(...heights)).toBeLessThan(0.0001)
+  })
+}
+test('standing contact stays stable across varying frame times', () => {
+  advance(still, 3)
+  const heights: number[] = []
+  for (let i = 0; i < 300; i++) {
+    body.step(still, [1 / 144, 1 / 30, 1 / 60, 1 / 90][i % 4])
+    heights.push(body.position.y)
+  }
+  expect(Math.max(...heights) - Math.min(...heights)).toBeLessThan(0.0001)
+})
+test('removing the supporting floor resumes falling', () => {
+  advance(still, 3)
+  const y = body.position.y
+  scene.getMeshByName('floor')!.dispose()
+  advance(still, 0.5)
+  expect(body.position.y).toBeLessThan(y - 0.5)
+})
+test('walking off a ledge resumes falling', () => {
+  scene.getMeshByName('floor')!.dispose()
+  box('platform', new BABYLON.Vector3(0, -0.5, 0), { width: 2, height: 1, depth: 2 })
+  advance(still, 3)
+  advance({ x: 1, y: 0, z: 0 }, 1)
+  expect(body.position.x).toBeGreaterThan(2)
+  expect(body.position.y).toBeLessThan(EYE - 0.5)
+})
+test('ground contact does not hold jumps or flying against the floor', () => {
+  advance(still, 3)
+  body.jump()
+  advance(still, 0.2)
+  expect(body.position.y).toBeGreaterThan(EYE + 0.5)
+  advance(still, 3)
+  body.flying = true
+  advance({ x: 0, y: 1, z: 0 }, 0.5)
+  expect(body.position.y).toBeGreaterThan(EYE + 1)
+})
