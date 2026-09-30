@@ -5,7 +5,7 @@ import { compareEdits, WorldEdit } from '../../common/federation/edit'
 
 /** Replay a durable set in causal-clock/hash order; arrival order never decides the result. */
 export function materialize(base: Record<string, any>, edits: WorldEdit[], shape: [number, number, number]) {
-  const content = structuredClone(base)
+  let content = structuredClone(base)
   const volume = shape.reduce((a, b) => a * b, 1)
   if (!Number.isSafeInteger(volume) || volume < 0 || volume > 64_000_000) throw Error('Unsupported parcel dimensions')
   let field: ReturnType<typeof getBufferFromVoxels>
@@ -15,9 +15,19 @@ export function materialize(base: Record<string, any>, edits: WorldEdit[], shape
     return result
   }
   let changedVoxels = false
-  const features = new Map<string, any>((content.features || []).filter(Boolean).map((f: any) => [f.uuid, f]))
+  let features = new Map<string, any>((content.features || []).filter(Boolean).map((f: any) => [f.uuid, f]))
   for (const edit of [...edits].sort(compareEdits))
     for (const patch of edit.patches) {
+      if ('content' in patch) {
+        if (!patch.content || typeof patch.content !== 'object' || Array.isArray(patch.content)) throw Error('Invalid replacement build')
+        content = structuredClone(patch.content)
+        if (content.features !== undefined && !Array.isArray(content.features)) throw Error('Invalid replacement features')
+        for (const f of content.features || []) if (!f || !/^[a-zA-Z0-9_-]{1,128}$/.test(f.uuid)) throw Error('Invalid replacement feature ID')
+        features = new Map((content.features || []).map((f: any) => [f.uuid, f]))
+        if (content.voxels !== undefined && typeof content.voxels !== 'string') throw Error('Invalid replacement voxels')
+        field = decode(content.voxels)
+        changedVoxels = !!content.voxels
+      }
       if ('features' in patch) {
         if (!patch.features || Array.isArray(patch.features) || typeof patch.features !== 'object') throw Error('Invalid features')
         for (const [uuid, value] of Object.entries(patch.features)) {

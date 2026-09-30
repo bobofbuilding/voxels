@@ -156,7 +156,7 @@ export async function initialize(values) {
     BUILD_NUM: config.build,
     REDIS_URL: 'redis://redis:6379',
     RUN_BACKGROUND_JOBS: 'false',
-    PARCEL_EDIT_POLICY: 'admin',
+    PARCEL_EDIT_POLICY: 'parcel',
     DATABASE_STATEMENT_TIMEOUT_MS: '5000',
     BOOTSTRAP_MODE: config.mode,
     EXPECTED_PARCELS: String(config.expected),

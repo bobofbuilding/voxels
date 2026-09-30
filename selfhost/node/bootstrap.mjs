@@ -50,7 +50,7 @@ try {
       await db.query('COMMIT')
     } else throw Error('Unknown bootstrap mode')
     await db.query('UPDATE node_installation SET completed=true WHERE id=1')
-    console.log('World initialized; no legacy account permissions imported.')
+    console.log('World initialized; parcel roles preserved, no global account privileges imported.')
   }
 } finally {
   await db.end()
