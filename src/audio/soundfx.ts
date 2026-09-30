@@ -9,12 +9,9 @@ interface SoundInfo {
 // avatar sounds come from other players and should be spatial
 type AvatarSound = 'avatar.arrive' | 'avatar.leave' | 'avatar.chat' | 'avatar.emote'
 
-// persona sounds are for the current player and are non-spatial aka "in your head"
-type PersonaSound = 'persona.teleport'
-
 type BuildSound = 'build.place' | 'build.extend' | 'build.select' | 'build.start'
 
-export type SoundName = AvatarSound | BuildSound | PersonaSound
+export type SoundName = AvatarSound | BuildSound
 
 const alertOptions = {
   spatialSound: false,
@@ -63,9 +60,5 @@ export const soundFx: Record<SoundName, SoundInfo> = {
   'build.select': {
     url: url('build/select.mp3'),
     options: alertOptions,
-  },
-  'persona.teleport': {
-    url: url('alerts/teleport.mp3'),
-    options: { ...alertOptions, volume: 0.5 },
   },
 }

@@ -1,7 +1,5 @@
 # Style Guide
 
-As set by @bnolan.
-
 ## Mental model
 
 Game HUD / terminal tool, not a SaaS dashboard. If it looks like it belongs in a 90s game editor or IRC client, it fits.
@@ -86,7 +84,7 @@ Everything else stays gray-on-dark. Don't sprinkle red decoration.
 
 * Imports `common.less`, `base.less`, etc.
 * Showbox broadcast dock: `.showbox-dock*`, `.showbox-light-shell` (same palette as above).
-* Site-wide dark skin lives in the **"QUICK HACK"** block at the bottom of `web.less` (Ben: "not production ready -- delete to revert"). Until that moves or gets replaced, new account-page styles should match that block, not fight it.
+* Site-wide dark skin lives in the **"QUICK HACK"** block at the bottom of `web.less` ("not production ready -- delete to revert"). Until that moves or gets replaced, new account-page styles should match that block, not fight it.
 
 ## Implementation
 

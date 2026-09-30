@@ -13,7 +13,7 @@ export default function BehavioursDoc(_props: { path?: string }) {
   }, [])
 
   return (
-    <section>
+    <section class="prose">
       <Head title="Behaviours" />
       <div dangerouslySetInnerHTML={{ __html: html }} />
     </section>

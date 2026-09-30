@@ -8,7 +8,7 @@ import { Request, Response } from 'express'
 import config from '../../common/config'
 
 /*
-collectible.id IS THE UUID, NOT TOKEN ID - courtesy of ben
+collectible.id IS THE UUID, NOT TOKEN ID
 */
 async function construct(wearable: Wearable): Promise<
   | { success: boolean }

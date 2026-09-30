@@ -61,15 +61,15 @@ export default class PopularParcels extends Component<Props, State> {
   render() {
     const popular = this.state.metrics.slice(0, 15).map((t) => {
       return (
-        <tr>
-          <td>{t.actions}</td>
-          <td>
-            <a href={`/parcels/${t.parcel.id}`}>{t.parcel.name || t.parcel.address}</a>
-          </td>
-        </tr>
+        <li key={t.parcel.id}>
+          <a href={`/parcels/${t.parcel.id}`}>
+            <span>{t.parcel.name || t.parcel.address}</span>
+            <small title="Visits">{t.actions.toLocaleString()}</small>
+          </a>
+        </li>
       )
     })
 
-    return <div class="popularity">{this.state.fetching ? <Spinner /> : <table>{popular}</table>}</div>
+    return <div class="popularity">{this.state.fetching ? <Spinner /> : <ul>{popular}</ul>}</div>
   }
 }

@@ -43,6 +43,7 @@ export default class Audio extends Feature2D<AudioRecord> implements AudioFeatur
   playProgress: BABYLON.GUI.Slider | null = null
   hasBeenGeneratedAtLeastOnce = false // First generate has been called? Feature has loaded but it having a mesh is not guaranteed
   autoStopTimeout: NodeJS.Timeout | null = null
+  src: string | undefined
   asset: ProxyAssetOpensea | null = null
 
   // fixme
@@ -137,13 +138,14 @@ export default class Audio extends Feature2D<AudioRecord> implements AudioFeatur
     if (!url) {
       return
     }
+    this.src = url
 
     this.setStatusLoading()
 
     const baseOptions = {
       loop: this.loop,
       spatialSound: this.rolloffFactor > 0,
-      distanceModel: 'exponential',
+      distanceModel: 'exponential' as const,
       maxDistance: 32,
       rolloffFactor: this.rolloffFactor,
       refDistance: 3,
@@ -178,7 +180,7 @@ export default class Audio extends Feature2D<AudioRecord> implements AudioFeatur
 
     if (this.streaming) {
       // for some reason the onReady callback isn't working with streaming sources
-      const audioElement = this.sound['_htmlAudioElement'] as HTMLAudioElement
+      const audioElement = (this.sound as any).getAudioElement?.() as HTMLAudioElement | undefined
       // setup initial volume for fade
       audioElement?.addEventListener('playing', () => {
         this.fadeIn(AUTOPLAY_FADE_TIME)
@@ -212,7 +214,7 @@ export default class Audio extends Feature2D<AudioRecord> implements AudioFeatur
   }
 
   onPlaying(offset: number) {
-    duckRadio(this, this.radioTitle())
+    duckRadio(this, this.src)
 
     if (this.interval) {
       clearInterval(this.interval)
@@ -255,7 +257,7 @@ export default class Audio extends Feature2D<AudioRecord> implements AudioFeatur
 
     if (this.sound) {
       // pause the soundtrack while audio is active
-      duckRadio(this, this.radioTitle())
+      duckRadio(this, this.src)
       this.playFrom(this.targetPlayOffset || 0, this.autoplay)
     } else {
       this.updatePlayStatus('Loading...')
@@ -269,7 +271,8 @@ export default class Audio extends Feature2D<AudioRecord> implements AudioFeatur
 
   fadeIn(timeConstant: number) {
     if (this.audio && this.sound) {
-      const soundGain = this.sound['_soundGain'].gain as AudioParam
+      const soundGain = this.sound.getSoundGain()?.gain
+      if (!soundGain) return
       soundGain.setValueAtTime(0.0000001, this.audio.audioContext.currentTime)
       soundGain.setTargetAtTime(this.volume, this.audio.audioContext.currentTime, timeConstant)
     }
@@ -277,7 +280,8 @@ export default class Audio extends Feature2D<AudioRecord> implements AudioFeatur
 
   fadeOut(timeConstant: number) {
     if (this.audio && this.sound) {
-      const soundGain = this.sound['_soundGain'].gain as AudioParam
+      const soundGain = this.sound.getSoundGain()?.gain
+      if (!soundGain) return
       soundGain.setTargetAtTime(0, this.audio.audioContext.currentTime, timeConstant)
     }
   }
@@ -400,19 +404,6 @@ export default class Audio extends Feature2D<AudioRecord> implements AudioFeatur
       return (await this.getAssetMp3()) || undefined
     } else if (this.url) {
       return this.url
-    }
-  }
-
-  radioTitle() {
-    const u = this.url
-    if (!u) return 'audio'
-    try {
-      const base = decodeURIComponent((u.split('?')[0].split('/').pop() || '').replace(/\.[^.]+$/, ''))
-        .replace(/[-_]+/g, ' ')
-        .trim()
-      return base || 'audio'
-    } catch {
-      return 'audio'
     }
   }
 

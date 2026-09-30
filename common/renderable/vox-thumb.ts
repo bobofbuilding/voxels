@@ -3,8 +3,6 @@
 import { loadVox } from '../../src/monoworker/vox'
 import type { Renderable, RenderedImage, ThumbScene } from './types'
 
-let jobIndex = 1
-
 function parseBg(hex: string) {
   const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim())
   if (!m) return new BABYLON.Color4(1, 0, 0.667, 1)
@@ -41,36 +39,29 @@ async function blobFromCanvas(canvas: OffscreenCanvas | HTMLCanvasElement): Prom
 
 async function meshFromBuffer(scene: BABYLON.Scene, buf: ArrayBuffer): Promise<BABYLON.Mesh> {
   const data = await loadVox({
-    renderJob: jobIndex++,
     buffer: buf.slice(0),
-    flipX: true,
     megavox: false,
-    wantCollider: false,
     timeoutMs: 10000,
   })
-  if (data?.cancelled) throw new Error('vox cancelled')
   if (!data?.positions) throw new Error('vox parse failed')
 
   const mesh = new BABYLON.Mesh('thumb', scene)
   const vd = new BABYLON.VertexData()
-  vd.positions = data.positions
+  vd.positions = data.positions as any
   vd.indices = data.indices
-  vd.colors = data.colors
+  vd.colors = data.colors as any
   vd.applyToMesh(mesh)
 
   const mat = new BABYLON.StandardMaterial('thumb', scene)
   mat.diffuseColor.set(1, 1, 1)
   mat.specularColor.set(0, 0, 0)
   mat.emissiveColor.set(0.25, 0.25, 0.25)
-  mat.backFaceCulling = false
-  mat.freeze()
   mesh.material = mat
 
   mesh.computeWorldMatrix(true)
   mesh.refreshBoundingInfo()
   const center = mesh.getBoundingInfo().boundingBox.centerWorld
   mesh.position.set(-center.x, -center.y, center.z)
-  mesh.freezeWorldMatrix()
   return mesh
 }
 
@@ -105,5 +96,27 @@ export async function renderVoxThumb(ctx: ThumbScene, renderable: Renderable): P
     return { bytes, contentType: 'image/webp' }
   } finally {
     mesh?.dispose(false, true)
+  }
+}
+
+/** VRM (glb) url -> webp, front 3/4 view. */
+export async function renderVrmThumb(ctx: ThumbScene, url: string, background: string, size: number): Promise<RenderedImage> {
+  const { scene, camera, canvas, engine } = ctx
+  if (size > 0) engine.setSize(size, size)
+  scene.clearColor = parseBg(background)
+  const slash = url.lastIndexOf('/')
+  const container = await BABYLON.SceneLoader.LoadAssetContainerAsync(url.slice(0, slash + 1), url.slice(slash + 1), scene, null, '.glb')
+  try {
+    container.addAllToScene()
+    zoomCamera(camera, scene)
+    // glTF root flips z so VRMs face +Z; camera sits in front, a little to the side
+    camera.alpha = Math.PI / 2 - 0.4
+    camera.beta = Math.PI / 2.2
+    await scene.whenReadyAsync()
+    scene.render()
+    const bytes = await blobFromCanvas(canvas)
+    return { bytes, contentType: 'image/webp' }
+  } finally {
+    container.dispose()
   }
 }

@@ -5,7 +5,7 @@
 * BABYLON is loaded globally
 * Never use RAF (use babylon observables)
 
-## Code Like Ben (Voxels)
+## Voxels Coding Style
 
 - **Don't think, just do**: This is a gross old code base written by people that made lots of dumb decisions, don't try and fix them unless the user explicitly asks you to.
 - **Act locally, don't think**: No "discovery" or "architecture." If you see the fix, execute it now.
@@ -65,11 +65,11 @@ backed out.
 * write like you're talking to someone, not a demographic
 * lower case for subheadings
 
-If you want your PR merged: **code like Ben**.
+If you want your PR merged: **follow the coding style**.
 
 This is not “best practices”. This is **ship practices**.
 
-## Ben principles (non‑negotiables)
+## Coding principles (non‑negotiables)
 
 - **Fix the problem, not the worldview**: one PR = one problem. No “architecture journey”.
 - **Surgical diffs**: minimum lines, maximum impact. If it’s noisy, it’s wrong.
@@ -93,7 +93,7 @@ Voxels is being open-sourced so it can live, **not** so it can be bloated.
 - **Dead means dead**: Do not try to bring back “classic” features or “better” old versions of systems that were stripped out. They were stripped for a reason (usually because they were buggy, heavy, or broken).
 - **Minimalist stewardship**: This repo is a finished product, not a canvas for your “best possible version” ideas. PRs that add complexity or revert to old, heavy patterns will be closed without debate.
 
-## What Ben-style PRs look like
+## What Voxels PRs look like
 
 - **Small surface area**
   - Touch the fewest files you can.
@@ -126,7 +126,7 @@ await invalidateUrl(`/api/parcels/${id}.json`, true)
 
 Pass `true` as the second arg to also immediately re-fetch so the next render is instant and warm. `invalidateUrl` also accepts a wildcard prefix (`/api/parcels/123/*`) to nuke all related cache keys at once.
 
-## Ben fix patterns (copy/paste mentality)
+## Fix patterns (copy/paste mentality)
 
 ### Guard against `undefined` / garbage input
 
@@ -195,7 +195,7 @@ console.error("Not supported yet");
 return;
 ```
 
-**Ben takeaway**: if it’s not supported yet, don’t crash the app—bail out.
+**Takeaway**: if it’s not supported yet, don’t crash the app—bail out.
 
 ### 2) Guard state before touching UI
 
@@ -211,7 +211,7 @@ Good:
 if (state.script) textarea.value = state.script;
 ```
 
-**Ben takeaway**: don’t inject `undefined` into the UI.
+**Takeaway**: don’t inject `undefined` into the UI.
 
 ### 3) Prefer optional chaining + early returns (2026 TS)
 
@@ -230,7 +230,7 @@ if (!doc?.body) return;
 doc.body.innerHTML = html;
 ```
 
-**Ben takeaway**: guard the real-world nulls and keep moving.
+**Takeaway**: guard the real-world nulls and keep moving.
 
 ### 4) Don't use typechecks at runtime
 
@@ -262,7 +262,7 @@ if (!voxMaterial) {
 mesh.material = voxMaterial;
 ```
 
-**Ben takeaway**: one material, frozen, reused. Done. Don't create it until you need it. Then 
+**Takeaway**: one material, frozen, reused. Done. Don't create it until you need it. Then
 don't create it again.
 
 ### 7) Delete dead code (no resurrection)
@@ -281,9 +281,9 @@ Good:
 - Stop pretending you’re coming back.
 - Replace an entire dying subsystem with a single line of code at the entrypoint
 
-**Ben takeaway**: dead code is debt. Delete it.
+**Takeaway**: dead code is debt. Delete it.
 
-### 7) Use bens form and fuck all classes
+### 7) Use the standard form and fuck all classes
 
     <div class="f">
       <label>Name</label>
@@ -323,4 +323,3 @@ Important: Never use css classes starting with a hyphen. Remove hypen-prefix fro
 
 * If it's a UI change, add a screenshot to the github PR
 * Screenshot doesnt need to be diagnostic, just makes the PRs more pretty when viewing on github
-

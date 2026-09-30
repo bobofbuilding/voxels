@@ -164,7 +164,7 @@ export default function GoLive() {
     return (
       <section>
         <h1>Go live</h1>
-        <p>Sign in so you can go live.</p>
+        <p>Sign in to broadcast.</p>
         <Login hideHeading />
       </section>
     )

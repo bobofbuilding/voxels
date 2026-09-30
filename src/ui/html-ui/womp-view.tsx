@@ -1,9 +1,8 @@
 import { render } from 'preact'
-import { unmountComponentAtNode } from 'preact/compat'
 import { useEffect, useState } from 'preact/hooks'
 import { openDialog } from '../../../common/helpers/ui-helpers'
 import { HTMLUi } from './html-ui'
-import { NftMediaBox } from './nft-view'
+import { NftMediaBox, mediaAspect } from './nft-view'
 
 export type WompLite = {
   id: number
@@ -51,15 +50,7 @@ function WompGallery({ womps, start, dialogEl, onClose }: { womps: WompLite[]; s
         {(setAr) => (
           <>
             <a href={`/womps/${womp.id}`} target="_blank" rel="noopener">
-              <img
-                key={womp.id}
-                src={wompSrc(womp)}
-                alt="womp"
-                onLoad={(e) => {
-                  const t = e.currentTarget
-                  if (t.naturalWidth && t.naturalHeight) setAr(t.naturalWidth / t.naturalHeight)
-                }}
-              />
+              <img key={womp.id} src={wompSrc(womp)} alt="womp" onLoad={mediaAspect(setAr)} />
             </a>
             {womps.length > 1 && (
               <>
@@ -88,7 +79,7 @@ export default function showWompView(womp: WompLite, gallery?: WompLite[]) {
   if (!womp?.id) return
 
   if (node) {
-    unmountComponentAtNode(node)
+    render(null, node)
     node = null
   }
 

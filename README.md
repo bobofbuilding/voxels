@@ -5,37 +5,21 @@ guidelines.
 
 # Getting started
 
-[![Open in GitHub Codespaces](https://img.shields.io/badge/Open_in-GitHub_Codespaces-238636?style=for-the-badge&logo=github&logoColor=white)](https://codespaces.new/cryptovoxels/retro)
-
-`pnpm install` and the database seed run when the codespace is created, so it comes up ready.
-
-* `pnpm run dev`
-* Open port 9000
-
-# Installing locally
-
-* Clone repo (`git clone --filter=blob:none` halves it, 225MB to 114MB, by leaving old database dumps on the server)
-* Install postgres@18 and node@25 and pnpm
-* `createdb voxels && cat db/import.sql.gz | gunzip | psql voxels`
-* `pnpm install`
-* `pnpm run dev`
-
-(Only *nix environments are supported, PC users install [WSL](https://learn.microsoft.com/en-au/windows/wsl/install))
+See [install.md](install.md) for Codespaces and local setup.
 
 # Infrastructure
 
 This app deploys to Digital Ocean App Platform from `main` at https://retro.voxels.com.
-Deploy pre-job runs `npm run predeploy` (migrate + release-blog).
+Deploy pre-job runs `npm run predeploy` (migrate).
 
 # Operations
 
-PRs are reviewed by @bnolan and if merged will be deployed to production.
+PRs are reviewed by the repository maintainers.
 
 # License
 
-This project is licensed under the [Business Source License 1.1 (BSL 1.1)](LICENSE). Please read the
-license carefully. This is not an OSI compatible license.
+This project is licensed under the [MIT License](LICENSE).
 
 ### Contributor Agreement
 
-By contributing to this repository, you agree that your contributions (commits) are licensed under this Business Source License 1.1, including the rolling transition to the MIT License three years after the date of your commit.
+By contributing to this repository, you agree that your contributions are licensed under the MIT License.

@@ -75,29 +75,34 @@ export default function EditPane(props: EditPaneProps) {
 
   return (
     <FeatureContext.Provider value={{ templateFromFeature }}>
-      <section>
-        <div class="edit-pane-tree" style={{ height: '20rem', overflow: 'auto' }}>
-          {roots.length ? (
-            <ul class="feature-tree" ref={treeRef}>
-              {tree(roots)}
-            </ul>
-          ) : (
-            <p>Loading...</p>
-          )}
-          {multi && (
-            <div class="edit-pane-multi-actions">
-              <button disabled={spawn || !checkedList.length} onClick={() => groupCheckedFeatures()}>
-                Group
-              </button>
-              <button disabled={!checkedList.length} onClick={() => deleteCheckedFeatures()}>
-                Delete
-              </button>
-            </div>
-          )}
-        </div>
+      <section class="feature-inspector">
+        <h1>Edit feature</h1>
+        <details class="inspector-section" open>
+          <summary>features</summary>
+          <div class="edit-pane-tree">
+            {roots.length ? (
+              <ul class="feature-tree" ref={treeRef}>
+                {tree(roots)}
+              </ul>
+            ) : (
+              <p>Loading...</p>
+            )}
+            {multi && (
+              <div class="edit-pane-multi-actions">
+                <button disabled={spawn || !checkedList.length} onClick={() => groupCheckedFeatures()}>
+                  Group
+                </button>
+                <button disabled={!checkedList.length} onClick={() => deleteCheckedFeatures()}>
+                  Delete
+                </button>
+              </div>
+            )}
+          </div>
+        </details>
 
         {!multi && !props.publishAsset && Component && feature && (
           <div class="edit-pane-inspector editor" key={feature.uuid}>
+            <h3>{featureLabel(feature)}</h3>
             {h(Component, {
               feature,
               parcel: props.parcel,

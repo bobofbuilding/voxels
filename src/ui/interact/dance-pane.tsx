@@ -2,7 +2,7 @@ import { Component } from 'preact'
 import { Animations } from '../../avatar-animations'
 import Connector from '../../connector'
 import Persona from '../../persona'
-import { focusFirst, onListArrowKeys } from '../../../web/src/helpers/keynav'
+import { onGridArrowKeys } from '../../../web/src/helpers/keynav'
 import { dances } from './dances'
 
 export class DancePane extends Component<any, any> {
@@ -24,7 +24,7 @@ export class DancePane extends Component<any, any> {
 
   componentDidMount() {
     this.persona.onAnimationChanged.add(this.onAnimationChanged)
-    focusFirst(this.base as HTMLElement, '[tabindex]')
+    ;(this.base as HTMLElement).querySelector<HTMLElement>('[tabindex]')?.focus({ preventScroll: true })
   }
 
   componentWillUnmount() {
@@ -42,14 +42,13 @@ export class DancePane extends Component<any, any> {
 
   render() {
     return (
-      <section class="emote" onKeyDown={onListArrowKeys}>
+      <section class="emote" onKeyDown={onGridArrowKeys}>
         <h2>Dance</h2>
 
         <div class="AnimateList">
           <ul>
             {dances.map((a) => (
-              <li key={a.name} class={animationMatches(this.state.animation, a.animation) ? '-active' : ''} tabIndex={0} onClick={() => this.playAnimation(a.animation)}>
-                {animationMatches(this.state.animation, a.animation) && '⭐️'}
+              <li key={a.name} class={animationMatches(this.state.animation, a.animation) ? 'selected' : ''} tabIndex={0} onClick={() => this.playAnimation(a.animation)}>
                 {a.name}
               </li>
             ))}

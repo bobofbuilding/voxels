@@ -1,6 +1,5 @@
 import { GraphicLevels, type GraphicEngine } from './graphic-engine'
 import type { ColorGrader } from './color-grading'
-import { isLoaded, markLoaded } from '../utils/loading-done'
 import { wantsGateway } from '../../common/helpers/detector'
 
 export class PostProcesses {
@@ -8,12 +7,8 @@ export class PostProcesses {
   private readonly colorGrader: ColorGrader
   private readonly pipelines: Record<GraphicLevels, BABYLON.PostProcessRenderPipeline>
   private glowLayer: BABYLON.Nullable<BABYLON.GlowLayer> = null
-  private blurPP: BABYLON.Nullable<BABYLON.PostProcess> = null
-  private underwaterPP: BABYLON.Nullable<BABYLON.PostProcess> = null
-  private coverPP: BABYLON.Nullable<BABYLON.PostProcess> = null
-  private coverAmount = 1
-  private revealing = false
-  private coverObs: BABYLON.Nullable<BABYLON.Observer<BABYLON.Scene>> = null
+  private blurPP: BABYLON.Nullable<BABYLON.BlurPostProcess> = null
+  private blurCamera: BABYLON.Nullable<BABYLON.Camera> = null
 
   constructor(scene: BABYLON.Scene, color: ColorGrader, graphics: GraphicEngine) {
     this.scene = scene
@@ -38,151 +33,26 @@ export class PostProcesses {
     })
   }
 
-  cover() {
-    const camera = this.scene.activeCamera
-    if (!camera) return
-
-    if (this.coverObs) {
-      this.scene.onBeforeRenderObservable.remove(this.coverObs)
-      this.coverObs = null
-    }
-    this.revealing = false
-    this.coverAmount = 1
-
-    if (this.coverPP) return
-
-    if (!BABYLON.Effect.ShadersStore['worldCoverPixelShader']) {
-      BABYLON.Effect.ShadersStore['worldCoverPixelShader'] = `
-varying vec2 vUV;
-uniform sampler2D textureSampler;
-uniform float amount;
-
-void main(void) {
-  gl_FragColor = mix(texture2D(textureSampler, vUV), vec4(0.5, 0.5, 0.5, 1.0), amount);
-}
-`
-    }
-
-    const pp = new BABYLON.PostProcess('worldCover', 'worldCover', ['amount'], null, 1.0, camera, BABYLON.Texture.BILINEAR_SAMPLINGMODE, this.scene.getEngine(), false)
-    pp.onApply = (effect) => {
-      effect.setFloat('amount', this.coverAmount)
-    }
-    this.coverPP = pp
-  }
-
-  reveal() {
-    if (!this.coverPP) {
-      if (!isLoaded()) markLoaded()
-      return
-    }
-    if (this.revealing) return
-    this.revealing = true
-    if (!isLoaded()) markLoaded()
-
-    let elapsed = 0
-    this.coverObs = this.scene.onBeforeRenderObservable.add(() => {
-      elapsed += this.scene.getEngine().getDeltaTime()
-      this.coverAmount = 1 - Math.min(1, elapsed / 400)
-
-      if (this.coverAmount <= 0) {
-        this.coverAmount = 0
-        if (this.coverObs) {
-          this.scene.onBeforeRenderObservable.remove(this.coverObs)
-          this.coverObs = null
-        }
-        const camera = this.scene.activeCamera
-        if (this.coverPP) {
-          try {
-            camera?.detachPostProcess(this.coverPP)
-          } catch {}
-          this.coverPP.dispose()
-          this.coverPP = null
-        }
-        this.revealing = false
-      }
-    })
-  }
-
+  // Fixed kernel, built once, attached/detached per dialog. Changing `kernel` at runtime swaps in an
+  // uncompiled effect mid-apply and the resulting throw kills the render loop (world freeze).
   setBlur(on: boolean) {
-    const camera = this.scene.activeCamera
-    if (!camera) return
-
     if (on) {
-      const t0 = performance.now()
-
-      if (this.blurPP) return
-      if (!BABYLON.Effect.ShadersStore['focusBlurPixelShader']) {
-        BABYLON.Effect.ShadersStore['focusBlurPixelShader'] = `
-varying vec2 vUV;
-uniform sampler2D textureSampler;
-uniform float time;
-uniform float amount;
-
-void main(void) {
-  float w = sin(time * 2.2 + vUV.y * 12.0) * amount * 0.004;
-  float w2 = cos(time * 1.7 + vUV.x * 10.0) * amount * 0.003;
-  vec2 uv = vUV + vec2(w, w2);
-  float r = texture2D(textureSampler, uv + vec2(amount * 0.006, 0.0)).r;
-  float g = texture2D(textureSampler, uv).g;
-  float b = texture2D(textureSampler, uv - vec2(amount * 0.006, 0.0)).b;
-  gl_FragColor = vec4(r, g, b, 1.0);
-}
-`
+      const camera = this.scene.activeCamera
+      if (!camera || this.blurCamera) return
+      if (!this.blurPP) {
+        this.blurPP = new BABYLON.BlurPostProcess('focusBlur', new BABYLON.Vector2(1, 0), 24, 1.0, null, BABYLON.Texture.BILINEAR_SAMPLINGMODE, this.scene.getEngine())
       }
-      const pp = new BABYLON.PostProcess('focusBlur', 'focusBlur', ['time', 'amount'], null, 1.0, camera, BABYLON.Texture.BILINEAR_SAMPLINGMODE, this.scene.getEngine(), false)
-
-      pp.onApply = (effect) => {
-        const t1 = performance.now()
-        effect.setFloat('time', t1 * 0.001)
-
-        const amount = Math.min(12.0, (t1 - t0) * 0.004)
-        effect.setFloat('amount', amount)
-      }
-      this.blurPP = pp
-    } else if (this.blurPP) {
+      camera.attachPostProcess(this.blurPP)
+      this.blurCamera = camera
+    } else if (this.blurPP && this.blurCamera) {
       try {
-        camera.detachPostProcess(this.blurPP)
+        this.blurCamera.detachPostProcess(this.blurPP)
       } catch {}
-      this.blurPP.dispose()
-      this.blurPP = null
+      this.blurCamera = null
     }
   }
 
-  setUnderwater(on: boolean) {
-    const camera = this.scene.activeCamera
-    if (!camera) return
-
-    if (on) {
-      if (this.underwaterPP) return
-      if (!BABYLON.Effect.ShadersStore['underwaterPixelShader']) {
-        BABYLON.Effect.ShadersStore['underwaterPixelShader'] = `
-varying vec2 vUV;
-uniform sampler2D textureSampler;
-uniform float time;
-
-void main(void) {
-  float w = sin(time * 2.2 + vUV.y * 12.0) * 0.04;
-  float w2 = cos(time * 1.7 + vUV.x * 10.0) * 0.03;
-  vec2 uv = vUV + vec2(w, w2);
-  vec3 c = texture2D(textureSampler, uv).xyz;
-  float r = (c.x + c.y + c.z) / 3.0;
-  gl_FragColor = vec4(0, r * 0.5, r, 1.0);
-}
-`
-      }
-      const pp = new BABYLON.PostProcess('underwater', 'underwater', ['time'], null, 1.0, camera, BABYLON.Texture.BILINEAR_SAMPLINGMODE, this.scene.getEngine(), false)
-      pp.onApply = (effect) => {
-        effect.setFloat('time', performance.now() * 0.001)
-      }
-      this.underwaterPP = pp
-    } else if (this.underwaterPP) {
-      try {
-        camera.detachPostProcess(this.underwaterPP)
-      } catch {}
-      this.underwaterPP.dispose()
-      this.underwaterPP = null
-    }
-  }
+  setUnderwater(_on: boolean) {}
 
   changeEffects(level: GraphicLevels) {
     if (wantsGateway()) return
@@ -213,10 +83,15 @@ void main(void) {
     }
 
     Object.values(this.pipelines).forEach((p) => {
-      this.scene.postProcessRenderPipelineManager.detachCamerasFromRenderPipeline(p.name, this.scene.activeCamera)
+      const cam = this.scene.activeCamera
+      if (!cam) return
+      this.scene.postProcessRenderPipelineManager.detachCamerasFromRenderPipeline(p.name, cam)
     })
 
-    this.scene.postProcessRenderPipelineManager.attachCamerasToRenderPipeline(this.pipelines[level].name, this.scene.activeCamera)
+    const cam = this.scene.activeCamera
+    if (cam) {
+      this.scene.postProcessRenderPipelineManager.attachCamerasToRenderPipeline(this.pipelines[level].name, cam)
+    }
   }
 
   private createPipeline(level: GraphicLevels, processes: BABYLON.PostProcess[]) {

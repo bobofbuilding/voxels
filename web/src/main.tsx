@@ -2,22 +2,21 @@
 if (process.env.NODE_ENV === 'development') {
   // Must use require here as import statements are only allowed
   // to exist at top-level.
-  require('preact/debug')
+  // require('preact/debug')
+  new EventSource('http://localhost:9200/esbuild').addEventListener('change', () => location.reload())
 }
+
 import { Component, render } from 'preact'
 import { Route, Router, type RouterOnChangeArgs } from 'preact-router'
 
 import EditAccount from '../account/edit'
 import { Login } from './auth/login'
-import Snackbar from './components/snackbar'
 import RadioPage from './components/radio-page'
-import Footer from './footer'
 import Home from './home'
 import { Client } from './client'
 import { isPlayPath, notifyUrlChange } from './helpers/coords-nav'
 import { track, trackPage } from './helpers/umami'
 import WebHeader from './web-header'
-import { SidebarClose, closePageSidebar } from './sidebar-close'
 
 import { useEffect, useState } from 'preact/hooks'
 import { JSXInternal } from 'preact/src/jsx'
@@ -25,6 +24,7 @@ import { ensureRadio } from './radio/global'
 import { app, AppEvent } from './state'
 import { AppRoutes } from './app-routes'
 import { applyTheme } from '../../common/helpers/theme'
+import { clearPageTool, isPageTool, pageToolEl, uiPane } from '../../src/store'
 
 applyTheme()
 
@@ -72,6 +72,8 @@ const Main = () => {
       window.location.href = e.url
     }
 
+    clearPageTool()
+
     const path = e.url.split('?')[0]
     trackPage(path)
     if (path === '/shop') track('visit_shop')
@@ -86,7 +88,7 @@ const Main = () => {
   const [urlSearch, setUrlSearch] = useState(location.search)
   const lightBroadcast = currentPath.startsWith('/golive/broadcast')
   const coords = new URLSearchParams(urlSearch).get('coords') || ''
-  const play = isPlayPath(currentPath)
+  const play = isPlayPath(currentPath) && !isPageTool(uiPane.value)
 
   useEffect(() => {
     ensureRadio()
@@ -110,17 +112,22 @@ const Main = () => {
         <Client coords={coords} path={currentPath} />
 
         <div class={play ? 'page -play' : 'page'}>
-          {!play && !lightBroadcast && <SidebarClose onClick={closePageSidebar} />}
-          <Router onChange={handleRoute}>
-            {AppRoutes()}
-            <RadioPopout path="/radio" />
-            <Play path="/play" />
-            <AccountRoutes path="/account/:path*" />
-          </Router>
+          <div class="page-route">
+            <Router onChange={handleRoute}>
+              {AppRoutes()}
+              <RadioPopout path="/radio" />
+              <Play path="/play" />
+              <AccountRoutes path="/account/:path*" />
+            </Router>
+          </div>
+          <div
+            class="page-tool"
+            ref={(el) => {
+              if (pageToolEl.value !== el) pageToolEl.value = el
+            }}
+          />
         </div>
       </main>
-
-      <Snackbar />
     </MainApp>
   )
 }
