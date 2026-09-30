@@ -178,6 +178,10 @@ export default class GridShard {
     client.send(msg)
   }
 
+  public reloadParcel(parcelId: number) {
+    this.forEachClientInParcel('reloadParcel', parcelId, (client) => client.send({ type: 'parcel-reload', parcelId }))
+  }
+
   private forEachClientInParcel(callingFuncName: string, parcelId: number, callback: (client: StatefulGridClient) => void) {
     const clientsForParcel = this.clientsByParcelId.get(parcelId)
     if (clientsForParcel) {
@@ -265,6 +269,10 @@ export default class GridShard {
   }
 
   private async handlePatch(client: StatefulGridClient, msg: PatchMessage) {
+    if (process.env.FEDERATION_WORLD) {
+      this.sendPatchError(client, msg, 'This world requires wallet-signed edits')
+      return
+    }
     if (typeof msg.parcelId != 'number') return
     const parcel = await this.getParcel(msg.parcelId)
     if (!parcel) {
@@ -304,6 +312,10 @@ export default class GridShard {
   }
 
   private async handleDeleteFeature(client: StatefulGridClient, msg: DeleteFeatureMessage) {
+    if (process.env.FEDERATION_WORLD) {
+      this.sendPatchError(client, { type: 'patch', parcelId: msg.parcelId, patch: { features: { [msg.featureUuid]: null } } }, 'This world requires wallet-signed edits')
+      return
+    }
     if (typeof msg.currentParcelId !== 'number') return
     if (typeof msg.parcelId !== 'number') return
     const authFeatureResult = await authFeature(msg.parcelId, msg.featureUuid, msg.currentParcelId, client.user)

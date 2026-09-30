@@ -3,13 +3,17 @@ import net from 'node:net'
 import { readFile } from 'node:fs/promises'
 const root = process.env.SEED_ROOT
 const hostname = process.env.PUBLIC_HOST || 'bittrees.world'
+const publicOrigin = process.env.PUBLIC_ORIGIN || `https://${hostname}`
+const worldHost = process.env.WORLD_HOST || '127.0.0.1'
+const multiplayerHost = process.env.MULTIPLAYER_HOST || '127.0.0.1'
+const seedHost = process.env.SEED_HOST || '127.0.0.1'
 const active = new Set()
 const worldPort = Number(process.env.WORLD_PORT || 19000)
 function fail(res, code) {
   res.writeHead(code, { 'Cache-Control': 'no-store' }).end()
 }
 function proxy(req, res, port, pathname) {
-  const upstream = http.request({ hostname: '127.0.0.1', port, path: pathname, method: req.method, headers: { ...req.headers, host: hostname }, timeout: 25000 }, (reply) => {
+  const upstream = http.request({ hostname: port === worldPort ? worldHost : port === 13780 ? multiplayerHost : seedHost, port, path: pathname, method: req.method, headers: { ...req.headers, host: hostname }, timeout: 25000 }, (reply) => {
     res.writeHead(reply.statusCode, { ...reply.headers, 'X-Content-Type-Options': 'nosniff' })
     reply.pipe(res)
   })
@@ -31,18 +35,18 @@ const server = http.createServer(async (req, res) => {
   if (pathname === '/archive' || pathname === '/archive/') {
     res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache' })
     return res.end(
-      '<!doctype html><title>Voxels public archive</title><h1>Public world archive</h1><p>8,807 public parcels and 485,181 saved versions. External media is not included.</p><a href="/play">Enter the live world</a> · <a href="/archive/latest.json">Snapshot reference</a> · <a href="https://github.com/bobofbuilding/voxels/tree/codex/pi-world-seed/selfhost/seed">Seeding instructions</a>',
+      '<!doctype html><title>Voxels public archive</title><h1>Public world archive</h1><p>8,807 public parcels and 485,181 saved versions. External media is not included.</p><a href="/play">Enter the live world</a> · <a href="/archive/latest.json">Snapshot reference</a> · <a href="https://github.com/bobofbuilding/voxels/tree/main/selfhost/seed">Seeding instructions</a>',
     )
   }
   if (['/ping', '/socket/info', '/mp/socket/info'].includes(pathname)) return proxy(req, res, 13780, pathname.replace(/^\/mp/, '') + url.search)
   if (/^\/archive\/(?:latest\.json|publisher\.pem|manifests\/[a-f0-9]{64}(?:\.sig)?)$/.test(pathname)) return proxy(req, res, 8788, pathname.slice('/archive'.length))
   if (pathname === '/health') {
     try {
-      await readFile(root + '/verified.json')
-      const ping = await fetch('http://127.0.0.1:13780/ping', { signal: AbortSignal.timeout(2000) })
-      const world = await fetch(`http://127.0.0.1:${worldPort}/api/ping`, { signal: AbortSignal.timeout(2000) })
+      if (root) await readFile(root + '/verified.json')
+      const ping = await fetch(`http://${multiplayerHost}:13780/ping`, { signal: AbortSignal.timeout(2000) })
+      const world = await fetch(`http://${worldHost}:${worldPort}/api/ping`, { signal: AbortSignal.timeout(2000) })
       if (!ping.ok || !world.ok) throw Error('World unavailable')
-      res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }).end(JSON.stringify({ archive: 'verified', world: 'running', multiplayer: 'running', connections: active.size }))
+      res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }).end(JSON.stringify({ archive: root ? 'verified' : 'not-configured', world: 'running', multiplayer: 'running', connections: active.size }))
     } catch {
       fail(res, 503)
     }
@@ -55,14 +59,14 @@ server.on('upgrade', (req, client, head) => {
   const url = new URL(req.url, 'http://localhost')
   const grid = url.pathname === '/grid/socket'
   const id = grid ? Symbol('grid') : url.searchParams.get('client_uuid')
-  if ((!grid && (!['/socket', '/mp/socket'].includes(url.pathname) || !id || !/^[a-zA-Z0-9_-]{1,64}$/.test(id))) || active.has(id) || active.size >= 64 || (req.headers.origin && req.headers.origin !== `https://${hostname}`)) {
+  if ((!grid && (!['/socket', '/mp/socket'].includes(url.pathname) || !id || !/^[a-zA-Z0-9_-]{1,64}$/.test(id))) || active.has(id) || active.size >= 64 || (req.headers.origin && req.headers.origin !== publicOrigin)) {
     client.end('HTTP/1.1 403 Forbidden\r\nConnection: close\r\n\r\n')
     return
   }
   active.add(id)
   const port = grid ? worldPort : 13780
   const target = grid ? req.url : '/socket' + url.search
-  const upstream = net.connect(port, '127.0.0.1')
+  const upstream = net.connect(port, grid ? worldHost : multiplayerHost)
   const close = () => {
     active.delete(id)
     client.destroy()
@@ -86,4 +90,4 @@ server.on('upgrade', (req, client, head) => {
 server.headersTimeout = 10000
 server.requestTimeout = 15000
 server.maxConnections = 128
-server.listen(Number(process.env.GATEWAY_PORT || 8787), '127.0.0.1', () => console.log(JSON.stringify({ port: server.address().port })))
+server.listen(Number(process.env.GATEWAY_PORT || 8787), process.env.GATEWAY_BIND || '127.0.0.1', () => console.log(JSON.stringify({ port: server.address().port })))

@@ -1,3 +1,4 @@
+import { submitFederatedEdit } from './federated-edits'
 import { cameraPosition } from './utils/camera'
 import { markLoaded } from './utils/loading-done'
 import Parcel, { ParcelActivationState } from './parcel'
@@ -333,6 +334,13 @@ export default class Grid extends SocketClient {
   }
 
   public patchParcel(parcelId: number, patch: ParcelPatch) {
+    if (process.env.FEDERATION_WORLD) {
+      void submitFederatedEdit(parcelId, patch).catch((error) => {
+        this.displayPatchError(error.message)
+        this.withParcel(parcelId, (p) => void p.reload())
+      })
+      return
+    }
     if (!this.isOpen) {
       return this.displayPatchError()
     }
@@ -344,6 +352,11 @@ export default class Grid extends SocketClient {
   }
 
   public deleteFeature(parcelId: number, featureUuid: string, currentParcelId: number) {
+    if (process.env.FEDERATION_WORLD) {
+      this.patchParcel(parcelId, { features: { [featureUuid]: null } })
+      return
+    }
+
     if (!this.isOpen) {
       return this.displayPatchError()
     }
@@ -645,6 +658,9 @@ export default class Grid extends SocketClient {
   protected onMessage(ev: MessageEvent<string>) {
     const message = JSON.parse(ev.data) as GridMessage
     switch (message.type) {
+      case 'parcel-reload':
+        this.withParcel(message.parcelId, (p) => void p.reload().catch((error) => this.displayPatchError(String(error))))
+        break
       case 'patch':
         this.handleParcelPatch(message)
         break

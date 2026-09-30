@@ -125,7 +125,8 @@ export const DeleteFeatureMessage = t.type(
 export type DeleteFeatureMessage = t.TypeOf<typeof DeleteFeatureMessage>
 
 // Grid Messages sent server->client
-export const GridMessage = t.union([PatchMessage, PatchErrorMessage, ParcelAuthMessage, PatchStateMessage, SuspendedMessage, ParcelMetaMessage, ParcelScriptMessage, PongMessage])
+export const ParcelReloadMessage = t.type({ type: t.literal('parcel-reload'), parcelId: t.number })
+export const GridMessage = t.union([ParcelReloadMessage, PatchMessage, PatchErrorMessage, ParcelAuthMessage, PatchStateMessage, SuspendedMessage, ParcelMetaMessage, ParcelScriptMessage, PongMessage])
 export type GridMessage = t.TypeOf<typeof GridMessage>
 
 // Grid Messages sent client->server
