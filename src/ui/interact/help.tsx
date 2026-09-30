@@ -4,7 +4,6 @@ import { onDragStart } from '../dialog'
 interface Props {
   onClose?: () => void
   scene: BABYLON.Scene
-  onShowSandboxGuide?: () => void
 }
 
 export class HelpOverlay extends Component<Props> {
@@ -150,13 +149,6 @@ export class HelpOverlay extends Component<Props> {
             <p class="sandbox-help-outro">
               Pick a sandbox from <a href="/build">/build</a>, then grab a parcel in the <a href="/shop">shop</a>.
             </p>
-            {this.props.onShowSandboxGuide && (
-              <p>
-                <button type="button" class="linkish" onClick={this.props.onShowSandboxGuide}>
-                  start over
-                </button>
-              </p>
-            )}
           </>
         )}
       </section>

@@ -6,8 +6,8 @@ import { AudioBus } from './audio/audio-engine'
 import { wantsAudio } from '../common/helpers/detector'
 import { showboxAudioConstraints } from '../common/helpers/showbox-audio-constraints'
 import { voiceSettings } from './voice-settings'
+import { LIVEKIT_URL } from '../common/helpers/showbox-broadcast-health'
 
-const LIVEKIT_URL = 'https://voxels-7pvk06qt.livekit.cloud'
 const JOIN_RADIUS = 200
 
 type Cluster = { room: string; center: [number, number, number]; count: number }

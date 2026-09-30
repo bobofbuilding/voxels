@@ -105,6 +105,26 @@ function applyGhostLook(avatar: Avatar, ghostId: string) {
 
 const playing = new Map<string, { avatar: Avatar; disposeAt: number }>()
 
+// playback is opt-in; recording/posting paths still happens regardless
+// (fetchAt isn't advanced while disabled, so enabling fetches on the next frame)
+export const ghostSettings = {
+  get enabled() {
+    try {
+      return localStorage.getItem('showGhosts') === 'true'
+    } catch {
+      return false
+    }
+  },
+  set enabled(value: boolean) {
+    try {
+      localStorage.setItem('showGhosts', value ? 'true' : 'false')
+    } catch {}
+    if (!value) {
+      for (const id of [...playing.keys()]) disposeGhost(id)
+    }
+  },
+}
+
 export function disposeGhost(id: string) {
   const g = playing.get(id)
   if (!g) return
@@ -113,31 +133,6 @@ export function disposeGhost(id: string) {
     g.avatar.disposeLocal()
   } catch {}
   playing.delete(id)
-}
-
-function segmentSphere(from: BABYLON.Vector3, to: BABYLON.Vector3, center: BABYLON.Vector3, radius: number): BABYLON.Vector3 | null {
-  const d = to.clone().subtract(from)
-  const f = from.clone().subtract(center)
-  const a = BABYLON.Vector3.Dot(d, d)
-  if (a < 1e-8) return null
-  const b = 2 * BABYLON.Vector3.Dot(f, d)
-  const c = BABYLON.Vector3.Dot(f, f) - radius * radius
-  let disc = b * b - 4 * a * c
-  if (disc < 0) return null
-  disc = Math.sqrt(disc)
-  const t = (-b - disc) / (2 * a)
-  if (t < 0 || t > 1) return null
-  return from.add(d.scale(t))
-}
-
-export function ghostSegmentHit(from: BABYLON.Vector3, to: BABYLON.Vector3): { ghostId: string; point: BABYLON.Vector3 } | null {
-  for (const [id, g] of playing) {
-    const collider = (g.avatar as any).collider as BABYLON.Mesh | undefined
-    if (!collider) continue
-    const hit = segmentSphere(from, to, collider.getAbsolutePosition(), 0.9)
-    if (hit) return { ghostId: id, point: hit }
-  }
-  return null
 }
 
 export function startGhosts(scene: BABYLON.Scene, grid: Grid, controls: Controls, connector: Connector) {
@@ -286,7 +281,7 @@ export function startGhosts(scene: BABYLON.Scene, grid: Grid, controls: Controls
   }
 
   const playGhost = async (row: GhostRow) => {
-    if (playing.size >= MAX_GHOSTS) return
+    if (!ghostSettings.enabled || playing.size >= MAX_GHOSTS) return
     const path = unpackPath(row.path)
     if (!path) return
     const n = path.length / STRIDE
@@ -300,7 +295,7 @@ export function startGhosts(scene: BABYLON.Scene, grid: Grid, controls: Controls
     } catch {
       return
     }
-    if (playing.size >= MAX_GHOSTS) {
+    if (!ghostSettings.enabled || playing.size >= MAX_GHOSTS) {
       avatar.disposeLocal()
       return
     }
@@ -373,7 +368,7 @@ export function startGhosts(scene: BABYLON.Scene, grid: Grid, controls: Controls
       if (now >= g.disposeAt) disposeGhost(id)
     }
 
-    if (now >= fetchAt) {
+    if (now >= fetchAt && ghostSettings.enabled) {
       fetchAt = now + 30000 + Math.random() * 60000
       const parcel = grid.currentParcel()?.id
       if (parcel != null && (playing.size < MAX_GHOSTS || parcel !== lastFetchParcel)) {

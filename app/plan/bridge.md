@@ -54,7 +54,7 @@ on any change to allowlisted signals, js diffs and sends:
   "state": {
     "ready": true,
     "guest": false,
-    "userName": "ben",
+    "userName": "example",
     "userId": "…",
     "parcelName": "origin city",
     "parcelId": "…",

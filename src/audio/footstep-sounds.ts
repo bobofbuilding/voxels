@@ -3,8 +3,8 @@ import { VoxelSize } from '../../common/voxels/mesher'
 import { loadSample } from '../utils/helpers'
 import { SpatialAudio } from './spatial-audio'
 
-const WALK_DELAY = 490
-const RUN_DELAY = 300
+const WALK_DELAY = 390
+const RUN_DELAY = 200
 
 export class FootstepSounds {
   destination: AudioNode

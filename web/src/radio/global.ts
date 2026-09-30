@@ -3,7 +3,7 @@ import { VoxelRadioEngine } from './engine'
 
 let radio: VoxelRadioEngine | null = null
 const ducks = new Set<object>()
-const duckTitles = new Map<object, string>()
+const duckSrcs = new Map<object, [string, string?]>()
 const listeners = new Set<() => void>()
 let broadcasting = false
 let preBroadcastMaster = 1
@@ -18,15 +18,11 @@ function syncDuck() {
     radio.unduck()
     return
   }
-  let title: string | null = null
   for (const ref of ducks) {
-    const t = duckTitles.get(ref)
-    if (t) {
-      title = t
-      break
-    }
+    const s = duckSrcs.get(ref)
+    if (s) return radio.duck(s[0], s[1])
   }
-  radio.duck(title)
+  radio.duck(null)
 }
 
 export function ensureRadio(): VoxelRadioEngine | null {
@@ -55,17 +51,18 @@ export function onRadioChange(fn: () => void) {
   return () => listeners.delete(fn)
 }
 
-export function duckRadio(ref: object, title?: string) {
+// src is a playable url, shown as the title and used when the listener pins it
+export function duckRadio(ref: object, src?: string, title?: string) {
   ducks.add(ref)
-  if (title) duckTitles.set(ref, title)
-  else duckTitles.delete(ref)
+  if (src) duckSrcs.set(ref, [src, title])
+  else duckSrcs.delete(ref)
   syncDuck()
   notify()
 }
 
 export function unduckRadio(ref: object) {
   if (!ducks.delete(ref)) return
-  duckTitles.delete(ref)
+  duckSrcs.delete(ref)
   syncDuck()
   notify()
 }

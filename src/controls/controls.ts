@@ -16,7 +16,7 @@ import { Animations } from '../avatar-animations'
 export const CAMERA_DISTANCE = isMobile() ? 2.5 : 1.5
 export const MIN_CAMERA_DISTANCE = 0.5
 export const MAX_CAMERA_DISTANCE = 10
-const ISO_DISTANCE = 4
+const ISO_DISTANCE = 2
 const ISO_PITCH = 0.75 // look down at the avatar, isometric-ish
 const CAMERA_EASE_OUT = 1.4
 const SWIM_LEVEL = -2
@@ -154,6 +154,8 @@ export default abstract class Controls implements IControls {
   private cameraZoomed = false
   // parcels under our feet still waiting on colliders. [] = waiting on the worker, null = floor is solid
   private floorWait: number[] | null = []
+  /** seconds left on the F lift */
+  private lift = 0
   private floorRetry = 0
 
   constructor(
@@ -214,6 +216,13 @@ export default abstract class Controls implements IControls {
       if (this.floorWait?.length && this.floorWait.every((id) => this.grid?.getByID(id)?.physicsRegistered)) this.floorWait = null
       this.body.flying = this.flying
       this.body.gravity = !this.flying && !this.floorWait
+      // F lift: 1m over 0.5s, ease-out, straight through blocks so it unsticks you
+      if (this.lift > 0) {
+        const t0 = 1 - this.lift / 0.5
+        this.lift = Math.max(0, this.lift - dt)
+        const t1 = 1 - this.lift / 0.5
+        this.body.position.y += t1 * (2 - t1) - t0 * (2 - t0)
+      }
       // XR moves this same body from the tracked headset pose in XROverlay.tick.
       if (!(this.scene.activeCamera instanceof BABYLON.WebXRCamera)) this.body.step(this.move, dt)
       this.move.setAll(0)
@@ -254,7 +263,8 @@ export default abstract class Controls implements IControls {
         return
       }
       this.cameraZoomed = !this.cameraZoomed
-      BABYLON.Animation.CreateAndStartAnimation('fov anim', camera, 'fov', 120, 15, camera.fov, target, 0)
+      // CONSTANT is the only loopMode that makes CreateAndStartAnimation run once
+      BABYLON.Animation.CreateAndStartAnimation('fov anim', camera, 'fov', 120, 15, camera.fov, target, BABYLON.Animation.ANIMATIONLOOPMODE_CONSTANT)
     }
 
     if (!this.cameraZoomed) {
@@ -265,7 +275,7 @@ export default abstract class Controls implements IControls {
     }
   }
 
-  // Ben's reticule pick (1c4cec3) used scene.pick() without pointerMovePredicate, so build-mode
+  // The reticule pick (1c4cec3) used scene.pick() without pointerMovePredicate, so build-mode
   // picks hit avatar/features instead of voxel colliders. Tools pass useMovePredicate=true;
   // context menu / locked click use unpredicated center ray when no tool is active.
   pickAtView(x?: number, y?: number, useMovePredicate = false, predicateOverride?: (mesh: BABYLON.AbstractMesh) => boolean): BABYLON.PickingInfo | null {
@@ -284,10 +294,9 @@ export default abstract class Controls implements IControls {
     return pick ?? null
   }
 
-  // Highlight only: isInteract features + voxel-field occlusion. Skips vox/megavox/cube/polytext.
+  // Highlight only: isInteract features (flat planes), no occluders - triangle picking voxel fields per mousemove killed perf
   reticuleHighlightPredicate(mesh: BABYLON.AbstractMesh): boolean {
     if (!mesh.isPickable || !mesh.isVisible || !mesh.isEnabled()) return false
-    if (mesh.name.startsWith('voxel-field/opaque') || mesh.name.startsWith('voxelizer/')) return true
     const f = (mesh as MeshExtended).feature ?? (mesh.parent as MeshExtended | null)?.feature
     return !!f?.isInteract
   }
@@ -470,11 +479,16 @@ export default abstract class Controls implements IControls {
 
   setFlying(value: boolean) {
     this.flying = value
-    console.log('setFlying', value)
+    document.body.classList.toggle('flying', value)
   }
 
   toggleFlying() {
-    this.setFlying(!this.flying)
+    // spawn floor hold looks like flying, so F from a hover drops you
+    this.setFlying(!this.flying && !this.floorWait)
+    // F always wins: drop the floor hold so gravity kicks in the same frame
+    this.floorWait = null
+    this.body.resetMotion()
+    this.lift = this.flying ? 0.5 : 0
   }
 
   // called on spawn and teleport: hold gravity until the parcels here have colliders
@@ -484,10 +498,12 @@ export default abstract class Controls implements IControls {
       this.floorWait = null
       return
     }
-    this.floorWait = []
+    const wait: number[] = []
+    this.floorWait = wait
     const p = this.body.position
     this.grid.queryParcelsAtPosition(new BABYLON.Vector3(p.x, p.y, p.z)).then((ids) => {
-      if (ids.length) this.floorWait = ids
+      // F may have dropped the hold while we waited
+      if (ids.length && this.floorWait === wait) this.floorWait = ids
     })
   }
 
@@ -518,6 +534,7 @@ export default abstract class Controls implements IControls {
     this.targetCameraDistance = startingDistance
     this.persona.firstPersonView = false
     this.firstPersonView = false
+    document.body.classList.add('zoomed')
     return true
   }
 
@@ -529,6 +546,7 @@ export default abstract class Controls implements IControls {
       this.toggleZoom()
     }
     this.firstPersonView = true
+    document.body.classList.remove('zoomed')
     this.camera.orbit = false
     this.camera.autoRotate = false
     this.camera.rotation.x = 0
@@ -774,8 +792,6 @@ export default abstract class Controls implements IControls {
     this.vehicleSeatMode = false
     this.setNoclip(true)
     this.disableMovement()
-    // features freeze their world matrix after setCommon - thaw so drive pose updates show up
-    car.mesh?.unfreezeWorldMatrix()
     if (car.mesh?.rotationQuaternion) car.mesh.rotationQuaternion = null
     this.persona.audio?.footstepSounds?.noStep()
     this.persona.animation = Animations.Sitting
@@ -866,9 +882,6 @@ export default abstract class Controls implements IControls {
         // left far from the lot: snap home now. unloading the parcel would kill the recall timer and strand it.
         if (car.isAwayFromPark()) car.recallToPark()
         else car.releaseDriver(this.persona.uuid)
-      } catch {}
-      try {
-        car.mesh?.freezeWorldMatrix()
       } catch {}
       try {
         this.grid?.unloadIfBeyondDraw?.(car.parcel)
@@ -1031,9 +1044,7 @@ export default abstract class Controls implements IControls {
       }
     }
     car.mesh.position.y = this.vehicleHoverY
-    // frozen meshes need freezeWorldMatrix() again to bake the new pose (computeWorldMatrix alone is a no-op when frozen)
-    if (car.mesh.isWorldMatrixFrozen) car.mesh.freezeWorldMatrix()
-    else car.mesh.computeWorldMatrix(true)
+    car.mesh.computeWorldMatrix(true)
 
     // water rescue: swim level
     const worldY = car.absolutePosition?.y ?? car.mesh.position.y
@@ -1042,8 +1053,7 @@ export default abstract class Controls implements IControls {
         car.mesh.position.copyFrom(this.vehicleLastDryPos)
         car.mesh.rotation.copyFrom(this.vehicleLastDryRot)
         this.vehicleHoverY = this.vehicleLastDryPos.y
-        if (car.mesh.isWorldMatrixFrozen) car.mesh.freezeWorldMatrix()
-        else car.mesh.computeWorldMatrix(true)
+        car.mesh.computeWorldMatrix(true)
         car.broadcastDriveState()
       } else {
         car.recallToPark()

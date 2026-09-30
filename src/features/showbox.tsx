@@ -12,6 +12,7 @@ import {
   BROADCAST_RECONNECT_MAX,
   broadcastVideoTrackLive,
   fetchShowboxRoomToken,
+  LIVEKIT_URL,
   livekitRoomState,
   publishedVideoTrack,
   saveShowboxPublisherIdentity,
@@ -22,17 +23,17 @@ import { VideoFxProcessor, FX_PALETTES, FX_DEFAULT_PALETTE, VIDEO_FX, type FxAud
 import ParcelHelper, { showboxAudiencePlayCoordsFromRecord, showboxFanSharePlayQuery, showboxHostPlayCoordsFromRecord, showboxHostPlayQuery } from '../../common/helpers/parcel-helper'
 import { exitPointerLock } from '../../common/helpers/ui-helpers'
 import { duckRadio, setRadioBroadcasting, unduckRadio } from '../../web/src/radio/global'
-import { broadcastDockEl, broadcastLiveStartedAt, broadcastShowboxUuid, closeBroadcastSidebar, sidebarClosed, uiAsideTick, uiPane } from '../store'
+import { broadcastDockEl, broadcastLiveStartedAt, broadcastShowboxUuid, closeBroadcastSidebar, sidebarClosed, uiAsideTick } from '../store'
 import { consumeGuestFreshFromUrl, maybeRefreshGuestJwt } from '../../common/helpers/guest-pass-client'
 import { cohostPaneRects, MAX_COHOST_PANES } from '../../common/helpers/cohost-panes'
 import { encodeCoords } from '../../common/helpers/utils'
 import { ShowboxRecord } from '../../common/messages/feature'
 import { effect } from '@preact/signals'
 import { Room, RoomEvent, Track, createLocalScreenTracks, createLocalTracks, createLocalVideoTrack } from 'livekit-client'
-import { avatarName } from '../../common/messages/avatar-ref'
 import { app, AppEvent } from '../../web/src/state'
 import { PanelType } from '../../web/src/components/panel'
-import { messageList, type ChatMessageRecord } from '../connector'
+import { chatLine } from '../../web/src/shard-chat'
+import { messageList } from '../connector'
 import { Position, Rotation, Scale, Behaviours, EditorProps } from '../../web/src/components/editor'
 import { Animations } from '../avatar-animations'
 import { cameraPosition, cameraRotation, setCameraRotation } from '../utils/camera'
@@ -100,7 +101,6 @@ function celebrateMoves(n: number, uuid: string) {
   return { anims: [] as Animations[], gapMs: 0 }
 }
 
-const LIVEKIT_URL = 'https://voxels-7pvk06qt.livekit.cloud'
 const mobile = isMobile()
 const LANDSCAPE_MESH_W = 640
 const LANDSCAPE_MESH_H = 360
@@ -1309,7 +1309,7 @@ export default class Showbox extends Feature2D<ShowboxRecord> {
         el.style.display = 'none'
         document.body.appendChild(el)
         this.trackStreamAudio(el, p.identity)
-        duckRadio(this)
+        this.duckLive()
       }
     }
     this.startBroadcastAudio()
@@ -1524,7 +1524,6 @@ export default class Showbox extends Feature2D<ShowboxRecord> {
     this.broadcastPanelSidebar = true
     broadcastShowboxUuid.value = this.uuid
     sidebarClosed.value = false
-    uiPane.value = 'broadcast'
     uiAsideTick.value++
     this.applySidebarDockStyles(panel)
     broadcastDockEl.el = panel
@@ -2985,7 +2984,7 @@ export default class Showbox extends Feature2D<ShowboxRecord> {
         el.style.display = 'none'
         document.body.appendChild(el)
         this.trackStreamAudio(el, identity)
-        duckRadio(this)
+        this.duckLive()
         this.startBroadcastAudio()
         return
       }
@@ -3061,7 +3060,7 @@ export default class Showbox extends Feature2D<ShowboxRecord> {
 
     room.on(RoomEvent.AudioPlaybackStatusChanged, (playing) => {
       if (playing) {
-        duckRadio(this)
+        this.duckLive()
       } else {
         this.armGestureUnblock()
       }
@@ -3129,10 +3128,15 @@ export default class Showbox extends Feature2D<ShowboxRecord> {
     }
   }
 
+  // audience audio, pinnable from the header radio
+  duckLive() {
+    duckRadio(this, `livekit:${this.roomName()}`, this.parcel.name || this.parcel.address || 'live show')
+  }
+
   startBroadcastAudio() {
     if (!this.livekitRoom || !wantsAudio()) return
     this.livekitRoom.startAudio().catch(() => {})
-    duckRadio(this)
+    this.duckLive()
   }
 
   unblockAudiencePlayback() {
@@ -4505,12 +4509,6 @@ export default class Showbox extends Feature2D<ShowboxRecord> {
       Object.assign(chatMessages.style, { display: 'flex', flexDirection: 'column', gap: '4px' })
       chatSection.append(chatMessages)
 
-      const chatLineName = (m: ChatMessageRecord) => {
-        if (m.avatarRef) return avatarName(m.avatarRef)
-        const avatar = m.avatar ? window.connector?.findAvatar(m.avatar) : null
-        return avatar?.name || 'anon'
-      }
-
       renderDockChat = () => {
         chatMessages.replaceChildren()
         const msgs = messageList.value.slice(-30)
@@ -4522,13 +4520,14 @@ export default class Showbox extends Feature2D<ShowboxRecord> {
           return
         }
         for (const m of msgs) {
+          const { who: name, text } = chatLine(m)
           const line = document.createElement('div')
           const who = document.createElement('span')
           who.style.color = '#f5b942'
           who.style.fontWeight = 'bold'
-          who.textContent = chatLineName(m) + ': '
+          who.textContent = name + ': '
           const body = document.createElement('span')
-          body.textContent = m.text
+          body.textContent = text
           line.append(who, body)
           chatMessages.append(line)
         }

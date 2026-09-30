@@ -1,103 +1,26 @@
-import { effect } from '@preact/signals'
-import { Component, createRef, Fragment, JSX } from 'preact'
-import { forwardRef } from 'preact/compat'
+import { effect, signal } from '@preact/signals'
+import makeBlockie from 'ethereum-blockies-base64'
+import { Fragment, JSX } from 'preact'
 import { useEffect, useRef, useState } from 'preact/hooks'
 
 import { isMobile } from '../../../common/helpers/detector'
+import { InteractPopout } from './popout'
+import Icon from '../../../web/src/components/icons/interact'
 import { resetMobileViewportLayout } from '../../controls/mobile/controls'
-import { Emojis, replaceEmojiText, replaceEmoticonsAndEmojiText } from '../../../common/helpers/emojis'
-import { Emotes } from '../../../common/messages/constant'
-import { avatarName, avatarSlug } from '../../../common/messages/avatar-ref'
-import { PanelType } from '../../../web/src/components/panel'
+import { avatarName, avatarSlug, avatarWallet, type AvatarRef, type AvatarRefObj } from '../../../common/messages/avatar-ref'
 import { sendChat } from '../../../web/src/shard-chat'
 import { truncate } from '../../../web/src/lib/string-utils'
 import { app } from '../../../web/src/state'
-import Avatar from '../../avatar'
-import Connector, { ChatMessageRecord, messageList } from '../../connector'
-import GuestBook from '../../features/guest-book'
-import Persona from '../../persona'
+import { ChatMessageRecord, messageList } from '../../connector'
 import { isHate } from '../../hate'
 import { matcher } from '../../obscenity'
-import { NearByPlayers } from './nearby-players'
 import { createEvent, TypedEventTarget } from '../../utils/EventEmitter'
+import { snack } from '../../../web/src/components/snackbar'
 
-interface Props {
-  scene: BABYLON.Scene
-  focusChatInput?: () => void
-}
-
-type TimeStamp = number
-type State = {
-  nearby: Avatar[]
-  lastRead: TimeStamp
-  focused: boolean
-}
-
-export class ChatOverlay extends Component<Props, State> {
-  lastSentTyping: number | null = null
-  inputRef: preact.RefObject<HTMLDivElement>
-  chatDispose?: () => void
-  static instance: ChatOverlay | null = null
-  constructor(props: Props) {
-    super(props)
-
-    this.state = {
-      nearby: [],
-      lastRead: Date.now(),
-      focused: false,
-    }
-    this.inputRef = createRef<HTMLDivElement>()
-    ChatOverlay.instance = this
-  }
-
-  get connector(): Connector {
-    return window.connector
-  }
-
-  get persona(): Persona {
-    return this.connector.persona
-  }
-
-  get isDPadVisible() {
-    return !!(this.connector.controls as any).dpad
-  }
-
-  typing = () => {
-    const now = Date.now()
-    if (!this.lastSentTyping || now - this.lastSentTyping > 4e3) {
-      this.lastSentTyping = now
-      this.connector.typing()
-    }
-  }
-
-  focusInput() {
-    const input = this.inputRef.current?.querySelector('input')
-    input?.focus()
-  }
-
-  onChatInputFocus = (bool: boolean) => {
-    this.setState({ focused: bool })
-  }
-
-  componentDidMount() {
-    this.chatDispose = effect(() => {
-      messageList.value
-      this.forceUpdate()
-    })
-  }
-
-  componentWillUnmount() {
-    this.chatDispose?.()
-    if (ChatOverlay.instance === this) {
-      ChatOverlay.instance = null
-    }
-  }
-
-  render() {
-    const isGuest = !!app.state.wallet?.startsWith('guest:')
-    const chatCap = isGuest ? 25 : 10
-    return <ChatPanel cap={chatCap} variant="overlay" style={isGuest ? 'font-size: 14px' : undefined} />
-  }
+/** In-world HUD chat. Guests get a bigger cap and smaller type. */
+export function ChatOverlay() {
+  const isGuest = !!app.state.wallet?.startsWith('guest:')
+  return <ChatPanel cap={isGuest ? 25 : 10} variant="overlay" style={isGuest ? 'font-size: 14px' : undefined} />
 }
 
 function chatName(m: ChatMessageRecord) {
@@ -121,8 +44,49 @@ async function nerfChat(id: string) {
   messageList.value = list
 }
 
+// string senders (wallet or name) resolved to full avatars. null = pending or unknown
+const refCache = new Map<string, AvatarRefObj | null>()
+const refsRev = signal(0)
+const blockies = new Map<string, string>()
+
+function fetchRefs(list: readonly ChatMessageRecord[]) {
+  const keys = new Set<string>()
+  for (const m of list) {
+    const k = typeof m.avatarRef === 'string' ? m.avatarRef.toLowerCase() : ''
+    if (k && k !== 'anon' && !refCache.has(k)) keys.add(k)
+  }
+  if (!keys.size) return
+  for (const k of keys) refCache.set(k, null)
+  fetch(`/api/avatars/refs.json?q=${encodeURIComponent([...keys].join(','))}`)
+    .then((r) => r.json())
+    .then((d) => {
+      for (const a of d.avatars ?? []) {
+        refCache.set(a.owner.toLowerCase(), a)
+        if (a.name) refCache.set(a.name.toLowerCase(), a)
+      }
+      refsRev.value++
+    })
+    .catch(() => {})
+}
+
+function blockie(wallet: string) {
+  const k = wallet.toLowerCase()
+  let b = blockies.get(k)
+  if (!b) blockies.set(k, (b = makeBlockie(k)))
+  return b
+}
+
 function ChatWho({ m }: { m: ChatMessageRecord }) {
-  const ref = m.avatarRef
+  let ref: AvatarRef | undefined = m.avatarRef
+  if (typeof ref === 'string') ref = refCache.get(ref.toLowerCase()) || ref
+  const wallet = avatarWallet(ref)
+  if (wallet.startsWith('0x')) {
+    return (
+      <a class="chat-who" href={`/u/${avatarSlug(ref)}`} title={avatarName(ref)}>
+        <img width={16} height={16} src={blockie(wallet)} />
+      </a>
+    )
+  }
   if (ref && ref !== 'anon') {
     const name = avatarName(ref)
     if (name && name !== 'anon' && name !== '...') {
@@ -141,15 +105,17 @@ function ChatWho({ m }: { m: ChatMessageRecord }) {
       </a>
     )
   }
-  return <span class="chat-who chat-anon">anon</span>
+  return (
+    <span class="chat-who chat-anon" title="anon">
+      <img width={16} height={16} src="/images/no-image.png" />
+    </span>
+  )
 }
 
 function ChatLineBody({ m }: { m: ChatMessageRecord }) {
   return (
     <>
-      <ChatWho m={m} />
-      {': '}
-      <ChatText text={m.text} moderated={m.moderated} />
+      <ChatWho m={m} /> <ChatText text={m.text} moderated={m.moderated} />
       {app.isAdmin() && m.id && !m.moderated && (
         <button type="button" class="chat-x" onClick={() => nerfChat(m.id!)}>
           x
@@ -174,7 +140,8 @@ export function ChatPanel({ cap, variant = 'page', class: className, style }: { 
 
   useEffect(() => {
     return effect(() => {
-      messageList.value
+      refsRev.value
+      fetchRefs(messageList.value)
       bump((n) => n + 1)
     })
   }, [])
@@ -236,12 +203,36 @@ export function ChatPanel({ cap, variant = 'page', class: className, style }: { 
             </p>
           ))}
         </div>
-        <ChatInput
-          onFocusChange={(f) => {
-            setFocused(f)
-            if (isMobile()) window.scrollTo(0, 0)
-          }}
-        />
+        <div class="interact-bar">
+          <InteractPopout />
+          <ChatInput
+            onFocusChange={(f) => {
+              setFocused(f)
+              if (isMobile()) window.scrollTo(0, 0)
+            }}
+          />
+          <button type="button" class="zoom" title="zoom [C]" onClick={() => window.connector?.controls.togglePerspective()}>
+            <Icon name="zoom" />
+          </button>
+          <button
+            type="button"
+            class="fly"
+            title="press f to fly"
+            onClick={(e) => {
+              e.currentTarget.blur() // a focused BUTTON makes the keyboard handler eat F
+              window.connector?.controls.toggleFlying()
+            }}
+          >
+            <Icon name="fly" />
+          </button>
+          <button type="button" title={app.signedIn ? 'womp [P]' : 'sign in to take a womp'} class={app.signedIn ? '' : 'disabled'} disabled={!app.signedIn} onClick={() => (window as any).ui?.takeWomp((window as any).ui.props.scene)}>
+            <Icon name="camera" />
+          </button>
+          <button type="button" title="fullscreen" onClick={() => window.engine?.enterFullscreen(true)}>
+            <Icon name="fullscreen" />
+          </button>
+          {snack.value && <p onClick={snack.value.onClick}>{snack.value.message}</p>}
+        </div>
       </div>
     )
   }
@@ -266,9 +257,7 @@ export function ChatPanel({ cap, variant = 'page', class: className, style }: { 
                     x
                   </button>
                 )}
-                <ChatWho m={m} />
-                {': '}
-                <ChatText text={m.text} moderated={m.moderated} />
+                <ChatWho m={m} /> <ChatText text={m.text} moderated={m.moderated} />
               </div>
             </Fragment>
           )
@@ -470,35 +459,30 @@ const ChatInput = ({ keepFocus, onFocusChange }: { keepFocus?: boolean; onFocusC
     if (isMobile()) resetMobileViewportLayout()
   }
 
+  // Enter submits via the form's implicit submission (single text input)
   const onChatKeydown = (e: KeyboardEvent) => {
-    if (e.key === 'Enter') {
-      say(e)
-    } else if (e.key === 'Escape') {
+    if (e.key === 'Escape') {
       setMessage('')
       blur()
-    } else {
-      // typing()
     }
   }
 
   return (
-    <div>
-      <form onSubmit={say}>
-        <input
-          type="text"
-          onKeyDown={onChatKeydown}
-          onFocus={() => onFocusChange?.(true)}
-          onBlur={() => {
-            onFocusChange?.(false)
-            isMobile() && resetMobileViewportLayout()
-          }}
-          value={currentMessage}
-          onChange={(e: any) => setMessage(e.target.value)}
-          ref={inputRef}
-        />
-        <button type="submit">Send</button>
-      </form>
-    </div>
+    <form onSubmit={say}>
+      <input
+        type="text"
+        placeholder="Chat"
+        onKeyDown={onChatKeydown}
+        onFocus={() => onFocusChange?.(true)}
+        onBlur={() => {
+          onFocusChange?.(false)
+          isMobile() && resetMobileViewportLayout()
+        }}
+        value={currentMessage}
+        onInput={(e) => setMessage((e.target as HTMLInputElement).value)}
+        ref={inputRef}
+      />
+    </form>
   )
 }
 

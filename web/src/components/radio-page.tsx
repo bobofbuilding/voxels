@@ -1,8 +1,6 @@
-import { useState } from 'preact/hooks'
 import { trackTitle } from '../../../common/soundtracks'
-import { DAY, Spot, VoxelRadioEngine } from '../radio/engine'
-import { clock, Knob, sec, transport, useRadio } from '../radio/ui'
-import { truncate } from '../lib/string-utils'
+import { Spot, VoxelRadioEngine } from '../radio/engine'
+import { clock, sec, transport, useRadio } from '../radio/ui'
 
 function rows(r: VoxelRadioEngine | null) {
   const sched = r?.schedule
@@ -23,9 +21,8 @@ function rows(r: VoxelRadioEngine | null) {
     const parcelId = it.spot?.parcelId
     const name = parcelId ? <a href={`/parcels/${parcelId}/play`}>{it.label}</a> : <span>{it.label}</span>
     return (
-      <li key={`${it.at}-${it.label}`} onClick={it.spot && !parcelId ? () => r?.previewSpot(it.spot!) : undefined}>
-        {live && <span>now</span>}
-        <span>{clock(it.at)}</span>
+      <li key={`${it.at}-${it.label}`} class={live ? 'selected' : ''} aria-current={live ? 'true' : undefined} onClick={it.spot && !parcelId ? () => r?.previewSpot(it.spot!) : undefined}>
+        <time>{clock(it.at)}</time>
         {name}
       </li>
     )
@@ -38,60 +35,70 @@ export default function RadioPage() {
   const showPlay = !r || r.muted || r.stalled
   const onAir = r?.onAir ?? false
   const ducked = !!r?.userDucked && !!r?.duckTitle
-  const text = truncate(onAir ? 'dj on the mic...' : ducked ? r!.duckTitle! : r?.title || 'tuning in...', 15)
-  const pct = Math.round((sec() / DAY) * 100)
+  const text = onAir ? 'dj on the mic...' : ducked ? r!.duckTitle! : r?.title || 'tuning in...'
 
   return (
-    <div>
+    <section class="radio-page">
       <h1>Radio</h1>
-      <p>
-        <span>{onAir ? 'Radio / on air' : 'Radio'}</span>
-        <span>{text}</span>
-      </p>
-
-      <button
-        type="button"
-        onClick={() => {
-          transport(r)
-          refresh()
-        }}
-        title={showPlay ? 'play' : 'stop'}
-      >
-        {showPlay ? 'play' : 'stop'}
-      </button>
-      <div style={{ height: '0.25rem', background: 'var(--tinge)' }}>
-        <span style={{ display: 'block', height: '100%', width: `${pct}%`, background: 'var(--bright)' }} />
+      <div class="radio-transport">
+        <div>
+          <small>{onAir ? 'on air' : 'now playing'}</small>
+          <strong>{text}</strong>
+        </div>
+        <button
+          type="button"
+          onClick={() => {
+            transport(r)
+            refresh()
+          }}
+        >
+          {showPlay ? 'Play' : 'Pause'}
+        </button>
       </div>
 
-      <small>
-        {clock(sec())} utc / day {pct}%
-      </small>
-      <Knob
-        label="track"
-        min={0}
-        max={1}
-        step={0.05}
-        value={r?.trackVolume ?? 1}
-        onChange={(v) => {
-          r?.setTrackVolume(v)
-          refresh()
-        }}
-      />
-      <Knob
-        label="spot"
-        min={0}
-        max={1}
-        step={0.05}
-        value={r?.spotVolume ?? 1}
-        onChange={(v) => {
-          r?.setSpotVolume(v)
-          refresh()
-        }}
-      />
+      <h3>volume</h3>
+      <dl class="props">
+        <dt>
+          <label for="radio-music">Music</label>
+        </dt>
+        <dd>
+          <input
+            id="radio-music"
+            type="range"
+            min={0}
+            max={1}
+            step={0.05}
+            value={r?.trackVolume ?? 1}
+            onInput={(e) => {
+              r?.setTrackVolume(Number(e.currentTarget.value))
+              refresh()
+            }}
+          />
+        </dd>
+        <dt>
+          <label for="radio-spots">Announcements</label>
+        </dt>
+        <dd>
+          <input
+            id="radio-spots"
+            type="range"
+            min={0}
+            max={1}
+            step={0.05}
+            value={r?.spotVolume ?? 1}
+            onInput={(e) => {
+              r?.setSpotVolume(Number(e.currentTarget.value))
+              refresh()
+            }}
+          />
+        </dd>
+      </dl>
 
-      <h3>playlist</h3>
+      <h3>
+        playlist <small>{clock(sec())} UTC</small>
+      </h3>
 
       <ul>{rows(r)}</ul>
-    </div>
+    </section>
   )
 }

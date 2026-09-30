@@ -88,7 +88,7 @@ export default function Classifieds({ limit }: Props) {
 
   return (
     <div class="classifieds">
-      <h3>Shop</h3>
+      {!limit && <h3>Shop</h3>}
       <div class="classifieds-head">
         {!limit && (
           <div class="classifieds-currency">
@@ -101,7 +101,7 @@ export default function Classifieds({ limit }: Props) {
       {showTabs && (
         <nav class="classifieds-tabs">
           {(['fresh', 'all'] as Tab[]).map((t) => (
-            <button key={t} class={active === t ? 'active' : ''} onClick={() => setTab(t)}>
+            <button key={t} class={active === t ? 'active' : ''} aria-pressed={active === t} onClick={() => setTab(t)}>
               {LABELS[t]}
             </button>
           ))}

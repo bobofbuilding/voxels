@@ -129,13 +129,13 @@ export class AvatarTab extends Component<{}, State> {
     const wearing = localAvatar()?.src
 
     return (
-      <div>
-        <h3>avatar</h3>
-        <p>upload a VRM 0.x. we compile it, test it hard, then you preview before saving.</p>
+      <section>
+        <h1>Avatar</h1>
+        <p>Upload a VRM 0.x avatar to preview it before saving.</p>
 
         <div class="f">
-          <label>vrm file</label>
-          <input type="file" accept=".vrm" disabled={busy} onChange={this.onFile} />
+          <label htmlFor="avatar-file">vrm file</label>
+          <input id="avatar-file" type="file" accept=".vrm" disabled={busy} onChange={this.onFile} />
         </div>
 
         {busy && progress > 0 && progress < 100 && (
@@ -179,11 +179,11 @@ export class AvatarTab extends Component<{}, State> {
           <div class="f">
             <label />
             <button type="button" disabled={busy} onClick={this.takeOff}>
-              take it off
+              remove avatar
             </button>
           </div>
         )}
-      </div>
+      </section>
     )
   }
 }

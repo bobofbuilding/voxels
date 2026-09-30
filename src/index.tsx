@@ -43,8 +43,6 @@ import { type AudioEngine } from './audio/audio-engine'
 import { isBatterySaver, isDebug, isInspect, isIOS, isMobile, wantsGateway, wantsXR } from '../common/helpers/detector'
 import { DragDrop } from './tools/drag-drop'
 
-// Patching animation with features from later babylon.js version
-import './vendor/animation-patch'
 import { GraphicEngine } from './graphic/graphic-engine'
 import { extendTabIndexOnClick } from '../common/helpers/ui-helpers'
 import { User } from './user'
@@ -198,6 +196,7 @@ async function main() {
     canvas,
     false,
     {
+      audioEngine: true,
       disableWebGL2Support: isIOS(),
       antialias: !isMobile(),
       stencil: true,
@@ -228,8 +227,12 @@ async function main() {
   // override enterFullscreen to use body element instead of canvas
   engine.enterFullscreen = (requestPointerLock: boolean) => {
     if (!engine.isFullscreen) {
-      engine['_pointerLockRequested'] = requestPointerLock
-      BABYLON.Engine._RequestFullscreen(document.body)
+      const el = document.body as any
+      const req = el.requestFullscreen || el.webkitRequestFullscreen || el.mozRequestFullScreen || el.msRequestFullscreen
+      req?.call(el)
+      if (requestPointerLock) {
+        canvas.requestPointerLock?.()
+      }
     }
   }
 
@@ -290,7 +293,6 @@ async function main() {
   window._color = color
 
   graphic.postProcesses = new PostProcesses(scene, color, graphic)
-  if (!wantsGateway()) graphic.postProcesses.cover()
   ;(engine as any).setBlur = (on: boolean) => graphic.postProcesses?.setBlur(on)
   ;(engine as any).setUnderwater = (on: boolean) => graphic.postProcesses?.setUnderwater(on)
 

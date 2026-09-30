@@ -2,6 +2,7 @@ import { ComponentType } from 'preact'
 import { Route } from 'preact-router'
 import GoLive from '../account/go-live'
 import GoLiveBroadcast from '../account/go-live-broadcast'
+import Activity from './activity'
 import Asset from './asset'
 import Assets from './assets'
 import AssetsNew from './assets-new'
@@ -33,7 +34,6 @@ import Parcels from './parcels'
 import Privacy from './privacy'
 import RenderAsset from './render/asset'
 import RenderCostume from './render/costume'
-import Search from './search'
 import Shop from './shop'
 import Space from './space'
 import SpacePlay from './space-play'
@@ -46,6 +46,7 @@ import IslandsAdmin from './admin/islands'
 import Admin from './admin/admin'
 import NotFound from './not-found'
 import { ChatPage } from './chat-page'
+import { AvatarPage, SettingsPage } from './column-routes'
 import { routes } from './routes'
 
 const components: Record<string, ComponentType<any>> = {
@@ -61,7 +62,6 @@ const components: Record<string, ComponentType<any>> = {
   apiDoc: ApiDoc,
   logout: Logout,
   notFound: NotFound,
-  search: Search,
   assets: Assets,
   assetsNew: AssetsNew,
   asset: Asset,
@@ -92,9 +92,12 @@ const components: Record<string, ComponentType<any>> = {
   eventsEdit: EventsEdit,
   events: Events,
   shop: Shop,
+  activity: Activity,
   womps: WompsPage,
   islandsAdmin: IslandsAdmin,
   admin: Admin,
+  settings: SettingsPage,
+  avatarTab: AvatarPage,
 }
 
 export function AppRoutes() {

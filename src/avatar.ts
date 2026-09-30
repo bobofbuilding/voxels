@@ -285,8 +285,8 @@ export default class Avatar extends Entity {
       const url = payload.voxUrl ? Config.voxModelURL(payload.voxUrl, undefined, 'megavox') : `${process.env.ASSET_PATH}/models/vox-five.vox`
       const mesh = await voxImporter().import(url, {
         megavox: true,
-        wantCollider: false,
-      } as any)
+        signal: new AbortController().signal,
+      })
       if (gen !== this._vehicleLoadGen) {
         mesh.dispose()
         return
@@ -748,7 +748,7 @@ export default class Avatar extends Entity {
 
   // is used before eg. position is changed so that we can compare coming changes
   protected onBeforeUpdate(next: Readonly<Transform>) {
-    if (BABYLON.Vector3.DistanceSquared(this.position, next.position) > 16 * 16) {
+    if (BABYLON.Vector3.DistanceSquared(this.position, next.position) > 16 * 16 && !this.isUser) {
       this.teleportFX(this.absolutePosition, 'avatar.leave')
     }
   }

@@ -75,6 +75,10 @@ export default class Video extends Feature2D<VideoRecord> implements AudioFeatur
     return !!this.description.autoplay
   }
 
+  get src() {
+    return this.videoUrl()
+  }
+
   get hasAudio() {
     return this.volume > 0
   }
@@ -360,7 +364,7 @@ export default class Video extends Feature2D<VideoRecord> implements AudioFeatur
         this.fadeIn(AUTOPLAY_FADE_TIME)
       }
       this.playing = true
-      this.hasAudio && duckRadio(this)
+      this.hasAudio && duckRadio(this, this.src)
       return
     }
 
@@ -473,7 +477,7 @@ export default class Video extends Feature2D<VideoRecord> implements AudioFeatur
       { signal: this.abortController.signal },
     )
     // pause soundtrack
-    this.hasAudio && duckRadio(this)
+    this.hasAudio && duckRadio(this, this.src)
   }
 
   fadeIn(timeConstant: number, fromZero = false) {
