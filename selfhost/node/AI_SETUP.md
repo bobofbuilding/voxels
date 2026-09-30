@@ -15,4 +15,6 @@ Give an assistant with terminal access this prompt:
 7. Use a dedicated disposable world and throwaway wallet for synchronization tests. Confirm two hosts accept edits independently, converge after reconnection, reject forged edits and remove departed players. Do not modify public parcels as test fixtures. Ask the operator to sign through their wallet for the intended production editing check; never extract its key.
 8. Record the source revision, public world ID, peer URLs and private data location in the operator's local notes. Explain backup, restart and upgrade procedures, current parcel roles, pending permission conflicts and protocol limits. Do not claim a live deployment or successful wallet check without evidence.
 
-The installer never deletes retained database files. A 1 TB archive directory requires a real filesystem quota configured separately; a folder name or application budget does not reserve capacity. Do not create destructive retention schedules without an explicit request.
+The installer never deletes retained database files. An archive directory requires a real filesystem quota configured separately; a folder name or application budget does not reserve capacity. Do not create destructive retention schedules without an explicit request.
+
+For a full public-media download, use [the standalone media archive installer](../media/README.md). It keeps payloads on archive storage, queues the smallest measured type groups first, and provides a portable catalog and progress reports.
