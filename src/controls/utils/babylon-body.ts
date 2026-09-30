@@ -2,6 +2,9 @@ import type { Motion } from './player-body'
 export { WALK, RUN } from './player-body'
 import { WALK, JUMP_SPEED, GRAVITY, EYE } from './player-body'
 
+// Sweep past Babylon's contact clearance to recheck support without a fall/push-out cycle.
+const GROUND_PROBE = 0.02
+
 type Vec3 = { x: number; y: number; z: number }
 
 /** Babylon's swept ellipsoid collision, with movement shared by desktop, touch and XR. */
@@ -56,6 +59,9 @@ export default class BabylonBody {
       if (this.flying || this.noclip || !this.gravity) this.velocity.y = 0
       else this.velocity.y += GRAVITY * dt
       this.displacement.set(this.velocity.x * dt, this.flying || this.noclip ? move.y * this.speed * dt : this.velocity.y * dt, this.velocity.z * dt)
+      if (this.grounded && !this.flying && !this.noclip && this.gravity && this.velocity.y <= 0) {
+        this.displacement.y = Math.min(this.displacement.y, -GROUND_PROBE)
+      }
       if (this.noclip) {
         this.position.addInPlace(this.displacement)
         continue
