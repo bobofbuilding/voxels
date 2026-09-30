@@ -600,7 +600,7 @@ export class VoxelRadioEngine {
     const dur = seg.duration || 0
     const t = dur > 0 ? Math.min(Math.max(0, offset), dur - 0.25) : Math.max(0, offset)
     this.track = seg
-    this.playUrl(`${MUSIC_URI}/${file}`, t, seg.volume ?? 1)
+    this.playUrl(`${this.schedule?.musicUri || MUSIC_URI}/${file}`, t, seg.volume ?? 1)
   }
 
   private playUrl(src: string, t: number, volume: number) {
