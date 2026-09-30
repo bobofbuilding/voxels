@@ -4,7 +4,7 @@ import { encodeCoords } from '../../common/helpers/utils'
 import type Grid from '../grid'
 import Connector from '../connector'
 import PlayerCamera from './utils/player-camera'
-import PlayerBody, { WALK, RUN } from './utils/player-body'
+import PlayerBody, { WALK, RUN } from './utils/babylon-body'
 import { isLoaded } from '../utils/loading-done'
 import Feature, { MeshExtended } from '../features/feature'
 import Avatar from '../avatar'
@@ -171,7 +171,7 @@ export default abstract class Controls implements IControls {
     this.camera = camera
     this.scene.activeCamera = camera
 
-    this.body = new PlayerBody()
+    this.body = new PlayerBody(this.scene)
     Object.assign(this.body.position, { x: camera.position.x, y: camera.position.y, z: camera.position.z })
     camera.body = this.body
     camera.place()
@@ -213,7 +213,7 @@ export default abstract class Controls implements IControls {
           this.resetFloor()
         }
       }
-      if (this.floorWait?.length && this.floorWait.every((id) => this.grid?.getByID(id)?.physicsRegistered)) this.floorWait = null
+      if (this.floorWait?.length && this.floorWait.every((id) => this.grid?.getByID(id)?.collisionsReady)) this.floorWait = null
       this.body.flying = this.flying
       this.body.gravity = !this.flying && !this.floorWait
       // F lift: 1m over 0.5s, ease-out, straight through blocks so it unsticks you

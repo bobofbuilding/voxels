@@ -1,6 +1,4 @@
-import RAPIER from '@dimforge/rapier3d-compat'
-import { physics } from '../../physics/world'
-import type PlayerBody from './player-body'
+import type PlayerBody from './babylon-body'
 
 const ORBIT_MARGIN = 0.3 // keep the lens off the wall it just hit
 const ORBIT_SPIN = 0.35 // rad/s when autoRotate
@@ -43,11 +41,9 @@ export default class PlayerCamera extends BABYLON.FreeCamera {
     this.back.copyFromFloats(0, 0, -1).rotateByQuaternionToRef(q, this.back)
 
     let dist = this.distance
-    const w = physics()
-    if (w && this.body.blocker) {
-      const hit = w.castRay(new RAPIER.Ray(this.body.position, this.back), dist + ORBIT_MARGIN, true, undefined, undefined, undefined, this.body.blocker)
-      if (hit) dist = Math.max(0, hit.timeOfImpact - ORBIT_MARGIN)
-    }
+    const origin = new BABYLON.Vector3(this.body.position.x, this.body.position.y, this.body.position.z)
+    const hit = this.getScene().pickWithRay(new BABYLON.Ray(origin, this.back, dist + ORBIT_MARGIN), (mesh) => mesh.checkCollisions && mesh.isEnabled())
+    if (hit?.hit) dist = Math.max(0, hit.distance - ORBIT_MARGIN)
     this.position.copyFromFloats(this.body.position.x, this.body.position.y, this.body.position.z).addInPlace(this.back.scaleInPlace(dist))
   }
 
