@@ -61,12 +61,82 @@ class ArchiveTests(unittest.TestCase):
         path = Path(self.temp.name) / 'assets.csv'
         with path.open('w', newline='') as f:
             w = csv.writer(f)
-            w.writerow(['url', 'content_type', 'bytes', 'category'])
+            w.writerow(['url', 'content_type', 'bytes', 'category', 'current_references'])
             for name, kind, size, category in [('large', 'image/png', 8, 'asset'), ('small', 'image/png', 1, 'asset'), ('first', 'audio/flac', 3, 'asset'), ('unknown', 'audio/flac', '', 'asset'), ('link', 'audio/flac', 1, 'link')]:
-                w.writerow(['https://example.org/' + name, kind, size, category])
+                w.writerow(['https://example.org/' + name, kind, size, category, 0])
         self.job.import_csv(path)
         rows = self.job.db.execute('SELECT url FROM assets ORDER BY phase,rank,expected,id').fetchall()
         self.assertEqual([r[0].split('/')[-1] for r in rows], ['first', 'small', 'large', 'unknown'])
+
+    def priority_csv(self):
+        path = Path(self.temp.name) / 'priority.csv'
+        with path.open('w', newline='') as f:
+            w = csv.writer(f)
+            w.writerow(['url', 'content_type', 'bytes', 'category', 'current_references'])
+            w.writerows([
+                ['https://example.org/history', 'text/plain', 1, 'asset', 0],
+                ['https://example.org/current-large', 'video/mp4', 800, 'asset', 1],
+                ['https://example.org/current-small', 'image/png', 6, 'asset', 2],
+                ['https://example.org/current-unknown', 'image/png', '', 'asset', 1],
+            ])
+        return path
+
+    def test_current_including_unknown_precedes_all_history(self):
+        self.job.import_csv(self.priority_csv())
+        rows = self.job.db.execute(f'SELECT url FROM assets ORDER BY {a.QUEUE_ORDER}').fetchall()
+        self.assertEqual([r[0].split('/')[-1] for r in rows], ['current-small', 'current-large', 'current-unknown', 'history'])
+
+    def test_reprioritization_preserves_files_and_completed_outcomes(self):
+        path = self.priority_csv()
+        self.job.import_csv(path)
+        row = self.job.db.execute("SELECT * FROM assets WHERE url LIKE '%current-small'").fetchone()
+        with self.source(Response(b'abcdef')):
+            self.job.download(row)
+        before = dict(self.job.db.execute('SELECT * FROM assets WHERE id=?', (row['id'],)).fetchone())
+        with self.job.db:
+            self.job.db.execute('UPDATE assets SET priority=1')
+        self.job.prioritize(path)
+        after = dict(self.job.db.execute('SELECT * FROM assets WHERE id=?', (row['id'],)).fetchone())
+        self.assertEqual(before, after)
+        self.assertEqual((self.root / after['path']).read_bytes(), b'abcdef')
+        path.write_text(path.read_text().replace('current-small', 'different'))
+        with self.assertRaises(ValueError):
+            self.job.prioritize(path)
+        self.assertEqual(self.job.db.execute('SELECT COUNT(*) FROM blobs').fetchone()[0], 1)
+
+    def test_small_connection_setups_overlap_and_complete_with_serial_storage(self):
+        import threading
+        self.args.connections = 4
+        for i in range(4):
+            self.row(f'https://example.org/{i}')
+        barrier = threading.Barrier(4)
+        resources = []
+        def open_parallel(url, headers):
+            barrier.wait(timeout=3)  # Fails if setup is serialized.
+            conn, response = io.BytesIO(), Response(b'abcdef')
+            resources.append((conn, response))
+            return conn, response, url
+        with patch.object(a, 'open_source', side_effect=open_parallel):
+            self.assertEqual(self.job.run(), 0)
+        self.assertEqual(self.job.db.execute("SELECT COUNT(*) FROM assets WHERE status='done'").fetchone()[0], 4)
+        self.assertEqual(self.job.used, 6)
+        self.assertTrue(all(c.closed and r.closed for c, r in resources))
+
+    def test_prefetched_connections_close_when_storage_blocks(self):
+        self.args.connections = 4
+        self.args.max_bytes = 4
+        resources = []
+        for i in range(4):
+            self.row(f'https://example.org/{i}')
+        def opened(url, headers):
+            conn, response = io.BytesIO(), Response(b'abcdef')
+            resources.append((conn, response))
+            return conn, response, url
+        with patch.object(a, 'open_source', side_effect=opened):
+            self.assertEqual(self.job.run(), 75)
+        self.assertTrue(all(c.closed and r.closed for c, r in resources))
+        self.assertEqual(self.job.used, 0)
+        self.assertTrue((Path(self.args.state) / 'last-error.json').exists())
 
     def test_hash_dedup_and_portable_paths(self):
         for url in ['https://example.org/a', 'https://example.org/b']:

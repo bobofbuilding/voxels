@@ -25,12 +25,14 @@ if [ ! -f "$state/catalog.sqlite" ]; then
     python3 "$state/archive.py" import --root "$archive_mount/media" --state "$state" --csv "$source_csv"
   fi
 fi
+python3 "$state/archive.py" prioritize --root "$archive_mount/media" --state "$state" --csv "$source_csv"
 python3 - "$state" "$archive_mount" <<'PY'
 import json, os, pathlib, sys
 state, mount = sys.argv[1:]
 args = ['/usr/bin/python3', state+'/archive.py', 'run', '--root', mount+'/media', '--state', state, '--mount', mount,
         '--max-bytes', os.environ.get('MEDIA_ARCHIVE_MAX_BYTES', '1350000000000'),
-        '--rate', os.environ.get('MEDIA_ARCHIVE_RATE', '8000000')]
+        '--rate', os.environ.get('MEDIA_ARCHIVE_RATE', '8000000'),
+        '--connections', os.environ.get('MEDIA_ARCHIVE_CONNECTIONS', '4')]
 quote = lambda value: json.dumps(value.replace('%', '%%'))
 unit = '''[Unit]
 Description=Resumable public Voxels media archive
