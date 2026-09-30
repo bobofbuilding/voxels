@@ -3,7 +3,7 @@ import Head from './components/head'
 
 const terms = `
 
-[former operator] Privacy Policy
+Voxels Privacy Policy
 
 This Privacy Policy describes how your personal information is collected, used, and shared when you visit or make a purchase from https://www.voxels.com/ (the “Site”).
 
