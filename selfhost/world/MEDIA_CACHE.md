@@ -19,7 +19,7 @@ The first page may begin loading before its service worker takes control; subseq
 The cache is disabled unless `MEDIA_CACHE_HOT` is set. Create dedicated writable directories outside the repository. Mount NAS storage before creating its media directory, and keep each directory exclusive to one world-server process.
 
 ```text
-MEDIA_CACHE_HOT=/absolute/path/to/pi-media-cache
+MEDIA_CACHE_HOT=/absolute/path/to/local-media-cache
 MEDIA_CACHE_HOT_BYTES=75000000000
 MEDIA_CACHE_COLD=/absolute/path/to/mounted-nas/media-cache
 MEDIA_CACHE_COLD_BYTES=900000000000

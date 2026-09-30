@@ -97,3 +97,21 @@ test('a missing cached payload is recovered rather than trusting a stale dedupli
   const recovered = await retry!.finish()
   expect(await fs.readFile(store.filename(recovered!))).toEqual(Buffer.alloc(100, 7))
 })
+
+test('an older cache tier label is recovered from its payload location', async () => {
+  const { store, options } = await fixture()
+  const key = mediaKey('retained')
+  const write = await store.begin(key, 3, details)
+  await write!.write(Buffer.from('abc'))
+  await write!.finish()
+  const index = path.join(options.hot, 'index')
+  for (const file of await fs.readdir(index)) {
+    const entry = JSON.parse(await fs.readFile(path.join(index, file), 'utf8'))
+    entry.tier = 'older-local-label'
+    await fs.writeFile(path.join(index, file), JSON.stringify(entry))
+  }
+  const restarted = new MediaStore(options)
+  await restarted.initialize()
+  expect((await restarted.find(key))?.tier).toBe('local')
+  expect(await fs.readFile(restarted.filename((await restarted.find(key))!), 'utf8')).toBe('abc')
+})

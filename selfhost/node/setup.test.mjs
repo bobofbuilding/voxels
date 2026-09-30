@@ -55,3 +55,11 @@ test('pinned network setup rejects mismatched island data before creating creden
     await rm(root, { recursive: true, force: true })
   }
 })
+
+test('partial coverage is explicit, bounded and never implied by hardware', () => {
+  const config = validate({ ...values, starter: false, inventory: '/snapshot', world: validate(values).world, 'node-mode': 'partial', parcels: '42,1,42' })
+  assert.deepEqual(config.coverage, { mode: 'partial', parcels: [1, 42] })
+  assert.deepEqual(validate(values).coverage, { mode: 'full', parcels: null })
+  for (const overrides of [{ 'node-mode': 'partial' }, { parcels: '1' }, { 'node-mode': 'partial', parcels: '0' }, { 'node-mode': 'partial', parcels: '1,2' }, { 'node-mode': 'other' }])
+    assert.throws(() => validate({ ...values, ...overrides }))
+})

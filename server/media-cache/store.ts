@@ -54,7 +54,13 @@ export class MediaStore {
       if (!/^[a-f0-9]{64}-\d+-[a-f0-9-]+\.json$/.test(name)) continue
       try {
         const entry: MediaEntry = JSON.parse(await fs.readFile(file, 'utf8'))
-        if (!HASH.test(entry.key) || !HASH.test(entry.hash) || !['local', 'archive'].includes(entry.tier) || !Number.isSafeInteger(entry.bytes) || entry.bytes < 0) continue
+        if (!HASH.test(entry.key) || !HASH.test(entry.hash) || !Number.isSafeInteger(entry.bytes) || entry.bytes < 0) continue
+        // Recover older index labels from the payload location without renaming or deleting files.
+        if (!['local', 'archive'].includes(entry.tier)) {
+          if (this.blobs.has(entry.hash)) entry.tier = 'local'
+          else if (this.options.cold && (await fs.stat(path.join(this.options.cold, entry.hash))).size === entry.bytes) entry.tier = 'archive'
+          else continue
+        }
         const old = this.entries.get(entry.key)
         if (!old || old.storedAt < entry.storedAt) this.entries.set(entry.key, entry)
         if (entry.tier === 'archive' && !this.blobs.has(entry.hash)) {

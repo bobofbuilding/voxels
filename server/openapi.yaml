@@ -39,15 +39,15 @@ paths:
   /media-cache/status:
     get:
       tags: [media-cache]
-      summary: Read public media cache capacity and NAS availability
+      summary: Read public media cache capacity and archive availability
       responses:
         '200':
-          description: Enabled state, stored and reserved bytes, node and NAS limits, NAS availability and retention policy
+          description: Enabled state, stored and reserved bytes, local and archive limits, NAS availability and retention policy
   /media-cache/asset:
     get:
       tags: [media-cache]
       summary: Stream and cache a public parcel media reference
-      description: Opt-in browser sharing uses this relay. The host validates the URL against the public parcel, pins public DNS addresses, omits credentials, and stores completed responses by SHA-256. node reservations include in-flight bytes. Overflow requires a mounted NAS; full storage bypasses caching without deleting existing media. Only finite supported media responses up to 2 GB are eligible. Private, credentialed, active and live-stream content is excluded.
+      description: Opt-in browser sharing uses this relay. The host validates the URL against the public parcel, pins public DNS addresses, omits credentials, and stores completed responses by SHA-256. Local cache reservations include in-flight bytes. Overflow requires a mounted NAS; full storage bypasses caching without deleting existing media. Only finite supported media responses up to 2 GB are eligible. Private, credentialed, active and live-stream content is excluded.
       parameters:
         - name: parcel
           in: query
@@ -165,6 +165,32 @@ paths:
           description: World identifier, up to 16 sequence/event entries and next cursor
         '400':
           description: Invalid cursor
+    post:
+      tags: [federation]
+      summary: Read public edits for selected hosted parcels
+      description: Applies the intersection of requested parcels and this node's coverage. Permission events and build events use the same filter and signature verification. The cursor is the last returned sequence, or the supplied cursor for an empty page.
+      parameters:
+        - name: after
+          in: query
+          schema: { type: integer, minimum: 0, default: 0 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [parcels]
+              properties:
+                parcels:
+                  type: array
+                  minItems: 1
+                  maxItems: 10000
+                  items: { type: integer, minimum: 1, maximum: 2147483647 }
+      responses:
+        '200':
+          description: World identifier, up to 16 hosted sequence/event entries and next cursor
+        '400':
+          description: Invalid cursor or parcel selection
   /federation/presence:
     get:
       tags: [federation]

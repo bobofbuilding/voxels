@@ -385,7 +385,7 @@ export class SettingsUI extends Component<Props, State> {
             />
             Help store public world media
           </label>
-          <p>Public media you load passes through this world host, which keeps a shared copy. On Bittrees, the node stores up to 75 GB, then archive storage stores the overflow. Other visitors do not connect to your device.</p>
+          <p>Public media you load passes through this world host, which keeps a shared copy. The host keeps a bounded local cache and can store overflow in its archive storage. Other visitors do not connect to your device.</p>
           <p>Your browser caches eligible small public media automatically. Private content and credentialed requests are excluded.</p>
         </section>
 

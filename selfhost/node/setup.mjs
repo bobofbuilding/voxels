@@ -4,6 +4,7 @@ import { randomBytes, createHash, generateKeyPairSync } from 'node:crypto'
 import { spawnSync } from 'node:child_process'
 import { parseArgs } from 'node:util'
 import path from 'node:path'
+import { nodeScope } from '../../common/node-scope.mjs'
 import { fileURLToPath } from 'node:url'
 
 const repository = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
@@ -17,11 +18,15 @@ const options = {
   peer: { type: 'string', multiple: true },
   'allow-local-http': { type: 'boolean' },
   inventory: { type: 'string' },
+  'node-mode': { type: 'string', default: 'full' },
+  parcels: { type: 'string' },
   'expected-parcels': { type: 'string', default: '8807' },
   starter: { type: 'boolean' },
   help: { type: 'boolean' },
 }
 export function validate(values) {
+  const coverage = nodeScope(values['node-mode'] || 'full', values.parcels || '')
+  if (values.starter && coverage.parcels && coverage.parcels.join(',') !== '1') throw Error('The starter world has only parcel 1')
   if (!/^0x[0-9a-fA-F]{40}$/.test(values.owner || '') || /^0x0{40}$/i.test(values.owner)) throw Error('Supply --owner with the nonzero Ethereum wallet that administers this world.')
   if (!!values.starter === !!values.inventory) throw Error('Choose exactly one: --starter or --inventory /absolute/path.')
   const port = Number(values.port)
@@ -48,6 +53,7 @@ export function validate(values) {
   })
   if (peers.length > 16) throw Error('At most 16 peers are supported')
   return {
+    coverage,
     world,
     peers,
     allowLocalHTTP: !!values['allow-local-http'],
@@ -138,6 +144,8 @@ export async function initialize(values) {
   const password = randomBytes(32).toString('hex')
   const jwt = randomBytes(32).toString('hex')
   const env = {
+    NODE_MODE: config.coverage.mode,
+    NODE_PARCELS: config.coverage.parcels?.join(',') || '',
     FEDERATION_WORLD: config.world,
     FEDERATION_NODE: config.node,
     FEDERATION_PRIVATE_KEY: privateKey,
@@ -178,7 +186,7 @@ export async function main(args = process.argv.slice(2)) {
   const [command = 'help'] = positionals
   if (values.help || command === 'help') {
     console.log(
-      'Voxels node setup (Node 24+, Docker Compose, 64-bit Linux/macOS)\n\ninit --owner 0x... (--starter | --inventory PATH) [--public-origin https://world.example.org]\nup | status | down | doctor\n\nShared-world options: --network PATH (trusted network JSON), or --world 0x... --peer https://node.example.org (repeatable).\nAll commands accept --directory PATH (default .voxels-node).\nNo firewall, DNS, paid services or existing database are changed.\nSee selfhost/node/README.md and AI_SETUP.md before joining a shared world.',
+      'Voxels node setup (Node 24+, Docker Compose, 64-bit Linux/macOS)\n\ninit --owner 0x... (--starter | --inventory PATH) [--public-origin https://world.example.org]\nup | status | down | doctor\n\nCoverage: --node-mode full (default), or --node-mode partial --parcels 1,2,3.\nShared-world options: --network PATH (trusted network JSON), or --world 0x... --peer https://node.example.org (repeatable).\nAll commands accept --directory PATH (default .voxels-node).\nNo firewall, DNS, paid services or existing database are changed.\nSee selfhost/node/README.md and AI_SETUP.md before joining a shared world.',
     )
     return
   }
