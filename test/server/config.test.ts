@@ -16,3 +16,10 @@ test('missing or weak signing secrets fail closed', () => {
 test('missing, invalid, and zero owner addresses fail closed', () => {
   for (const OWNER_ADDRESS of [undefined, '', 'wallet', '0x' + '0'.repeat(40)]) expect(() => readConfig({ ...env, OWNER_ADDRESS })).toThrow('OWNER_ADDRESS')
 })
+
+import { readDatabaseTimeout } from '../../services/env'
+test('database timeout supports bounded small-host tuning', () => {
+  expect(readDatabaseTimeout({})).toBe(500)
+  expect(readDatabaseTimeout({ DATABASE_STATEMENT_TIMEOUT_MS: '5000' })).toBe(5000)
+  for (const value of ['0', '-1', 'Infinity', 'garbage', '30001', '1.5']) expect(() => readDatabaseTimeout({ DATABASE_STATEMENT_TIMEOUT_MS: value })).toThrow()
+})

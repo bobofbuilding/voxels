@@ -71,6 +71,7 @@ import preCorsController from './pre-cors'
 import bodyParser from 'body-parser'
 import cookieParser from 'cookie-parser'
 import cors from 'cors'
+import compression from 'compression'
 import passport from 'passport'
 import { ExtractJwt, Strategy as JwtStrategy, StrategyOptions } from 'passport-jwt'
 import path from 'path'
@@ -161,6 +162,7 @@ const httpServer = http.createServer(app)
 // Set a 25 second timeout
 httpServer.setTimeout(1000 * 25)
 
+app.use(compression())
 app.use(cookieParser())
 app.use(bodyParser.json({ limit: '50mb' }))
 
@@ -292,10 +294,6 @@ if (config.isDevelopment) {
 }
 
 // THE GREAT MERGE: one bundle, one stylesheet.
-app.get(`/${currentVersion}-app.js`, cache('1 day'), (req, res) => {
-  return res.sendFile(path.join(__dirname, '..', 'dist', `${currentVersion}-app.js`))
-})
-
 app.get(`/${currentVersion}-app.css`, cache(config.isDevelopment ? false : '1 day'), (req, res) => {
   return res.sendFile(path.join(__dirname, '..', 'dist', `app.css`))
 })
@@ -644,8 +642,8 @@ loadRoutes(app)
 const port = process.env.PORT || 9000 // it's over 9000!
 
 const start = () => {
-  httpServer.listen({ port, host: '0.0.0.0' }, function listening() {
-    log.info(`HTTP server is listening on http://localhost:${port} (0.0.0.0:${port})`)
+  httpServer.listen({ port, host: process.env.BIND_HOST || '0.0.0.0' }, function listening() {
+    log.info(`HTTP server is listening on ${process.env.BIND_HOST || '0.0.0.0'}:${port}`)
   })
 
   httpServer.on('close', () => {
@@ -654,4 +652,4 @@ const start = () => {
 }
 
 start()
-startJobs()
+if (process.env.RUN_BACKGROUND_JOBS !== 'false') startJobs()
