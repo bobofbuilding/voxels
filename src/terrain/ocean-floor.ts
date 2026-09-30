@@ -1,3 +1,4 @@
+import { createNeonGridMaterial } from '../materials/neon-grid'
 import type { Chunk, ChunkObserver } from './chunk-system'
 import { addCuboid, removeCollider } from '../physics/world'
 
@@ -11,15 +12,7 @@ export default class OceanFloor implements ChunkObserver {
     this.size = size
     this.halfSize = size * 0.5
 
-    const oceanFloorTexture = new BABYLON.Texture(process.env.ASSET_PATH + '/textures/subgrid.png', scene)
-    oceanFloorTexture.uScale = this.size
-    oceanFloorTexture.vScale = this.size
-
-    const oceanFloorMaterial = new BABYLON.StandardMaterial('skybox/ocean-floor', scene)
-    oceanFloorMaterial.diffuseColor.set(0.2, 0.2, 0.2)
-    oceanFloorMaterial.ambientTexture = oceanFloorTexture
-    oceanFloorMaterial.specularColor = new BABYLON.Color3(0.1, 0.1, 0.1)
-    oceanFloorMaterial.fogEnabled = true
+    const oceanFloorMaterial = createNeonGridMaterial('terrain/lower-grid', scene)
 
     this._mesh = BABYLON.MeshBuilder.CreateGround('ocean_floor_original', { width: this.size, height: this.size, subdivisions: 1 }, scene)
     this._mesh.material = oceanFloorMaterial
