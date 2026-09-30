@@ -41,7 +41,7 @@ export default function ParcelField({ value, onChange }: Props) {
     }
     clearTimeout(timer.current)
     timer.current = setTimeout(async () => {
-      const r = await fetch(`/api/parcels/search.json?q=${encodeURIComponent(text)}&limit=8`)
+      const r = await fetch(`/api/parcels/search?q=${encodeURIComponent(text)}&limit=8`)
       const d = await r.json()
       setResults(d.parcels || [])
     }, 300)

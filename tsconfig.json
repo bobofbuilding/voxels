@@ -2,7 +2,7 @@
   "compilerOptions": {
     "skipLibCheck": true,
     "sourceMap": true,
-    "lib": ["es2017", "dom", "webworker.importscripts"],
+    "lib": ["es2022", "dom", "dom.iterable", "webworker.importscripts"],
     "jsx": "react-jsx",
     "jsxImportSource": "preact",
 

@@ -7,7 +7,6 @@ import Conduct from './src/conduct'
 import EventPage from './src/event-page'
 import Explore from './src/explore'
 import Parcel from './src/parcel'
-import Parcels from './src/parcels'
 import PostPage from './src/post'
 import Privacy from './src/privacy'
 import Space from './src/space'
@@ -35,7 +34,7 @@ export default function loadRoutes(app: Express) {
   const duration = '10 minutes'
 
   app.get('/', cache(duration), (req, res) => {
-    res.send(renderPage(<Explore />))
+    res.send(renderPage(<LoadingPage />))
   })
 
   app.get('/explore', cache(duration), (req, res) => {
@@ -90,18 +89,9 @@ export default function loadRoutes(app: Express) {
   app.get('/not-found', cache(duration), (req, res) => {
     res.send(renderPage(<NotFound path="/not-found" />))
   })
+  // client fetches its own page, SSR ran an unlimited full-table search and starved the pool
   app.get('/parcels', cache(duration), (req, res) => {
-    const limit = typeof req.query.limit === 'string' ? parseInt(req.query.limit, 100) : NaN
-    const page = typeof req.query.page === 'string' ? parseInt(req.query.page, 10) : NaN
-
-    if (req.query.owner || req.query.q) {
-      res.send(renderPage(<LoadingPage />))
-      return
-    }
-
-    queryAndCallback(db, 'parcels/search-parcels', 'parcels', [`%${req.query.q || ''}%`, isNaN(limit) ? null : limit, isNaN(page) ? null : page, req.query.sort ? req.query.sort : 'id', true], (response) => {
-      res.send(renderPage(<Parcels parcels={response.success ? response.parcels : []} />))
-    })
+    res.send(renderPage(<LoadingPage />))
   })
 
   // longish cache on the page, but only 5 second cache on the API

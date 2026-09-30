@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'preact/hooks'
-import * as strftime from 'strftime'
+import strftime from 'strftime'
 import { blocks } from '../../common/content/blocks'
 import { Login } from './auth/login'
 import SelectUser from './components/select-user'
@@ -284,7 +284,7 @@ export default function ParcelEdit(props: Props) {
 
   if (!canEdit) {
     return (
-      <section class="columns">
+      <section>
         <article>
           {title}
           <p>You don't have permission to edit this parcel.</p>
@@ -294,7 +294,7 @@ export default function ParcelEdit(props: Props) {
   }
 
   return (
-    <section class="columns">
+    <section>
       <article>
         {title}
         {form}

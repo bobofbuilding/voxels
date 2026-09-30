@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'preact/hooks'
 import type { Assetish } from '../asset'
 import type { ParcelRecord } from '../../../common/messages/parcel'
-import { VoxImporter } from '../../../common/vox-import/vox-import'
+import { VoxImporter } from '../../../client/world/vox-import'
 import { NullGrid } from '../../../src/null-grid'
 import Parcel from '../../../src/parcel'
 function createAssetScene(engine: BABYLON.Engine): BABYLON.Scene {

@@ -7,12 +7,14 @@ WORKDIR /app
 
 COPY package.json pnpm-lock.yaml ./
 
-RUN corepack enable && corepack prepare pnpm@9.15.4 --activate \
+# node 25 images ship without corepack
+RUN npm i -g pnpm@9.15.4 \
   && pnpm config set engine-strict false \
   && pnpm install --frozen-lockfile
 
 COPY common/ ./common/
 COPY server/ ./server/
+COPY services/ ./services/
 COPY compiler/ ./compiler/
 COPY tsconfig.json tsconfig.prod.json ./
 

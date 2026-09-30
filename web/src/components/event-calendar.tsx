@@ -1,6 +1,6 @@
 import * as _ from 'lodash'
 import { Component } from 'preact'
-import { isInWorld } from '../../../common/helpers/detector'
+import { isInWorld } from '../../../client/platform'
 import { isInFuture } from '../../../common/helpers/time-helpers'
 import { Event } from '../../../common/messages/event'
 import ParcelEvent from '../helpers/event'

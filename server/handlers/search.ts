@@ -1,5 +1,6 @@
 import { Request, Response } from 'express'
-import db, { pgp } from '../pg'
+import db from '../pg'
+import log from '../lib/logger'
 
 export async function searchAndReturn(req: Request, res: Response) {
   let { q } = req.query
@@ -67,7 +68,7 @@ export async function searchAndReturn(req: Request, res: Response) {
     results = [...parcelResult.rows, ...ftsResult.rows.filter((r: any) => !seen.has(`${r.type}:${r.id}`))]
   } catch (err: any) {
     if (err.toString().match(/not been populated/)) {
-      pgp.query(`REFRESH MATERIALIZED VIEW search_corpus;`)
+      void refreshSearch().catch((error) => log.error('Search refresh failed', error))
     }
 
     res.json({ success: false })
@@ -75,4 +76,21 @@ export async function searchAndReturn(req: Request, res: Response) {
   }
 
   res.json({ success: true, results })
+}
+
+// A refresh may exceed the normal request timeout. Keep that exception scoped
+// to this transaction so the shared pool keeps its normal timeout afterwards.
+async function refreshSearch() {
+  const client = await db.connect()
+  try {
+    await client.query('BEGIN')
+    await client.query("SET LOCAL statement_timeout = '30s'")
+    await db.query('search/refresh', 'REFRESH MATERIALIZED VIEW search_corpus', [], client)
+    await client.query('COMMIT')
+  } catch (error) {
+    await client.query('ROLLBACK')
+    throw error
+  } finally {
+    client.release()
+  }
 }

@@ -78,3 +78,16 @@ export async function uploadParcelThumb(id: number, body: Buffer, ext = 'webp'):
   )
   return parcelThumbUrl(id, ext)
 }
+
+export async function hasAvatarThumb(key: string): Promise<boolean> {
+  try {
+    await client().send(new HeadObjectCommand({ Bucket: BUCKET, Key: key }))
+    return true
+  } catch {
+    return false
+  }
+}
+
+export async function uploadAvatarThumb(key: string, body: Buffer) {
+  await client().send(new PutObjectCommand({ Bucket: BUCKET, Key: key, Body: body, ContentType: 'image/webp', ACL: 'public-read' }))
+}

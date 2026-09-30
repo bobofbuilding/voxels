@@ -1,6 +1,5 @@
 import { Component, render } from 'preact'
-import { unmountComponentAtNode } from 'preact/compat'
-import { openDialog, requestPointerLockIfNoOverlays } from '../../common/helpers/ui-helpers'
+import { openDialog, requestPointerLockIfNoOverlays } from '../../client/ui/helpers'
 import { ParcelRecord } from '../../common/messages/parcel'
 
 interface Props {
@@ -57,7 +56,7 @@ export class ParcelAdminOverlay extends Component<Props> {
 
 export function toggleParcelAdminOverlay(parcel: ParcelRecord, scene: BABYLON.Scene, onClose?: () => void) {
   if (ParcelAdminOverlay.currentElement?.parentElement) {
-    unmountComponentAtNode(ParcelAdminOverlay.currentElement)
+    render(null, ParcelAdminOverlay.currentElement)
     ParcelAdminOverlay.currentElement.remove()
     ParcelAdminOverlay.currentElement = null!
     if (!document.querySelector('.pointer-lock-close,.overlay')) {

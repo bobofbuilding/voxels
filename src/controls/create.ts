@@ -1,4 +1,4 @@
-import { isDesktop, isMobile, isTablet, wantsGateway, wantsXR } from '../../common/helpers/detector'
+import { isDesktop, isMobile, isTablet, wantsGateway, wantsXR } from '../../client/platform'
 import DesktopControls from './desktop/controls'
 import MobileControls from './mobile/controls'
 import type Controls from './controls'

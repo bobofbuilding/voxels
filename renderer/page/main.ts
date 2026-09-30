@@ -1,6 +1,6 @@
-// ABOUTME: Playwright page entry. Exposes window.renderVoxThumb(bytesB64, bg, size) -> webp base64.
+// ABOUTME: Playwright page entry. Exposes window.renderVoxThumb(bytesB64, bg, size) and renderVrmThumb(url, bg, size) -> webp base64.
 
-import { createThumbScene, renderVoxThumb } from '../../common/renderable/vox-thumb'
+import { createThumbScene, renderVoxThumb, renderVrmThumb } from '../../client/rendering/vox-thumb'
 import type { ThumbScene } from '../../common/renderable/types'
 
 let ctx: ThumbScene | null = null
@@ -22,7 +22,7 @@ function bufToB64(buf: ArrayBuffer): string {
   return btoa(s)
 }
 
-async function render(bytesB64: string, background: string, size = 512): Promise<string> {
+function thumbScene(size: number): ThumbScene {
   if (!(globalThis as any).BABYLON) throw new Error('BABYLON missing')
   if (!ctx) {
     const canvas = document.getElementById('c') as HTMLCanvasElement | null
@@ -31,7 +31,11 @@ async function render(bytesB64: string, background: string, size = 512): Promise
     canvas.height = size
     ctx = createThumbScene(canvas)
   }
-  const out = await renderVoxThumb(ctx, {
+  return ctx
+}
+
+async function render(bytesB64: string, background: string, size = 512): Promise<string> {
+  const out = await renderVoxThumb(thumbScene(size), {
     kind: 'vox',
     bytes: b64ToBuf(bytesB64),
     background,
@@ -41,4 +45,5 @@ async function render(bytesB64: string, background: string, size = 512): Promise
 }
 
 ;(window as any).renderVoxThumb = render
+;(window as any).renderVrmThumb = async (url: string, background: string, size = 512) => bufToB64((await renderVrmThumb(thumbScene(size), url, background, size)).bytes)
 ;(window as any).__renderReady = true

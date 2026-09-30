@@ -1,6 +1,7 @@
+import { isAdminWallet } from './permissions'
 import { ethers } from 'ethers'
 import { getERC20Balance, getParcelsCount, getWalletBalance } from './lib/ethereum-helpers'
-import { isCVTeam, isMod } from './lib/helpers'
+import { isMod } from './lib/helpers'
 import { ethAlchemy, TokenAddress } from './lib/utils'
 import db from './pg'
 
@@ -153,7 +154,7 @@ export default class Avatar {
   }
 
   static async isAdmin(wallet: string | undefined) {
-    return !!isCVTeam(wallet)
+    return !!isAdminWallet(wallet)
   }
 
   static async isModerator(wallet: string | undefined) {

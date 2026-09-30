@@ -18,7 +18,7 @@ import log from '../lib/logger'
 import { createRequestHandlerForQuery, queryAndCallback } from '../lib/query-helpers'
 import { parseQueryInt } from '../lib/query-parsing-helpers'
 import LibraryAsset from '../library-asset'
-import { Db, pgp } from '../pg'
+import { Db } from '../pg'
 import { VoxelsUserRequest } from '../user'
 import Wearable, { WearableCategory } from '../wearable'
 
@@ -210,24 +210,6 @@ export default function AssetLibraryController(db: Db, passport: PassportStatic,
     })
   })
 
-  const conditions = (scope: Scope) => {
-    const conditions = []
-
-    // Only display vox model assets for now
-    conditions.push(`a.content::jsonb @> '[{"type": "vox-model"}]'`)
-
-    if (scope.query) {
-      // we should get a vector column in here my bro
-      conditions.push(`(a.name ILIKE '%' || $<scope.query> || '%' OR a.description ILIKE '%' || $<scope.query> || '%')`)
-    }
-
-    if (scope.author) {
-      conditions.push(`a.author = $<scope.author>`)
-    }
-
-    return conditions.length > 0 ? conditions.join(' AND ') : 'true'
-  }
-
   const sorting = (scope: Scope) => {
     var term = 'a.id'
 
@@ -253,17 +235,19 @@ export default function AssetLibraryController(db: Db, passport: PassportStatic,
       from
         asset_library a
       where
-        ${conditions(scope)}
+        a.content::jsonb @> '[{"type": "vox-model"}]'
+        AND ($1::text IS NULL OR a.name ILIKE '%' || $1 || '%' OR a.description ILIKE '%' || $1 || '%')
+        AND ($2::text IS NULL OR a.author = $2)
       order by
         ${sorting(scope)}
       limit
-        $<scope.limit>
+        $3
       offset
-        $<scope.offset>
+        $4
     `
 
-    const assets = await pgp.manyOrNone(sql, { scope })
-    res.json({ success: true, assets })
+    const assets = await db.query('assets/search', sql, [scope.query || null, scope.author || null, scope.limit, scope.offset])
+    res.json({ success: true, assets: assets.rows })
   })
 
   app.delete('/api/assets/:uuid', passport.authenticate('jwt', { session: false }), async (req: VoxelsUserRequest, res, next) => {
@@ -294,7 +278,8 @@ export default function AssetLibraryController(db: Db, passport: PassportStatic,
     const id = req.params.uuid
     const wallet = req.user!.wallet
 
-    const asset = await pgp.oneOrNone('select * from asset_library where id = $<id>', { id })
+    const result = await db.query('assets/get', 'select * from asset_library where id = $1', [id])
+    const asset = result.rows[0]
 
     if (!asset) {
       return res.status(404).send({ error: 'Not found' })
@@ -310,20 +295,21 @@ export default function AssetLibraryController(db: Db, passport: PassportStatic,
     const content = JSON.stringify(params.content)
 
     try {
-      await pgp.none(
+      await db.query(
+        'assets/update',
         `
         update
           asset_library
         set
-          name = $<params.name>,
-          description = $<params.description>,
-          category = $<params.category>,
-          content = $<content>::json,
+          name = $1,
+          description = $2,
+          category = $3,
+          content = $4::json,
           updated_at = now()
         where
-          id = $<id>
+          id = $5
       `,
-        { params, content, id },
+        [params.name, params.description, params.category, content, id],
       )
 
       console.log(req.body)

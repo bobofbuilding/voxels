@@ -3,6 +3,7 @@ type Parcel = {
 }
 
 class config {
+  readonly ownerAddress = process.env.OWNER_ADDRESS?.trim().toLowerCase() || ''
   readonly proxy_base_url = process.env.PROXY_BASE_URL || 'https://proxy.crvox.com'
   readonly proxy_cdn_base_url = process.env.PROXY_CDN_BASE_URL || 'https://cdn2.cryptovoxels.com'
   readonly texture_cachebuster = process.env.TEXTURE_CACHEBUSTER || 'v6'
@@ -24,6 +25,9 @@ class config {
   }
   // We no longer pass the parcel ID as a URL parameter as that caused redundant downloads when a vox model appears in multiple parcels
   voxModelURL(url: string, parcel?: Parcel, type?: string) {
+    // compiled parcels: straight off the bucket, herring is dying
+    if (url.startsWith('ugc://')) return 'https://ugc.voxels.com/' + url.slice(6)
+    if (url.startsWith('https://ugc.voxels.com/')) return url
     const root = process.env.VOX_URL || 'https://herring.crvox.com/node'
     let proxyURL = root + `/vox?url=${encodeURIComponent(url)}`
     if (type) {

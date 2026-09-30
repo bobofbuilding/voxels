@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'preact/hooks'
-import { isDesktop } from '../../../../common/helpers/detector'
+import { isDesktop } from '../../../../client/platform'
 import { saveAsset } from '../../helpers/save-helper'
 import { AssetType, EditableIcons, Props } from './editable'
 import { useEditableLifecycle } from './useEditableLifecycle'

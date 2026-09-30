@@ -48,7 +48,7 @@ export default function ListCollections({ path }: { path?: string }) {
   ))
 
   return (
-    <section class="columns">
+    <section>
       <article>
         <h1>Collections</h1>
 
@@ -59,7 +59,9 @@ export default function ListCollections({ path }: { path?: string }) {
         </table>
 
         <p>
-          <a href="/collections/new">New collection</a>
+          <a class="buttonish" href="/collections/new">
+            New collection
+          </a>
         </p>
       </article>
     </section>
