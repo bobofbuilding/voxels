@@ -32,8 +32,109 @@ tags:
   - name: ghosts
   - name: chat
   - name: account
+  - name: federation
 
 paths:
+  /federation/info:
+    get:
+      tags: [federation]
+      summary: Shared-world identity and editor policy
+      description: Available only when FEDERATION_WORLD is configured. No session is required; edits carry independent wallet proofs.
+      responses:
+        '200':
+          description: Version, world identifier, editor address, policy and node identifier
+  /federation/parcel/{id}:
+    get:
+      tags: [federation]
+      summary: Read the public parcel genesis hash and latest causal revision
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, minimum: 1 }
+      responses:
+        '200':
+          description: Base hash, clock and parent edit identifier (null at genesis)
+        '400':
+          description: Invalid or non-public parcel
+  /federation/edits:
+    post:
+      tags: [federation]
+      summary: Verify and durably apply a wallet-signed public build edit
+      description: Requires the configured world editor's personal-message signature. Legacy account tokens do not authorize edits. See selfhost/node/README.md and common/federation/edit.ts for canonical signing, supported patches and bounds. Requests are limited to 2 MiB; signed envelopes to 1,900,000 UTF-8 bytes.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object }
+      responses:
+        '200':
+          description: Accepted edit identifier; duplicate submissions are idempotent
+        '400':
+          description: Invalid proof, missing parent, wrong snapshot or unsupported build
+  /federation/batch:
+    post:
+      tags: [federation]
+      summary: Receive up to 16 independently signed edits
+      description: Events are verified in order. A failure may follow earlier committed events; retrying is safe because accepted IDs are idempotent.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [events]
+              properties:
+                events:
+                  type: array
+                  maxItems: 16
+                  items: { type: object }
+      responses:
+        '200':
+          description: Accepted identifiers
+        '400':
+          description: Invalid batch or edit
+  /federation/events:
+    get:
+      tags: [federation]
+      summary: Read a bounded feed of committed public edits
+      parameters:
+        - name: after
+          in: query
+          schema: { type: integer, minimum: 0, default: 0 }
+      responses:
+        '200':
+          description: World identifier, up to 16 sequence/event entries and next cursor
+        '400':
+          description: Invalid cursor
+  /federation/presence:
+    get:
+      tags: [federation]
+      summary: Read anonymous, short-lived host-signed player poses
+      responses:
+        '200':
+          description: World identifier and at most 16 valid host snapshots
+    post:
+      tags: [federation]
+      summary: Relay host-signed player poses
+      description: Only world, node, timestamp and anonymous pose fields are accepted. Validity lasts 15 seconds. Host signatures do not prove human identity; unverified wallet/name claims are not forwarded.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [snapshots]
+              properties:
+                snapshots:
+                  type: array
+                  maxItems: 16
+                  items: { type: object }
+      responses:
+        '200':
+          description: Envelope processed; invalid or expired snapshots are ignored
+        '400':
+          description: Invalid envelope
   /api/chat.json:
     get:
       operationId: listChat

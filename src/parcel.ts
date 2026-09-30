@@ -1030,7 +1030,7 @@ export default class Parcel extends TypedEventTarget<ParcelEventMap> {
   async reload(cb: any = null) {
     this.disconnect()
 
-    let url = `/grid/parcels/${this.id}/`
+    let url = `/grid/parcels/${this.id}/` + (process.env.FEDERATION_WORLD ? `?revision=${Date.now()}` : '')
 
     if (process.env.NODE_ENV !== 'production') {
       url = process.env.ASSET_PATH + url

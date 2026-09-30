@@ -7,6 +7,7 @@ import db from '../pg'
 import { VoxelsUserRequest } from '../user'
 
 export default async function (req: VoxelsUserRequest, res: Response) {
+  if (process.env.FEDERATION_WORLD) return res.status(409).json({ success: false, error: 'Use the wallet-signed world editor. Legacy parcel updates are disabled on synchronized nodes.' })
   const parcel = await Parcel.load(parseInt(req.params.id, 10))
 
   if (!parcel) {

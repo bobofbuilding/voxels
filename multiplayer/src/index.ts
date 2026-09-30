@@ -1,3 +1,4 @@
+import { startFederatedPresence } from './federation'
 import { loadEnv, requireSecret } from '../../services/env'
 import { createClient } from 'redis'
 import createWWWServer from './api'
@@ -74,6 +75,8 @@ async function start(signal: AbortSignal) {
       }
     }, RADAR_HEARTBEAT_MS)
   }
+
+  if (redis) startFederatedPresence(redis, shards, signal)
 
   createWWWServer(server.server, shards)
   createWebsocketServer(server, server.server, shards)

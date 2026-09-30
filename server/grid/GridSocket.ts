@@ -43,6 +43,21 @@ export default class GridSocket {
     log.info(`Starting grid server`)
 
     this.gridCluster = gridCluster
+    if (process.env.FEDERATION_WORLD) {
+      import('../pg')
+        .then(async ({ default: db }) => {
+          const listener = await db.connect()
+          await listener.query('LISTEN federation_reload')
+          listener.on('notification', (notification) => {
+            if (notification.channel !== 'federation_reload' || !notification.payload) return
+            const { parcelId } = JSON.parse(notification.payload)
+            this.worldGridShard.reloadParcel(parcelId)
+          })
+          server.on('close', () => listener.release(true))
+        })
+        .catch((error) => log.error(`Federation listener failed: ${error}`))
+    }
+
     this.worldGridShard = new GridShard(
       (id) => this.worldGetParcel(id),
       (p, f) => this.worldGetFeature(p, f),
