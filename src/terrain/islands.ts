@@ -10,20 +10,12 @@ export class Island {
   center: BABYLON.Vector3
   radius: number
   outline: BABYLON.Vector2[]
-  texturePath = '/textures/00-grid.png'
   private readonly _mesh: BABYLON.Mesh
 
   constructor(list: Islands, desc: IslandRecord) {
     this.list = list
     this.desc = desc
     this.outline = this.desc.geometry.coordinates[0].map((c: [x: number, y: number]) => new BABYLON.Vector2(c[0] * 100, c[1] * 100)).reverse()
-
-    // if (window.config.isSpace) {
-    //   this.texturePath = '/textures/subgrid.png'
-    // } else if (desc.texture) {
-    //   // texture comes from the DB
-    //   this.texturePath = desc.texture
-    // }
 
     // build mesh
     const shape = this.desc.geometry.coordinates[0].map((c) => new BABYLON.Vector2(c[0] * 100, c[1] * 100)).reverse()
@@ -95,21 +87,7 @@ export class Island {
   async render(): Promise<BABYLON.Mesh> {
     this._mesh.position.y = 0.75 - 0.01 // 0.01 = the nudge epsilon
 
-    const width = this._mesh.getBoundingInfo().maximum.x - this._mesh.getBoundingInfo().minimum.x
-    const depth = this._mesh.getBoundingInfo().maximum.z - this._mesh.getBoundingInfo().minimum.z
-
-    const texture = new BABYLON.Texture(this.texturePath, this.scene)
-
-    // Configure texture UV scaling
-    texture.vScale = depth * 2
-    texture.uScale = width * 2
-    texture.uOffset = 0.5
-    texture.vOffset = 0.5
-
-    this._mesh.material = createIslandMaterial(this.scene, {
-      name: this.name,
-      texture,
-    })
+    this._mesh.material = createIslandMaterial(this.scene, { name: this.name })
     this._mesh.visibility = 1
 
     // nerfed collider: one cube for the whole island bounds. good enough to walk on.
