@@ -1,18 +1,12 @@
 import { wantsGateway } from '../../client/platform'
-import { OCEAN_HEIGHT_OFFSET } from '../constants'
 import { hideGatewayBackdrop } from '../gateway'
-import Horizon from '../terrain/horizon'
 import Skybox from '../terrain/skybox'
 import { Terrain } from '../terrain/terrain'
 import { createEvent, TypedEventTarget } from '../utils/EventEmitter'
 import { StateObservable } from '../utils/state-observable'
 import { TimeOfDay } from '../utils/time-of-day'
-import { cameraPosition } from '../utils/camera'
-import { DAY_FOG_COLOR, DAY_SUN_POSITION, NIGHT_FOG_COLOR, NIGHT_SUN_POSITION } from '../enviroments/world-environment-constants'
+import { DAY_SUN_POSITION, NIGHT_SUN_POSITION } from '../enviroments/world-environment-constants'
 import { addCuboid, removeCollider } from '../physics/world'
-
-const AMBIENT = 0.3
-const GATEWAY_AMBIENT = 0.45
 
 export type WorldSceneEvents = {
   'fog-updated': void
@@ -25,30 +19,16 @@ export const worldSceneEvents = new TypedEventTarget<WorldSceneEvents>()
 
 let scene: BABYLON.Scene | null = null
 let terrain: Terrain | undefined
-let horizon: Horizon | undefined
 let skybox: Skybox | undefined
 let ambientLight: BABYLON.HemisphericLight | undefined
 let groundStateObservable: StateObservable<'loaded' | 'unloaded'> | undefined
 let timeOfDay: TimeOfDay = TimeOfDay.Day
 let isNightCache: boolean | null = null
-let isUnderwaterCache: boolean | null = null
 let loaded = false
-
-function ambient() {
-  return wantsGateway() ? GATEWAY_AMBIENT : AMBIENT
-}
 
 function fogDensity() {
   if (wantsGateway()) return 0
   return Math.max(3 / window.draw.distance - 0.006, 0)
-}
-
-function isUnderwater() {
-  if (!scene?.activeCamera) return false
-  const cameraPos = cameraPosition(scene)
-  if (cameraPos.y >= OCEAN_HEIGHT_OFFSET + 0.3) return false
-  if (terrain?.getIsland(new BABYLON.Vector2(cameraPos.x, cameraPos.z))) return false
-  return terrain?.hasWaterMeshAt(cameraPos.x, cameraPos.z) || false
 }
 
 function sunPosition() {
@@ -56,22 +36,14 @@ function sunPosition() {
 }
 
 function fogColor() {
-  if (isUnderwater()) return new BABYLON.Color3(0.2, 0.2, 0.2)
-  return timeOfDay === TimeOfDay.Night ? NIGHT_FOG_COLOR : DAY_FOG_COLOR
+  return BABYLON.Color3.FromHexString('#030c19')
 }
 
 function clearColor() {
-  if (isUnderwater()) return new BABYLON.Color4(0.03, 0.03, 0.03, 1)
-  return new BABYLON.Color4(0, 0, 0, 0)
+  return wantsGateway() ? new BABYLON.Color4(0, 0, 0, 0) : new BABYLON.Color4(0.01, 0.025, 0.05, 1)
 }
 
 function updateFog(s: BABYLON.Scene) {
-  if (isUnderwater()) {
-    s.fogMode = BABYLON.Scene.FOGMODE_EXP2
-    s.fogDensity = 0.12
-    s.fogColor = fogColor()
-    return
-  }
   s.fogMode = BABYLON.Scene.FOGMODE_EXP2
   s.fogDensity = fogDensity()
   s.fogColor = fogColor()
@@ -82,7 +54,6 @@ function onEnvironmentStateChanged() {
   if (!scene) return
   updateFog(scene)
   scene.clearColor = clearColor()
-  ;(window as any).engine?.setUnderwater?.(isUnderwater())
 }
 
 export function getWorldGroundState(): StateObservable<'loaded' | 'unloaded'> {
@@ -126,13 +97,11 @@ export async function createWorldScene(s: BABYLON.Scene) {
   skybox = new Skybox(s)
   terrain = new Terrain(s)
   groundStateObservable = terrain.islandsStateObservable
-  horizon = new Horizon(s)
   await terrain.load()
 
   loaded = true
   worldSceneEvents.dispatchEvent(createEvent('ground-loaded', undefined))
   isNightCache = null
-  isUnderwaterCache = null
 }
 
 export function teardownWorldScene() {
@@ -146,31 +115,20 @@ export function teardownWorldScene() {
     terrain.groundMeshes.forEach((m) => m.dispose())
   }
   terrain = undefined
-  ;(horizon as any)?.mesh?.dispose?.()
-  horizon = undefined
   ambientLight?.dispose()
   ambientLight = undefined
   groundStateObservable = undefined
   isNightCache = null
-  isUnderwaterCache = null
 }
 
 export function updateWorldScene() {
   if (!loaded || !scene) return
 
   const night = timeOfDay === TimeOfDay.Night
-  const underwater = isUnderwater()
-  const changed = night !== isNightCache || underwater !== isUnderwaterCache
+  const changed = night !== isNightCache
   isNightCache = night
-  isUnderwaterCache = underwater
-
   if (changed) onEnvironmentStateChanged()
-
-  skybox?.update(sunPosition(), 0.5)
-  if (skybox) skybox.mesh.isVisible = !underwater
-  horizon?.update(fogColor())
-  horizon?.setVisible(!underwater)
-  hideGatewayBackdrop(skybox, horizon)
+  hideGatewayBackdrop(skybox)
   terrain?.update()
 }
 

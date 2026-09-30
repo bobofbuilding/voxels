@@ -1,3 +1,4 @@
+import { createNeonGridMaterial } from '../materials/neon-grid'
 // ABOUTME: Headless parcel preview for Playwright. Voxels only, lot outlines, labels, minimap inset.
 
 import { setMainThread } from '../../client/platform'
@@ -210,7 +211,7 @@ function makeOcean(scene: BABYLON.Scene, record: ParcelRecord) {
   // Huge slab so the ortho frustum is always over water even for big lots.
   const ocean = BABYLON.MeshBuilder.CreateBox('preview-ocean', { width: Math.max(w * 4, 500), height: 1, depth: Math.max(d * 4, 500) }, scene)
   ocean.position.set(cx, record.y1 - 1.5, cz)
-  ocean.material = createMaterial('preview-ocean', scene, OCEAN.r, OCEAN.g, OCEAN.b)
+  ocean.material = createNeonGridMaterial('preview-grid', scene)
   ocean.isPickable = false
   ocean.receiveShadows = false
 }
