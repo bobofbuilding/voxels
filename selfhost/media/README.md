@@ -14,7 +14,7 @@ Requires Python 3.9+, a systemd user session, a writable local state directory a
 sh selfhost/media/install.sh /path/to/assets.csv /mnt/archive
 ```
 
-Gzipped CSV is also accepted. The default application budget is **1.35 TB**, leaving headroom within a 1.5 TB allocation. The default maximum transfer rate is **8 MB/s** with one active file, prioritizing the live world. Override before installation with `MEDIA_ARCHIVE_MAX_BYTES` and `MEDIA_ARCHIVE_RATE`. A lingering systemd user session is needed to keep running after logout; configure that with your host administrator.
+Gzipped CSV is also accepted. The default application budget is **1.35 TB**, leaving headroom within a 1.5 TB allocation. The default maximum transfer rate is **8 MB/s**, with one payload written at a time. Up to four small-file connection setups overlap to reduce DNS/TLS/redirect delays; set `MEDIA_ARCHIVE_CONNECTIONS=1` to disable overlap. Override before installation with `MEDIA_ARCHIVE_MAX_BYTES` and `MEDIA_ARCHIVE_RATE`. A lingering systemd user session is needed to keep running after logout; configure that with your host administrator.
 
 The installer resumes an existing local catalog, or restores the archive's catalog snapshot when local state is new. It does not configure a NAS, change its quota, or expose ports.
 
@@ -38,7 +38,7 @@ Keep active SQLite state on the node's local disk, normally `~/.local/share/voxe
 
 ## Download order and safeguards
 
-Measured type groups are ordered by their summed reported size, ascending. Within each group, the smallest measured files start first. All unmeasured candidates are attempted afterward. Reported MIME types determine queue order; actual response types determine storage folders.
+Current public-parcel media is completed first, including unknown-size current assets; historical-only media follows. Shared URLs count as current and download once. The inventory’s `current_references` column defines current membership at inventory capture time. Within each scope, measured type groups are ordered by their summed reported size, ascending, then files by size; unmeasured files follow the measured groups in that scope. Reported MIME types determine queue order; actual response types determine storage folders.
 
 Only inventory rows classified `asset` are queued. Ordinary links, embedded data already in the builds, streaming services, and live playlists are not finite asset downloads. Each redirect must resolve to public IP addresses; connections pin the validated address and retain TLS hostname verification. No cookies, authentication headers or private credentials are sent. Public Dropbox shared-file links use their ordinary download option. Login/private/HTML responses are recorded as unavailable; access restrictions are not bypassed.
 
@@ -47,6 +47,17 @@ Completed payloads are hashed while streaming. Interrupted files resume only wit
 The downloader pauses on its byte budget, missing mount, disk/quota errors, or less than 10 GB free on the underlying filesystem. **A mounted SFTP filesystem may report whole-disk capacity rather than the account quota**: also monitor the dedicated NAS quota and stop this downloader at the 1.45 TB soft threshold. The live cache and backups share the same hard quota. Existing completed files are retained.
 
 Archive data, including SVG/scripts and other active formats, must not be served inline under the world's origin. This downloader does not change playback URLs, publish a media torrent, or automatically integrate historical assets into the live cache.
+
+## Upgrade an existing queue
+
+Stop the existing service and let its snapshot finish, then rerun the installer with the **same original inventory file**. Its hash must match the catalog. Reprioritization changes only queue membership/order; completed files, hashes, attempts and outcomes are preserved. Do not start a second writer.
+
+```sh
+systemctl --user stop voxels-media-archive.service
+sh selfhost/media/install.sh /path/to/assets.csv.gz /mnt/archive
+```
+
+For a manually managed process, stop it first and run `python3 selfhost/media/archive.py prioritize --root /mnt/archive/media --state /local/state --csv /path/to/assets.csv.gz`, then resume `run`. Older catalogs gain the priority column automatically. A catalog must be prioritized before using current-first order; missing current-reference information is rejected.
 
 ## Operate and monitor
 
@@ -58,7 +69,7 @@ systemctl --user start voxels-media-archive.service
 journalctl --user -u voxels-media-archive.service -n 20 --no-pager
 ```
 
-Check every 15 minutes: status timestamp, downloaded count/current transfer bytes, mount availability, quota, and live-world health. A complete run means every candidate has a terminal outcome; missing or restricted files remain in `unavailable.csv`. `unique_bytes` measures content-deduplicated payloads; downloaded URL bytes can be larger because multiple URLs contain the same data. Preserve and include failures in the final report.
+Status includes `priority_counts` (0=current, 1=historical-only) and the active transfer’s `scope`. Storage errors also save a bounded traceback in local `last-error.json` for diagnosis. Check every 15 minutes: status timestamp, downloaded count/current transfer bytes, mount availability, quota, and live-world health. A complete run means every candidate has a terminal outcome; missing or restricted files remain in `unavailable.csv`. `unique_bytes` measures content-deduplicated payloads; downloaded URL bytes can be larger because multiple URLs contain the same data. Preserve and include failures in the final report.
 
 ## Ask an AI tool to install it
 

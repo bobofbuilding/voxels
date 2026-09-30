@@ -2,6 +2,7 @@
 """Resumable public-media archive. Python 3 standard library; never serves downloaded files."""
 import argparse
 import csv
+from concurrent.futures import ThreadPoolExecutor
 import errno
 import fcntl
 import gzip
@@ -20,7 +21,11 @@ import sqlite3
 import ssl
 import sys
 import time
+import traceback
 from urllib.parse import parse_qsl, quote, urlencode, urljoin, urlsplit, urlunsplit
+
+TLS_CONTEXT = ssl.create_default_context()
+QUEUE_ORDER = 'priority,phase,rank,expected,id'
 
 SCHEMA = '''
 CREATE TABLE IF NOT EXISTS assets (
@@ -72,7 +77,7 @@ class PublicHTTP(http.client.HTTPConnection):
     def connect(self):
         self.sock = socket.create_connection((self.address, self.port), self.timeout)
         if self.secure:
-            self.sock = ssl.create_default_context().wrap_socket(self.sock, server_hostname=self.host)
+            self.sock = TLS_CONTEXT.wrap_socket(self.sock, server_hostname=self.host)
 
 
 def open_source(url, headers=None):
@@ -130,6 +135,12 @@ class Archive:
         self.db = sqlite3.connect(self.state / 'catalog.sqlite')
         self.db.row_factory = sqlite3.Row
         self.db.executescript(SCHEMA)
+        if 'priority' not in {r[1] for r in self.db.execute('PRAGMA table_info(assets)')}:
+            self.db.execute('ALTER TABLE assets ADD COLUMN priority INTEGER NOT NULL DEFAULT 1')
+        self.db.execute('CREATE INDEX IF NOT EXISTS priority_queue ON assets(status,priority,phase,rank,expected,id)')
+        self.db.commit()
+        self.prepared = {}
+        self.pool = None
         self.db.execute('PRAGMA journal_mode=WAL')
         self.db.execute('PRAGMA synchronous=FULL')
         self.stopping = False
@@ -158,7 +169,10 @@ class Archive:
                 h.update(chunk)
         opener = gzip.open if str(source).endswith('.gz') else open
         with opener(source, 'rt', newline='', encoding='utf-8-sig') as f, self.db:
-            for row in csv.DictReader(f):
+            reader = csv.DictReader(f)
+            if 'current_references' not in (reader.fieldnames or []):
+                raise ValueError('Inventory must include current_references')
+            for row in reader:
                 if row.get('category', 'asset') != 'asset':
                     continue
                 url = row['url']
@@ -172,7 +186,61 @@ class Archive:
                 self.db.execute('UPDATE assets SET rank=?,phase=CASE WHEN expected IS NULL THEN 1 ELSE 0 END WHERE type=?', (rank, row['type']))
             self.db.execute('INSERT OR REPLACE INTO meta VALUES(?,?)', ('source_sha256', h.hexdigest()))
             self.db.execute('INSERT OR REPLACE INTO meta VALUES(?,?)', ('imported_at', now()))
+        self.prioritize(source)
         print(json.dumps({'imported': self.db.execute('SELECT COUNT(*) FROM assets').fetchone()[0], 'source_sha256': h.hexdigest()}))
+
+    def prioritize(self, source):
+        """Atomic queue-only migration; existing files, outcomes and attempts are retained."""
+        digest = hashlib.sha256()
+        with open(source, 'rb') as raw:
+            for block in iter(lambda: raw.read(1024 * 1024), b''):
+                digest.update(block)
+        source_hash = self.db.execute("SELECT value FROM meta WHERE key='source_sha256'").fetchone()
+        if not source_hash or source_hash[0] != digest.hexdigest():
+            raise ValueError('Use the exact inventory file originally imported into this catalog')
+        opener = gzip.open if str(source).endswith('.gz') else open
+        with opener(source, 'rt', newline='', encoding='utf-8-sig') as f, self.db:
+            reader = csv.DictReader(f)
+            if 'current_references' not in (reader.fieldnames or []):
+                raise ValueError('Inventory must include current_references to distinguish current media')
+            self.db.execute('CREATE TEMP TABLE current_urls(url TEXT PRIMARY KEY)')
+            try:
+                for row in reader:
+                    if row.get('category', 'asset') != 'asset':
+                        continue
+                    count = int(row.get('current_references') or 0)
+                    if count < 0:
+                        raise ValueError('Invalid current reference count')
+                    if count:
+                        url = row['url']
+                        if url.startswith("'http"):
+                            url = url[1:]
+                        self.db.execute('INSERT OR IGNORE INTO current_urls VALUES(?)', (url,))
+                missing = self.db.execute('SELECT COUNT(*) FROM current_urls WHERE url NOT IN (SELECT url FROM assets)').fetchone()[0]
+                if missing:
+                    raise ValueError(f'{missing} current URLs are absent from this catalog; use the matching inventory')
+                self.db.execute('UPDATE assets SET priority=CASE WHEN url IN (SELECT url FROM current_urls) THEN 0 ELSE 1 END')
+                for priority in (0, 1):
+                    groups = self.db.execute('SELECT type,SUM(expected) total FROM assets WHERE priority=? GROUP BY type ORDER BY total IS NULL,total,type', (priority,)).fetchall()
+                    for rank, row in enumerate(groups):
+                        self.db.execute('UPDATE assets SET rank=? WHERE priority=? AND type=?', (rank, priority, row['type']))
+                self.db.execute("INSERT OR REPLACE INTO meta VALUES('queue_policy','current-first')")
+            finally:
+                self.db.execute('DROP TABLE current_urls')
+        print(json.dumps({'priority_counts': [dict(r) for r in self.db.execute('SELECT priority,COUNT(*) urls FROM assets GROUP BY priority')]}))
+
+    def prepare_sources(self, first):
+        # Only overlap headers for small, fresh transfers. Bodies and storage stay serial.
+        if self.prepared or not self.pool or first['expected'] is None or first['expected'] > 1024 * 1024:
+            return
+        rows = [first] + self.db.execute(f"SELECT * FROM assets WHERE status='pending' ORDER BY {QUEUE_ORDER} LIMIT ?", (getattr(self.args, 'connections', 4) - 1,)).fetchall()
+        for row in rows:
+            if (row['priority'], row['phase'], row['type']) != (first['priority'], first['phase'], first['type']) or row['expected'] is None or row['expected'] > 1024 * 1024:
+                break
+            part = self.root / '.partial' / (hashlib.sha256(row['url'].encode()).hexdigest() + '.part')
+            if part.exists():
+                break
+            self.prepared[row['id']] = self.pool.submit(open_source, row['url'], {})
 
     def snapshot(self):
         # SQLite writes stay on local disk. Only closed, consistent snapshots cross SFTP/FUSE.
@@ -197,6 +265,7 @@ class Archive:
                  'unique_files': self.db.execute('SELECT COUNT(*) FROM blobs').fetchone()[0],
                  'duplicate_urls': counts.get('done', 0) - self.db.execute('SELECT COUNT(*) FROM blobs').fetchone()[0],
                  'limit_bytes': self.args.max_bytes, 'current': self.current, 'groups': groups, 'error': error,
+                 'priority_counts': [dict(r) for r in self.db.execute('SELECT priority,status,COUNT(*) urls FROM assets GROUP BY priority,status')],
                  'source_sha256': self.db.execute("SELECT value FROM meta WHERE key='source_sha256'").fetchone()[0]}
         for folder in (self.state, self.root):
             try:
@@ -247,7 +316,8 @@ class Archive:
         if not validator:
             offset = 0
         headers = {'Range': f'bytes={offset}-', 'If-Range': validator} if offset else {}
-        conn, response, final_url = open_source(row['url'], headers)
+        prepared = self.prepared.pop(row['id'], None)
+        conn, response, final_url = prepared.result() if prepared else open_source(row['url'], headers)
         try:
             code = response.status
             if code == 416 and offset:
@@ -288,7 +358,7 @@ class Archive:
             size = offset
             started = time.monotonic()
             last_space_check = started
-            self.current = {'id': row['id'], 'type': row['type'], 'host': urlsplit(final_url).hostname, 'bytes': size, 'expected_bytes': total}
+            self.current = {'id': row['id'], 'type': row['type'], 'host': urlsplit(final_url).hostname, 'bytes': size, 'expected_bytes': total, 'scope': 'current' if row['priority'] == 0 else 'historical'}
             with part.open('ab' if offset else 'wb') as f:
                 while True:
                     if self.stopping:
@@ -336,13 +406,29 @@ class Archive:
             conn.close()
 
     def run(self):
+        with ThreadPoolExecutor(max_workers=getattr(self.args, 'connections', 4)) as pool:
+            self.pool = pool
+            try:
+                return self.run_queue()
+            finally:
+                for future in self.prepared.values():
+                    try:
+                        conn, response, _ = future.result()
+                        response.close()
+                        conn.close()
+                    except Exception:
+                        pass  # Unused headers never change catalog outcomes.
+                self.prepared.clear()
+                self.pool = None
+
+    def run_queue(self):
         self.check_mount()
         (self.root / '.partial').mkdir(parents=True, exist_ok=True)
         with self.db:
             self.db.execute("UPDATE assets SET status='pending' WHERE status='downloading'")
         self.report(force=True)
         while not self.stopping:
-            row = self.db.execute("SELECT * FROM assets WHERE status='pending' ORDER BY phase,rank,expected,id LIMIT 1").fetchone()
+            row = self.db.execute(f"SELECT * FROM assets WHERE status='pending' ORDER BY {QUEUE_ORDER} LIMIT 1").fetchone()
             if row is None:
                 self.current = None
                 self.report('complete', True)
@@ -350,6 +436,7 @@ class Archive:
             with self.db:
                 self.db.execute("UPDATE assets SET status='downloading',tries=tries+1 WHERE id=?", (row['id'],))
             try:
+                self.prepare_sources(row)
                 self.download(row)
             except InterruptedError:
                 with self.db:
@@ -359,6 +446,7 @@ class Archive:
                 if isinstance(exc, StorageFull) or getattr(exc, 'errno', None) in (errno.ENOSPC, errno.EDQUOT, errno.EIO, errno.EROFS, errno.ENOTCONN):
                     with self.db:
                         self.db.execute("UPDATE assets SET status='pending',error=? WHERE id=?", (str(exc), row['id']))
+                    (self.state / 'last-error.json').write_text(json.dumps({'at': now(), 'asset_id': row['id'], 'error': str(exc), 'traceback': traceback.format_exc()[-12000:]}))
                     self.report('blocked', True, str(exc))
                     return 75
                 self.failed(row, exc, True)
@@ -384,10 +472,11 @@ class Archive:
 
 def parser():
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument('command', choices=['import', 'run', 'status'])
+    p.add_argument('command', choices=['import', 'prioritize', 'run', 'status'])
     p.add_argument('--root', required=True, help='Media directory on archive storage')
     p.add_argument('--state', required=True, help='Local state directory (not on SFTP/NFS)')
-    p.add_argument('--csv', help='Public inventory assets.csv, for import')
+    p.add_argument('--csv', help='Public inventory assets.csv with current_references, for import/prioritize')
+    p.add_argument('--connections', type=int, choices=range(1, 5), default=4, help='Concurrent small-file connection setups (bodies remain sequential)')
     p.add_argument('--mount', help='Require this separate storage mount before writing')
     p.add_argument('--max-bytes', type=int, default=1_350_000_000_000)
     p.add_argument('--max-file-bytes', type=int, default=50_000_000_000)
@@ -406,6 +495,9 @@ def main():
     archive = Archive(args)
     for sig in (signal.SIGINT, signal.SIGTERM):
         signal.signal(sig, lambda *_: setattr(archive, 'stopping', True))
+    if args.command == 'prioritize':
+        archive.prioritize(args.csv)
+        return 0
     if args.command == 'import':
         archive.import_csv(args.csv)
         return 0
