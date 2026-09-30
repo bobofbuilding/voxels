@@ -1,4 +1,5 @@
 import pg from 'pg'
+import { archivedParcelRights } from './parcel-rights.mjs'
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import { gunzipSync } from 'node:zlib'
@@ -11,6 +12,7 @@ const suburbs = new Map()
 const owners = new Set()
 let count = 0
 await db.query('BEGIN')
+await db.query('CREATE TABLE IF NOT EXISTS parcel_rights_unresolved(parcel_id integer NOT NULL, record jsonb NOT NULL)')
 try {
   for (const filename of (await fs.readdir(path.join(root, 'builds'))).filter((x) => /^\d+\.json\.gz$/.test(x)).sort()) {
     const response = JSON.parse(gunzipSync(await fs.readFile(path.join(root, 'builds', filename))))
@@ -64,6 +66,9 @@ try {
     const names = Object.keys(fields)
     const values = Object.values(fields)
     await db.query(`INSERT INTO properties(${names.join(',')}) VALUES(${names.map((_, i) => '$' + (i + 1)).join(',')})`, values)
+    const rights = archivedParcelRights(p)
+    for (const user of rights.users) await db.query('INSERT INTO parcel_users(parcel_id,wallet,role) VALUES($1,$2,$3)', [p.id, user.owner, user.role])
+    for (const record of rights.unresolved) await db.query('INSERT INTO parcel_rights_unresolved VALUES($1,$2)', [p.id, record])
     count++
   }
   const islands = JSON.parse(await fs.readFile(path.join(root, 'islands.json'), 'utf8')).islands
@@ -83,7 +88,7 @@ try {
   await db.query('REFRESH MATERIALIZED VIEW mv_property_counts; REFRESH MATERIALIZED VIEW mv_space_counts; REFRESH MATERIALIZED VIEW search_corpus')
   if (count !== Number(process.env.EXPECTED_PARCELS || 8807)) throw Error('Unexpected imported parcel count ' + count)
   await db.query('COMMIT')
-  console.log(JSON.stringify({ importedParcels: count, islands: islands.length, suburbs: suburbs.size, publicProfiles: owners.size, contributorPermissionsImported: false }))
+  console.log(JSON.stringify({ importedParcels: count, islands: islands.length, suburbs: suburbs.size, publicProfiles: owners.size, parcelRolesImported: true, globalModeratorPermissionsImported: false }))
 } catch (error) {
   await db.query('ROLLBACK')
   throw error

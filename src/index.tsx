@@ -124,11 +124,21 @@ let bootPromise: Promise<BootResult> | null = null
 // view is shown. Importing this module must have no side effects. Resolves with
 // the UI component + its props so <Client> can render it in its own tree.
 export function bootEngine(): Promise<BootResult> {
-  if (!bootPromise) bootPromise = main()
+  if (!bootPromise)
+    bootPromise = main().catch((error) => {
+      bootPromise = null
+      throw error
+    })
   return bootPromise
 }
 
 async function main() {
+  if (process.env.FEDERATION_WORLD) {
+    const response = await fetch('/federation/info', { cache: 'no-store', signal: AbortSignal.timeout(8000) })
+    if (!response.ok) throw Error('Connect to an active world host to enter')
+    const info = await response.json()
+    if (info.world !== process.env.FEDERATION_WORLD) throw Error('World host identity does not match this client')
+  }
   const voxels = (window.voxels = {} as Voxels)
 
   // if the inspector breaks, try downloading the correct version into `/dist/vendor` like this:

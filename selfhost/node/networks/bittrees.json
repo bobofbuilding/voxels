@@ -10,6 +10,7 @@
   "publisherKey": "../../seed/publisher.pem",
   "islands": "bittrees-islands.json",
   "islandsSha256": "3146507bc592156f1e53ba9658127907ea2bc69f0f4b287cbe3bec117719d681",
-  "policy": "wallet-signed-public-builds",
-  "status": "pilot"
+  "policy": "wallet-signed-parcel-rights",
+  "status": "pilot",
+  "protocolVersion": 2
 }
