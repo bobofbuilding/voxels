@@ -13,6 +13,7 @@ const buildNum = process.env.BUILD_NUM || '69420'
 
 const publicEnv = [
   'OWNER_ADDRESS',
+  'FEDERATION_WORLD',
   'API',
   'ASSET_PATH',
   'BROADCAST_URL',
