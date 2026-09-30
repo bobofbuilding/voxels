@@ -33,6 +33,8 @@ args = ['/usr/bin/python3', state+'/archive.py', 'run', '--root', mount+'/media'
         '--max-bytes', os.environ.get('MEDIA_ARCHIVE_MAX_BYTES', '1350000000000'),
         '--rate', os.environ.get('MEDIA_ARCHIVE_RATE', '8000000'),
         '--connections', os.environ.get('MEDIA_ARCHIVE_CONNECTIONS', '4')]
+if os.environ.get('MEDIA_ARCHIVE_RESUME', '1') == '0':
+    args.append('--no-resume')
 quote = lambda value: json.dumps(value.replace('%', '%%'))
 unit = '''[Unit]
 Description=Resumable public Voxels media archive

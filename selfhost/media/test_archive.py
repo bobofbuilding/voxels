@@ -156,6 +156,40 @@ class ArchiveTests(unittest.TestCase):
         self.assertEqual(source.call_args.args[1], {'Range': 'bytes=3-', 'If-Range': '"v1"'})
         self.assertEqual(self.job.db.execute('SELECT sha256 FROM assets').fetchone()[0], hashlib.sha256(b'abcdef').hexdigest())
 
+    def test_no_resume_restarts_partial_without_append_or_range(self):
+        self.args.no_resume = True
+        row = self.row()
+        self.partial(row, b'old')
+        original = Path.open
+        def no_append(path, mode='r', *args, **kwargs):
+            self.assertNotIn('a', mode)
+            return original(path, mode, *args, **kwargs)
+        with self.source(Response(b'abcdef')) as source, patch.object(Path, 'open', no_append):
+            self.job.download(row)
+        self.assertEqual(source.call_args.args[1], {})
+        saved = self.job.db.execute('SELECT path FROM assets').fetchone()[0]
+        self.assertEqual((self.root / saved).read_bytes(), b'abcdef')
+
+    def test_due_checkpoint_waits_until_payload_closed(self):
+        row = self.row()
+        self.job.report = a.Archive.report.__get__(self.job)
+        flags = []
+        original_report = self.job.report
+        def report(*args, **kwargs):
+            flags.append(kwargs.get('allow_checkpoint', True))
+            original_report(*args, **kwargs)
+        self.job.report = report
+        with self.source(Response(b'abcdef')), patch.object(self.job, 'snapshot') as snapshot:
+            self.job.download(row)
+            snapshot.assert_not_called()
+            self.assertEqual(flags, [False])
+            self.assertTrue((Path(self.args.state) / 'status.json').exists())
+            self.assertFalse((self.root / 'status.json').exists())
+            # Checkpoint is still due even though local progress was just reported.
+            self.job.report()
+            snapshot.assert_called_once()
+            self.assertTrue((self.root / 'status.json').exists())
+
     def test_ignored_range_restarts_file(self):
         row = self.row()
         self.partial(row, b'old')
