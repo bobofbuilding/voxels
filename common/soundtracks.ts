@@ -10,8 +10,12 @@ export interface Track {
 
 export const MUSIC_URI = '/music'
 
-// Original, locally hosted score. Every node serves the same small audio asset.
-export const worldTracks: Track[] = [{ fileName: 'neon-transit-v1.mp3', duration: 80, volume: 0.65 }]
+// Eight original 72 BPM pieces; 42m40s before the playlist repeats.
+export const worldTracks: Track[] = ['midnight-circuit', 'blue-horizon', 'glass-signals', 'quiet-machines', 'afterimage', 'distant-terminal', 'ion-drift', 'dawn-return'].map((name) => ({
+  fileName: `${name}-v2.mp3`,
+  duration: 320,
+  volume: 0.65,
+}))
 
 export const tracks: Track[] = [
   { fileName: 'synthdad.webm', fallback: 'synthdad-AAC.m4a', duration: 2136 },

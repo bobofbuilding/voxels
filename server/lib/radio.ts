@@ -1,6 +1,5 @@
 import { PutObjectCommand, S3Client } from '@aws-sdk/client-s3'
 import { MUSIC_URI, worldTracks } from '../../common/soundtracks'
-import { seededShuffle } from '../../common/helpers/utils'
 import { avatarName } from '../../common/messages/avatar-ref'
 import { Db } from '../pg'
 
@@ -73,13 +72,19 @@ export function buildSpots(day: number): Spot[] {
   return spots
 }
 
-// Deterministic per UTC day: same station for everyone, regenerates at midnight.
+// Continuous UTC timeline: midnight does not reset the playlist or repeat a recent track.
 export function buildSchedule(day: number): Schedule {
-  const order = seededShuffle(worldTracks.slice(), day + 1)
+  const order = worldTracks
+  const cycle = order.reduce((sum, track) => sum + track.duration, 0)
+  let offset = (((day * DAY) % cycle) + cycle) % cycle
+  let i = 0
+  while (offset >= order[i].duration) {
+    offset -= order[i].duration
+    i++
+  }
 
   const segments: Segment[] = []
-  let t = 0
-  let i = 0
+  let t = -offset
   while (t < DAY) {
     const track = order[i % order.length]
     segments.push({ ...track, startsAt: t })
