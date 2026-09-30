@@ -25,9 +25,10 @@ const routes = () => {
   const found: { path: string; where: string }[] = []
   for (const file of sourceFiles(SERVER)) {
     const src = readFileSync(file, 'utf8')
+    const mount = src.match(/\bapp\.use\(\s*(['"`])([^'"`]*)\1\s*,\s*router\s*\)/)?.[2] || ''
     for (const m of src.matchAll(ROUTE)) {
       if (m[1] !== 'get') continue // writes and app.all catch-alls are never public reads
-      found.push({ path: toOpenApi(m[3]), where: `${file.slice(SERVER.length)}:${src.slice(0, m.index).split('\n').length}` })
+      found.push({ path: toOpenApi((m[0].startsWith('router.') ? mount : '') + m[3]), where: `${file.slice(SERVER.length)}:${src.slice(0, m.index).split('\n').length}` })
     }
   }
   return found

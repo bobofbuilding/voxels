@@ -25,6 +25,7 @@ Generated from `server/openapi.yaml` by `npm run docs:api`. Edit the spec, not t
 - [ghosts](#ghosts), 1 route
 - [chat](#chat), 1 route
 - [account](#account), 5 routes
+- [federation](#federation), 7 routes
 - [schemas](#schemas), 28 shapes
 
 ## parcels
@@ -1472,6 +1473,107 @@ JWT required. `wallet` must be the signed-in identity or one linked to it. Sets 
   - `token` string
   - `name` string
 - `401` The lookup did not land. Some handlers send this with status 200.
+
+## federation
+
+- [`GET /federation/info`](#get-federationinfo) Shared-world identity and editor policy
+- [`GET /federation/parcel/{id}`](#get-federationparcelid) Read the public parcel genesis hash and latest causal revision
+- [`POST /federation/edits`](#post-federationedits) Verify and durably apply a wallet-signed public build edit
+- [`POST /federation/batch`](#post-federationbatch) Receive up to 16 independently signed edits
+- [`GET /federation/events`](#get-federationevents) Read a bounded feed of committed public edits
+- [`GET /federation/presence`](#get-federationpresence) Read anonymous, short-lived host-signed player poses
+- [`POST /federation/presence`](#post-federationpresence) Relay host-signed player poses
+
+### GET /federation/info
+
+Shared-world identity and editor policy
+
+Available only when FEDERATION_WORLD is configured. No session is required; edits carry independent wallet proofs.
+
+**answers**
+
+- `200` Version, world identifier, editor address, policy and node identifier
+
+### GET /federation/parcel/{id}
+
+Read the public parcel genesis hash and latest causal revision
+
+**parameters**
+
+- `id` (path, required) integer
+
+**answers**
+
+- `200` Base hash, clock and parent edit identifier (null at genesis)
+- `400` Invalid or non-public parcel
+
+### POST /federation/edits
+
+Verify and durably apply a wallet-signed public build edit
+
+Requires the configured world editor's personal-message signature. Legacy account tokens do not authorize edits. See selfhost/node/README.md and common/federation/edit.ts for canonical signing, supported patches and bounds. Requests are limited to 2 MiB; signed envelopes to 1,900,000 UTF-8 bytes.
+
+**body**
+
+- `application/json` object
+
+**answers**
+
+- `200` Accepted edit identifier; duplicate submissions are idempotent
+- `400` Invalid proof, missing parent, wrong snapshot or unsupported build
+
+### POST /federation/batch
+
+Receive up to 16 independently signed edits
+
+Events are verified in order. A failure may follow earlier committed events; retrying is safe because accepted IDs are idempotent.
+
+**body**
+
+- `application/json` object
+  - `events` array of object
+
+**answers**
+
+- `200` Accepted identifiers
+- `400` Invalid batch or edit
+
+### GET /federation/events
+
+Read a bounded feed of committed public edits
+
+**parameters**
+
+- `after` (query) integer, defaults to `0`
+
+**answers**
+
+- `200` World identifier, up to 16 sequence/event entries and next cursor
+- `400` Invalid cursor
+
+### GET /federation/presence
+
+Read anonymous, short-lived host-signed player poses
+
+**answers**
+
+- `200` World identifier and at most 16 valid host snapshots
+
+### POST /federation/presence
+
+Relay host-signed player poses
+
+Only world, node, timestamp and anonymous pose fields are accepted. Validity lasts 15 seconds. Host signatures do not prove human identity; unverified wallet/name claims are not forwarded.
+
+**body**
+
+- `application/json` object
+  - `snapshots` array of object
+
+**answers**
+
+- `200` Envelope processed; invalid or expired snapshots are ignored
+- `400` Invalid envelope
 
 ## schemas
 

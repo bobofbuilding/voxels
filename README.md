@@ -5,7 +5,7 @@ guidelines.
 
 # Getting started
 
-See [install.md](install.md) for Codespaces and local setup.
+See [install.md](install.md) for Codespaces and local setup. To host a playable shared world, use the [node installer](selfhost/node/README.md) or give your AI assistant the [setup prompt](selfhost/node/AI_SETUP.md).
 
 # Infrastructure
 

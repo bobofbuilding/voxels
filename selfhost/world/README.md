@@ -2,6 +2,8 @@
 
 The archive is the durable public dataset. The active world runs this repository's client, HTTP/grid server and multiplayer server against a local writable database. Serve the application at `/play`; `../seed/gateway.mjs` redirects the hostname root there.
 
+For a Docker-based installation with independently writable, wallet-verified nodes, see the [node installer](../node/README.md). Its synchronization scope and limits are documented there.
+
 ## Initial import
 
 Use an empty PostgreSQL 18 database with `db/schema.sql` applied (including cube and citext extensions). Extract the signed public archive to a staging directory. Place a reviewed public `/api/islands.json` response alongside its `builds/` directory as `islands.json`.

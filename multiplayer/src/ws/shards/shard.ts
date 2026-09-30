@@ -24,6 +24,7 @@ const HEALTHY_UPDATE_HZ = 5
 export const ALL_SHARD_CLIENT_MESSAGE_CHANNEL = 'all_shard_clients'
 
 export class Shard {
+  readonly remoteAvatars = new Map<string, messages.UpdateAvatarMessage>()
   lastWorldStateUpdate = 0
   readonly connectedClients: Map<ClientUUID, Client> = new Map()
   readonly disposeAbortController = new AbortController()
@@ -130,6 +131,14 @@ export class Shard {
       type: messages.MessageType.join,
       createAvatars: [],
       avatars: [],
+    }
+    for (const [uuid, avatar] of this.remoteAvatars) {
+      msg.createAvatars.push({
+        type: messages.MessageType.createAvatar,
+        uuid,
+        description: { name: 'Remote traveler' },
+      })
+      msg.avatars.push(avatar)
     }
     try {
       for (const s of this.getClientList()) {

@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "world": "0xfc68afcfc3a6a71c13a5f2effe7bd5f457f5631b75e3ef9ac8c229101f569780",
+  "editor": "0x134561f705a9c2dda470b2246d075bf7a3c612d2",
+  "peers": [
+    "https://bittrees.world"
+  ],
+  "expectedParcels": 8807,
+  "snapshotManifestSha256": "44773acab66cd46e405cdd3576b8f4139701d9209965f6844b12e86422d45ba0",
+  "publisherKey": "../../seed/publisher.pem",
+  "islands": "bittrees-islands.json",
+  "islandsSha256": "3146507bc592156f1e53ba9658127907ea2bc69f0f4b287cbe3bec117719d681",
+  "policy": "wallet-signed-public-builds",
+  "status": "pilot"
+}

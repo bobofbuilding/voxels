@@ -520,6 +520,7 @@ export default class Parcel extends AbstractParcel {
   }
 
   public override async save(options?: ParcelSaveOptions): Promise<boolean> {
+    if (process.env.FEDERATION_WORLD) throw Error('Shared-world parcels require wallet-signed edits')
     this.cleanNullFeatures()
 
     if (this._justGotMinted) {

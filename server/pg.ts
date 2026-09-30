@@ -34,7 +34,7 @@ const connectionString = process.env.DATABASE_URL || `postgres://localhost/voxel
 const formattedConnectionString = connectionString.replace(/^postgresql:\/\//, 'postgres://').replace(/[?&]sslmode=[^&]*/, '')
 // Enable SSL for production databases (DigitalOcean, etc.) but disable for local development
 const isLocalhost = formattedConnectionString.includes('localhost') || formattedConnectionString.includes('127.0.0.1') || new URL(formattedConnectionString).searchParams.get('host')?.startsWith('/') === true
-const sslConfig = isLocalhost ? false : { rejectUnauthorized: false }
+const sslConfig = process.env.DATABASE_SSL === 'disable' || isLocalhost ? false : { rejectUnauthorized: false }
 // slow queries starve the 20 slot pool and hang the site, kill them. long jobs SET LOCAL statement_timeout = 0
 const pool = new Pool({ connectionString: formattedConnectionString, max: 20, ssl: sslConfig, statement_timeout: readDatabaseTimeout() })
 
