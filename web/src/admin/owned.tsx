@@ -1,8 +1,9 @@
+import { Config as deployment } from '../../../common/config'
 import { useEffect, useState } from 'preact/hooks'
 import cachedFetch from '../helpers/cached-fetch'
 import { Fee, listOnOpensea } from '../helpers/list-opensea'
 
-const TEAM = '0x2D891ED45C4C3EAB978513DF4B92a35Cf131d2e2'
+const TEAM = deployment.ownerAddress
 
 type Parcel = { id: number; name?: string; address: string }
 type Config = { floor: number; volume30d: number; suggested: number; fees: Fee[] }

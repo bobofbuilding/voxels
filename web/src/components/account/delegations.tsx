@@ -1,6 +1,6 @@
 import type { MetaMaskInpageProvider } from '@metamask/providers'
 import { useEffect, useState } from 'preact/hooks'
-import { copyTextToClipboard } from '../../../../common/helpers/utils'
+import { copyTextToClipboard } from '../../../../client/ui/clipboard'
 import { getUserAccounts, hasMetamask, signMessage } from '../../auth/login-helper'
 import { appoint, identityLabel, isEmailAccount, loadMe, me as meSignal } from '../../auth/identities'
 import { app } from '../../state'

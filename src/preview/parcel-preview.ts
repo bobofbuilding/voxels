@@ -1,6 +1,6 @@
 // ABOUTME: Headless parcel preview for Playwright. Voxels only, lot outlines, labels, minimap inset.
 
-import { setMainThread } from '../../common/helpers/detector'
+import { setMainThread } from '../../client/platform'
 import type { ParcelRecord } from '../../common/messages/parcel'
 import Grid from '../grid'
 import { getComputePool } from '../mono-pool'

@@ -1,5 +1,5 @@
 import { ComponentChildren } from 'preact'
-import { isDesktop, isMobile } from '../../common/helpers/detector'
+import { isDesktop, isMobile } from '../../client/platform'
 
 export function ViewOnCondition({ condition, children }: { condition: boolean; children?: ComponentChildren }) {
   if (condition) {

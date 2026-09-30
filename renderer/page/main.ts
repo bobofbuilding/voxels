@@ -1,6 +1,6 @@
 // ABOUTME: Playwright page entry. Exposes window.renderVoxThumb(bytesB64, bg, size) and renderVrmThumb(url, bg, size) -> webp base64.
 
-import { createThumbScene, renderVoxThumb, renderVrmThumb } from '../../common/renderable/vox-thumb'
+import { createThumbScene, renderVoxThumb, renderVrmThumb } from '../../client/rendering/vox-thumb'
 import type { ThumbScene } from '../../common/renderable/types'
 
 let ctx: ThumbScene | null = null

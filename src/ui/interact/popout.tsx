@@ -1,6 +1,6 @@
 import { signal } from '@preact/signals'
 import { useEffect, useRef } from 'preact/hooks'
-import { exitPointerLock } from '../../../common/helpers/ui-helpers'
+import { exitPointerLock } from '../../../client/ui/helpers'
 import Icon from '../../../web/src/components/icons/interact'
 import { DancePane } from './dance-pane'
 import { EmotePane } from './emote-pane'

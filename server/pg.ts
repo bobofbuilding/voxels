@@ -1,7 +1,5 @@
-import { userInfo } from 'os'
 import { performance } from 'perf_hooks'
 import { Pool, PoolClient, QueryConfig, QueryConfigValues, QueryResult, QueryResultRow } from 'pg'
-import PgPromise from 'pg-promise'
 import { named } from './lib/logger'
 
 const log = named('postgres')
@@ -100,7 +98,7 @@ function query<R extends QueryResultRow = any, I extends any[] = any[]>(queryCon
 
 const resolveQueryConfig = <Values extends any[]>(queryConfigOrName: string | QueryConfig<Values>, queryText: string | null, values: Values | null): QueryConfig<Values> => {
   const queryName: string | undefined = typeof queryConfigOrName === 'string' ? queryConfigOrName : queryConfigOrName.name
-  const queryConfig: QueryConfig<Values> = typeof queryConfigOrName === 'string' ? { text: queryText! } : queryConfigOrName
+  const queryConfig: QueryConfig<Values> = typeof queryConfigOrName === 'string' ? { text: queryText! } : { ...queryConfigOrName }
 
   if (values) {
     queryConfig.values = values as QueryConfigValues<Values>
@@ -118,7 +116,7 @@ query: ${queryName || '(unknown)'}
 
 // drain the pool of all active clients, disconnect them, and shut down any internal timers in the pool
 function drain() {
-  pool.end()
+  return pool.end()
 }
 
 export type Db = {
@@ -134,7 +132,3 @@ const db: Db = {
 }
 
 export default db
-
-export const pgp = PgPromise()(connectionString)
-
-export type DBPromise = typeof pgp

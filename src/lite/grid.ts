@@ -1,4 +1,4 @@
-import { createMessageHandler } from '../../common/helpers/comlink-worker'
+import { createMessageHandler } from '../../client/workers/comlink-worker'
 import { getGridMono } from '../mono-pool'
 import type { GridWorkerOutput } from '../monoworker/grid'
 import type { Lite } from './index'

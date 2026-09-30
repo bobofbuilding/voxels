@@ -1,6 +1,6 @@
 import { GraphicLevels, type GraphicEngine } from './graphic-engine'
 import type { ColorGrader } from './color-grading'
-import { wantsGateway } from '../../common/helpers/detector'
+import { wantsGateway } from '../../client/platform'
 
 export class PostProcesses {
   private readonly scene: BABYLON.Scene

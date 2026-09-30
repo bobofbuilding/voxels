@@ -1,7 +1,7 @@
 import * as ethers from 'ethers'
 import { useEffect, useState } from 'preact/hooks'
 import { format } from 'timeago.js'
-import { copyTextToClipboard } from '../../../../common/helpers/utils'
+import { copyTextToClipboard } from '../../../../client/ui/clipboard'
 import { ApiAvatar } from '../../../../common/messages/api-avatars'
 import { SimpleSpaceRecord } from '../../../../common/messages/space'
 import { Costume } from '../../../../common/types'

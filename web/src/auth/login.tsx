@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'preact/hooks'
 import { startAuthentication, startRegistration } from '@simplewebauthn/browser'
-import { isMobile } from '../../../common/helpers/detector'
+import { isMobile } from '../../../client/platform'
 import { consumeMetamaskLoginPending, hasMetamask, openMetamaskMobileDapp } from '../auth/login-helper'
 import { login } from '../auth/state-login'
 import { app, AppEvent } from '../state'

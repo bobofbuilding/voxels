@@ -1,3 +1,4 @@
+import { isAdminWallet } from './permissions'
 import 'babylonjs' // BABYLON
 import { EventEmitter } from 'events'
 import { ParcelUser } from '../common/helpers/parcel-helper'
@@ -185,7 +186,7 @@ export abstract class AbstractParcel implements ParcelRef {
   }
 
   get ownedByCorporation() {
-    return this.owner === process.env.CREATOR_ADDRESS || this.owner === process.env.OWNER_ADDRESS
+    return this.owner.toLowerCase() === process.env.CREATOR_ADDRESS?.toLowerCase() || isAdminWallet(this.owner)
   }
 
   get min() {

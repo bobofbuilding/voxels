@@ -6,7 +6,7 @@ import { FeatureType } from '../../../common/messages/feature'
 import { app } from '../../../web/src/state'
 import Panel, { PanelType } from '../../../web/src/components/panel'
 import { FeatureMetadata, featuresInfo, FeatureTemplate, featureTemplates, PlaceableFeatureTypes } from '../../features/_metadata'
-import { requestPointerLock } from '../../../common/helpers/ui-helpers'
+import { requestPointerLock } from '../../../client/ui/helpers'
 import { focusFirst, onListArrowKeys } from '../../../web/src/helpers/keynav'
 
 interface Props {

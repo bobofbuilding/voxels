@@ -1,4 +1,4 @@
-import { wantsAudio } from '../../../common/helpers/detector'
+import { wantsAudio } from '../../../client/platform'
 import { VoxelRadioEngine } from './engine'
 
 let radio: VoxelRadioEngine | null = null

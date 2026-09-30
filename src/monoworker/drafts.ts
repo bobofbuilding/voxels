@@ -1,4 +1,4 @@
-import { VOX_SCALE } from '../../common/vox-import/vox-import'
+import { VOX_SCALE } from '../../client/world/vox-import'
 
 const VoxReader = require('@sh-dave/format-vox').VoxReader
 const VoxTools = require('@sh-dave/format-vox').VoxTools

@@ -1,4 +1,4 @@
-import { wantsGateway } from '../../common/helpers/detector'
+import { wantsGateway } from '../../client/platform'
 import { OCEAN_HEIGHT_OFFSET } from '../constants'
 import { hideGatewayBackdrop } from '../gateway'
 import Horizon from '../terrain/horizon'

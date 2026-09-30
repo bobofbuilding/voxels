@@ -299,9 +299,6 @@ importers:
       pg-boss:
         specifier: ^10.3.2
         version: 10.4.2
-      pg-promise:
-        specifier: ^12.2.0
-        version: 12.6.2(pg-query-stream@4.14.0(pg@8.11.1))
       playwright:
         specifier: ^1.62.1
         version: 1.62.1
@@ -2609,10 +2606,6 @@ packages:
     resolution: {integrity: sha512-uLvq6KJu04qoQM6gvBfKFjlh6Gl0vOKQuR5cJMDHQkmwfMOQeN3F3SHCv9SNYSL+CRoHvOGFfllDlVz03GQjvQ==}
     engines: {node: '>=12.0.0'}
 
-  assert-options@0.8.3:
-    resolution: {integrity: sha512-s6v4HnA+vYSGO4eZX+F+I3gvF74wPk+m6Z1Q3w1Dsg4Pnv/R24vhKAasoMVZGvDpOOfTg1Qz4ptZnEbuy95XsQ==}
-    engines: {node: '>=14.0.0'}
-
   assert@2.1.0:
     resolution: {integrity: sha512-eLHpSK/Y4nhMJ07gDaAzoX/XAKS8PSaojml3M0DM4JpV1LAi5JOJ/p6H/XWrl8L+DzVEvVCW1z3vWAaB9oTsQw==}
 
@@ -4452,37 +4445,17 @@ packages:
   pg-connection-string@2.12.0:
     resolution: {integrity: sha512-U7qg+bpswf3Cs5xLzRqbXbQl85ng0mfSV/J0nnA31MCLgvEaAo7CIhmeyrmJpOr7o+zm0rXK+hNnT5l9RHkCkQ==}
 
-  pg-cursor@2.19.0:
-    resolution: {integrity: sha512-J5cF1MUz7LRJ9emOqF/06QjabMHMZy587rSPF0UuA8rCwKeeYl2co8Pp+6k5UU9YrAYHMzWkLxilfZB0hqsWWw==}
-    peerDependencies:
-      pg: ^8
-
   pg-int8@1.0.1:
     resolution: {integrity: sha512-WCtabS6t3c8SkpDBUlb1kjOs7l66xsGdKpIPZsg4wR+B3+u9UAum2odSsF9tnvxg80h4ZxLWMy4pRjOsFIqQpw==}
     engines: {node: '>=4.0.0'}
-
-  pg-minify@1.8.0:
-    resolution: {integrity: sha512-jO/oJOununpx8DzKgvSsWm61P8JjwXlaxSlbbfTBo1nvSWoo/+I6qZYaSN96jm/KDwa5d+JMQwPGgcP6HXDRow==}
-    engines: {node: '>=16.0.0'}
 
   pg-pool@3.13.0:
     resolution: {integrity: sha512-gB+R+Xud1gLFuRD/QgOIgGOBE2KCQPaPwkzBBGC9oG69pHTkhQeIuejVIk3/cnDyX39av2AxomQiyPT13WKHQA==}
     peerDependencies:
       pg: '>=8.0'
 
-  pg-promise@12.6.2:
-    resolution: {integrity: sha512-pRlBExJKLomYri4YslxN15n3lL3QNFOsWIjY962CwkNq1ATJEfMbij0MI90ZHz2aHdkWLGCDxKg4l1AFiI8dXQ==}
-    engines: {node: '>=16.0'}
-    peerDependencies:
-      pg-query-stream: 4.14.0
-
   pg-protocol@1.13.0:
     resolution: {integrity: sha512-zzdvXfS6v89r6v7OcFCHfHlyG/wvry1ALxZo4LqgUoy7W9xhBDMaqOuMiF3qEV45VqsN6rdlcehHrfDtlCPc8w==}
-
-  pg-query-stream@4.14.0:
-    resolution: {integrity: sha512-B1LLxgqngAATPciOPYYKyaQfsw5wyP6BZq6nHqQOC5QaaEBsfW/0OBwWUga+knCAqENMeoow9I8Zgi2m3P9rWw==}
-    peerDependencies:
-      pg: ^8
 
   pg-types@2.2.0:
     resolution: {integrity: sha512-qTAAlrEsl8s4OiEQY69wDvcMIdQN6wdz5ojQiOy6YRMuynxenON0O5oCpJI6lshc6scgAY8qvJ2On/p+CXY0GA==}
@@ -5020,10 +4993,6 @@ packages:
 
   spdx-license-ids@3.0.23:
     resolution: {integrity: sha512-CWLcCCH7VLu13TgOH+r8p1O/Znwhqv/dbb6lqWy67G+pT1kHmeD/+V36AVb/vq8QMIQwVShJ6Ssl5FPh0fuSdw==}
-
-  spex@4.1.0:
-    resolution: {integrity: sha512-ktgNAQ1X9x1A3IMChM6XBDeVjhGPbLgPQ8aEzGOaUIhZTnLeJSBApvi3gXT789hee6h73N3jOeWkXDwoPbYT/A==}
-    engines: {node: '>=18.0.0'}
 
   splaytree@0.1.4:
     resolution: {integrity: sha512-D50hKrjZgBzqD3FT2Ek53f2dcDLAQT8SSGrzj3vidNH5ISRgceeGVJ2dQIthKOuayqFXfFjXheHNo4bbt9LhRQ==}
@@ -8557,8 +8526,6 @@ snapshots:
       pvutils: 1.1.5
       tslib: 2.8.1
 
-  assert-options@0.8.3: {}
-
   assert@2.1.0:
     dependencies:
       call-bind: 1.0.8
@@ -10766,13 +10733,7 @@ snapshots:
 
   pg-connection-string@2.12.0: {}
 
-  pg-cursor@2.19.0(pg@8.11.1):
-    dependencies:
-      pg: 8.11.1
-
   pg-int8@1.0.1: {}
-
-  pg-minify@1.8.0: {}
 
   pg-pool@3.13.0(pg@8.11.1):
     dependencies:
@@ -10782,22 +10743,7 @@ snapshots:
     dependencies:
       pg: 8.20.0
 
-  pg-promise@12.6.2(pg-query-stream@4.14.0(pg@8.11.1)):
-    dependencies:
-      assert-options: 0.8.3
-      pg: 8.20.0
-      pg-minify: 1.8.0
-      pg-query-stream: 4.14.0(pg@8.11.1)
-      spex: 4.1.0
-    transitivePeerDependencies:
-      - pg-native
-
   pg-protocol@1.13.0: {}
-
-  pg-query-stream@4.14.0(pg@8.11.1):
-    dependencies:
-      pg: 8.11.1
-      pg-cursor: 2.19.0(pg@8.11.1)
 
   pg-types@2.2.0:
     dependencies:
@@ -11423,8 +11369,6 @@ snapshots:
       spdx-license-ids: 3.0.23
 
   spdx-license-ids@3.0.23: {}
-
-  spex@4.1.0: {}
 
   splaytree@0.1.4: {}
 

@@ -1,4 +1,4 @@
-import { createComlinkWorker } from '../common/helpers/comlink-worker'
+import { createComlinkWorker } from '../client/workers/comlink-worker'
 import type { Mono } from './monoworker'
 
 const COMPUTE_COUNT = 4

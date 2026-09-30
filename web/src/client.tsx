@@ -1,7 +1,7 @@
 import { Component, createRef } from 'preact'
 import ParcelHelper from '../../common/helpers/parcel-helper'
 import { canUseDom } from '../../common/helpers/utils'
-import { wantsLite, wantsNoUI } from '../../common/helpers/detector'
+import { wantsLite, wantsNoUI } from '../../client/platform'
 import type { BootResult } from '../../src'
 import { pushSpaceHistory, realmSavedCoords, saveRealmCoords } from '../../src/init/realm'
 import { spaceW } from '../../src/utils/space-w'

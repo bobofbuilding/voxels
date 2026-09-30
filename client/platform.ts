@@ -1,4 +1,4 @@
-import { canUseDom, ssrFriendlyDocument } from './utils'
+import { canUseDom, ssrFriendlyDocument } from '../common/helpers/utils'
 
 let searchParams: URLSearchParams = null!
 let location = ''

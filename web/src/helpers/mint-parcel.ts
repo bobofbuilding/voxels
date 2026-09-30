@@ -1,9 +1,10 @@
+import { Config as deployment } from '../../../common/config'
 import { ethers } from 'ethers'
 import PARCEL_CONTRACT_ABI from '../../../common/contracts/parcel.json'
 
 // Parcels always mint to the Voxels team wallet at 0 ETH (same as the old in-world path).
 const PARCEL = process.env.CONTRACT_ADDRESS || '0x79986aF15539de2db9A5086382daEdA917A9CF0C'
-export const TEAM = '0x2D891ED45C4C3EAB978513DF4B92a35Cf131d2e2'
+export const TEAM = deployment.ownerAddress
 
 export type Bounds = { id: number; x1: number; y1: number; z1: number; x2: number; y2: number; z2: number }
 

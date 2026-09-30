@@ -3,6 +3,7 @@ type Parcel = {
 }
 
 class config {
+  readonly ownerAddress = process.env.OWNER_ADDRESS?.trim().toLowerCase() || ''
   readonly proxy_base_url = process.env.PROXY_BASE_URL || 'https://proxy.crvox.com'
   readonly proxy_cdn_base_url = process.env.PROXY_CDN_BASE_URL || 'https://cdn2.cryptovoxels.com'
   readonly texture_cachebuster = process.env.TEXTURE_CACHEBUSTER || 'v6'

@@ -1,6 +1,6 @@
 import { Costume, CostumeAttachment } from '../common/messages/costumes'
 import { app } from '../web/src/state'
-import { voxImporter } from '../common/vox-import/vox-import'
+import { voxImporter } from '../client/world/vox-import'
 import type Avatar from './avatar'
 
 export interface AttachmentWithMesh extends CostumeAttachment {

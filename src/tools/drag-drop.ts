@@ -2,7 +2,7 @@ import { FeatureType } from '../../common/messages/feature'
 import { app } from '../../web/src/state'
 import { getImageInfo, getURlImageInfo, getVoxInfo } from '../../web/src/utils'
 
-import { uploadMedia, UploadMediaResult } from '../../common/helpers/upload-media'
+import { uploadMedia, UploadMediaResult } from '../../client/media/upload'
 import { PanelType } from '../../web/src/components/panel'
 
 const MB = 1024 * 1024

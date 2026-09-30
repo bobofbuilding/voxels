@@ -3,7 +3,7 @@ import makeBlockie from 'ethereum-blockies-base64'
 import { Fragment, JSX } from 'preact'
 import { useEffect, useRef, useState } from 'preact/hooks'
 
-import { isMobile } from '../../../common/helpers/detector'
+import { isMobile } from '../../../client/platform'
 import { InteractPopout } from './popout'
 import Icon from '../../../web/src/components/icons/interact'
 import { resetMobileViewportLayout } from '../../controls/mobile/controls'

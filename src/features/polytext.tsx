@@ -1,5 +1,5 @@
 import { PolytextRecord } from '../../common/messages/feature'
-import { voxImporter } from '../../common/vox-import/vox-import'
+import { voxImporter } from '../../client/world/vox-import'
 import { Position, Rotation, Scale, Behaviours, EditorProps } from '../../web/src/components/editor'
 import { Advanced, Animation, FeatureEditor, FeatureEditorProps, FeatureID, Toolbar } from '../ui/features'
 import { FeatureMetadata, FeatureTemplate } from './_metadata'

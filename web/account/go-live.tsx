@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'preact/hooks'
-import { isMobile } from '../../common/helpers/detector'
+import { isMobile } from '../../client/platform'
 import ParcelHelper, { showboxHostPlayCoordsFromRecord, showboxHostPlayQuery } from '../../common/helpers/parcel-helper'
 import { SimpleParcelRecord } from '../../common/messages/parcel'
 import { Login } from '../src/auth/login'

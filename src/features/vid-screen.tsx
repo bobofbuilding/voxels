@@ -1,4 +1,4 @@
-import { exitPointerLock } from '../../common/helpers/ui-helpers'
+import { exitPointerLock } from '../../client/ui/helpers'
 import { throttle } from 'lodash'
 import { render } from 'preact'
 import { FeatureEditor, FeatureEditorProps, FeatureID, Toolbar } from '../ui/features'

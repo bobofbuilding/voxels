@@ -1,4 +1,4 @@
-import { isBatterySaver } from '../../common/helpers/detector'
+import { isBatterySaver } from '../../client/platform'
 import { VoxelSize } from '../../common/voxels/mesher'
 import { loadSample } from '../utils/helpers'
 import { SpatialAudio } from './spatial-audio'

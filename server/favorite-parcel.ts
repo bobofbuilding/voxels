@@ -3,28 +3,29 @@ import db from './pg'
 export default class Favorite {
   // All attributes are usually = to columns in db table
   id: number = undefined!
-  parcel_id: string = undefined!
+  parcel_id: number = undefined!
   wallet: string = undefined!
   updated_at: any
 
   constructor(params?: any) {
     if (params) {
       Object.assign(this, params)
+      if (params.token_id != null) this.parcel_id = Number(params.token_id)
     }
   }
 
-  static async loadFromWalletAndParcelId(wallet: string, parcel_id: number): Promise<Favorite> {
+  static async loadFromWalletAndParcelId(wallet: string, parcel_id: number): Promise<Favorite | null> {
     try {
-      const res = await db.query('embedded/get-favorite-parcel', `select * from favorites where lower(wallet)=lower($1) and parcel_id=$2`, [wallet, parcel_id])
+      const res = await db.query('embedded/get-favorite-parcel', `select * from favorites where lower(wallet)=lower($1) and token_id=$2`, [wallet, parcel_id])
 
       if (!res.rows[0]) {
-        return null!
+        return null
       }
 
       return new Favorite(res.rows[0])
     } catch (e) {
       console.error(e)
-      return null!
+      return null
     }
   }
 
@@ -36,7 +37,7 @@ export default class Favorite {
       'embedded/insert-favourite-parcel',
       `
       insert into
-        favorites (parcel_id, wallet,updated_at)
+        favorites (token_id, wallet,updated_at)
       values
         ($1, lower($2), NOW())
       returning
@@ -63,7 +64,7 @@ export default class Favorite {
     from
       favorites
     where
-    lower(wallet)=lower($1) and parcel_id=$2
+    lower(wallet)=lower($1) and token_id=$2
       returning
       id
   `,

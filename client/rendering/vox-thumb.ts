@@ -1,7 +1,7 @@
 // ABOUTME: Shared Babylon vox -> webp thumb render. Used by browser worker and Playwright page.
 
 import { loadVox } from '../../src/monoworker/vox'
-import type { Renderable, RenderedImage, ThumbScene } from './types'
+import type { Renderable, RenderedImage, ThumbScene } from '../../common/renderable/types'
 
 function parseBg(hex: string) {
   const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim())

@@ -2,12 +2,17 @@
   "extends": "./tsconfig.json",
   "include": [
     "src/**/*",
-    "server/**/*", 
-    "multiplayer/**/*", 
+    "server/**/*",
+    "multiplayer/**/*",
     "web/**/*",
     "common/**/*",
     "test/**/*",
-    "decls.d.ts"
+    "decls.d.ts",
+    "compiler/**/*",
+    "compressor/**/*",
+    "renderer/**/*.ts",
+    "services/**/*",
+    "client/**/*"
   ],
   "exclude": [
     "node_modules",

@@ -1,5 +1,5 @@
 import { compileParcelContent } from '../common/helpers/parcel-compile'
-import { uploadParcelBytes } from '../common/helpers/upload-media'
+import { uploadParcelBytes } from '../client/media/upload'
 import { encodeImageDraft, encodeVoxDraft } from './features/feature-draft'
 import type Parcel from './parcel'
 

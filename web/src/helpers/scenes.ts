@@ -1,4 +1,4 @@
-import { isMobile } from '../../../common/helpers/detector'
+import { isMobile } from '../../../client/platform'
 
 export const createWearableScene = (canvasOrContext: BABYLON.Nullable<HTMLCanvasElement | OffscreenCanvas | WebGLRenderingContext | WebGL2RenderingContext>) => {
   const engine = new BABYLON.Engine(canvasOrContext)

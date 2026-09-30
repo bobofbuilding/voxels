@@ -1,6 +1,6 @@
 import { Component } from 'preact'
 import { debounce } from 'lodash'
-import { uploadWithProgress } from '../../../common/helpers/upload-media'
+import { uploadWithProgress } from '../../../client/media/upload'
 import Feature from '../../features/feature'
 import { isURL, resolveUgc, tidyURL } from '../../utils/helpers'
 import { updateHighlight } from './common'

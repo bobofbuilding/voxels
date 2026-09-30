@@ -1,6 +1,6 @@
 import { Component, render } from 'preact'
 import { AudioMeter, createAudioMeter } from '../components/audio-meter'
-import { exitPointerLock, requestPointerLockIfNoOverlays } from '../../common/helpers/ui-helpers'
+import { exitPointerLock, requestPointerLockIfNoOverlays } from '../../client/ui/helpers'
 import Boombox from '../features/boombox'
 import { AudioBroadcaster } from '../components/audio-broadcaster'
 import Connector from '../connector'

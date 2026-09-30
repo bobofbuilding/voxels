@@ -9,7 +9,7 @@ import { vi } from 'vitest'
 let canned: Record<string, any> = {}
 vi.stubGlobal('fetch', async (url: any) => {
   const key = Object.keys(canned).find((k) => String(url).includes(k))
-  return { ok: true, json: async () => (key ? canned[key] : { success: false }) }
+  return new Response(JSON.stringify(key ? canned[key] : { success: false }), { headers: { 'Content-Type': 'application/json' } })
 })
 vi.stubGlobal(
   'EventSource',

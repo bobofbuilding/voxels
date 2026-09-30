@@ -1,4 +1,4 @@
-import { isTablet } from '../../../common/helpers/detector'
+import { isTablet } from '../../../client/platform'
 import Connector from '../../connector'
 import { MinimapSettings } from '../../minimap'
 

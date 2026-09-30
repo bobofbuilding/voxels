@@ -1,3 +1,4 @@
+import type {} from 'passport'
 import { Request } from 'express'
 import { SuspendedAvatar } from './avatar'
 

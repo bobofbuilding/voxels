@@ -1,5 +1,5 @@
 import config from '../../../common/config'
-import { VoxImporter } from '../../../common/vox-import/vox-import'
+import { VoxImporter } from '../../../client/world/vox-import'
 
 const legendaryColor = '#f3b643'
 const epicColor = '#cf52cb'

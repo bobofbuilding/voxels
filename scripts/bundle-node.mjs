@@ -2,6 +2,7 @@
 // ABOUTME: Node bundles include dependencies. Browser bundles inline public env.
 
 import * as esbuild from 'esbuild'
+import { parse } from 'dotenv'
 import fs from 'fs'
 import path from 'path'
 import zlib from 'zlib'
@@ -11,6 +12,7 @@ const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const buildNum = process.env.BUILD_NUM || '69420'
 
 const publicEnv = [
+  'OWNER_ADDRESS',
   'API',
   'ASSET_PATH',
   'BROADCAST_URL',
@@ -34,18 +36,7 @@ const publicEnv = [
 ]
 
 function loadEnv(file) {
-  const out = {}
-  if (!fs.existsSync(file)) return out
-  for (const line of fs.readFileSync(file, 'utf8').split('\n')) {
-    const trimmed = line.trim()
-    if (!trimmed || trimmed.startsWith('#')) continue
-    const cut = trimmed.indexOf('=')
-    if (cut < 0) continue
-    let value = trimmed.slice(cut + 1).trim()
-    if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) value = value.slice(1, -1)
-    out[trimmed.slice(0, cut).trim()] = value
-  }
-  return out
+  return fs.existsSync(file) ? parse(fs.readFileSync(file)) : {}
 }
 
 function browserDefine(dev) {

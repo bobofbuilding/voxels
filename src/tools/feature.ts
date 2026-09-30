@@ -19,7 +19,7 @@ import type { Tool } from '../user-interface'
 import { distanceToAABB } from '../utils/boundaries'
 import { getTransformVectorsRelativeToNode } from '../utils/feature'
 import { cameraPosition } from '../utils/camera'
-import { hasPointerLock } from '../../common/helpers/ui-helpers'
+import { hasPointerLock } from '../../client/ui/helpers'
 import { isFlatWallFeature } from './flat-wall'
 
 const OVERSIZE = 0.01

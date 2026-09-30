@@ -75,8 +75,8 @@ async function ensurePage(kind: PageKind) {
     console.log('[renderer] ensurePage: launching chromium')
     browser = await chromium.launch({
       headless: !HEADED,
-      devtools: HEADED,
       args: [
+        ...(HEADED ? ['--auto-open-devtools-for-tabs'] : []),
         '--no-sandbox',
         '--disable-dev-shm-usage',
         '--disable-gpu',

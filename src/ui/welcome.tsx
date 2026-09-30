@@ -1,6 +1,6 @@
 import { render } from 'preact'
 import { useEffect, useRef, useState } from 'preact/hooks'
-import { exitPointerLock } from '../../common/helpers/ui-helpers'
+import { exitPointerLock } from '../../client/ui/helpers'
 import { AddPasskey } from '../../web/src/auth/login'
 import { isEmailAccount } from '../../web/src/auth/identities'
 import { app, AppEvent } from '../../web/src/state'

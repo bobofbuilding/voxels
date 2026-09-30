@@ -1,6 +1,6 @@
 import { duckRadio, unduckRadio } from '../../web/src/radio/global'
 import { BoomboxRecord } from '../../common/messages/feature'
-import { voxImporter } from '../../common/vox-import/vox-import'
+import { voxImporter } from '../../client/world/vox-import'
 import { Position, Rotation, Behaviours, EditorProps } from '../../web/src/components/editor'
 import { AudioBus } from '../audio/audio-engine'
 import Avatar from '../avatar'

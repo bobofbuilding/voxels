@@ -1,8 +1,8 @@
 import { app } from '../../web/src/state'
-import { generateFileName, parcelUgcKey, parcelUgcUrl, UGC_CACHE, ugcKey, UploadMediaType } from './ugc-upload-keys'
+import { generateFileName, parcelUgcKey, parcelUgcUrl, UGC_CACHE, ugcKey, UploadMediaType } from '../../common/helpers/ugc-upload-keys'
 
-export type { UploadMediaType } from './ugc-upload-keys'
-export { generateFileName, parcelUgcKey, parcelUgcUrl, ugcKey } from './ugc-upload-keys'
+export type { UploadMediaType } from '../../common/helpers/ugc-upload-keys'
+export { generateFileName, parcelUgcKey, parcelUgcUrl, ugcKey } from '../../common/helpers/ugc-upload-keys'
 
 export const onBeginUpload: BABYLON.Observable<File> = new BABYLON.Observable()
 export const onCompleteUpload: BABYLON.Observable<File> = new BABYLON.Observable()

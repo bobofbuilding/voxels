@@ -40,11 +40,11 @@ import Robots from './robots/robots'
 
 // Features
 import { type AudioEngine } from './audio/audio-engine'
-import { isBatterySaver, isDebug, isInspect, isIOS, isMobile, wantsGateway, wantsXR } from '../common/helpers/detector'
+import { isBatterySaver, isDebug, isInspect, isIOS, isMobile, wantsGateway, wantsXR } from '../client/platform'
 import { DragDrop } from './tools/drag-drop'
 
 import { GraphicEngine } from './graphic/graphic-engine'
-import { extendTabIndexOnClick } from '../common/helpers/ui-helpers'
+import { extendTabIndexOnClick } from '../client/ui/helpers'
 import { User } from './user'
 import Persona from './persona'
 import { Appstate } from '../web/src/state'

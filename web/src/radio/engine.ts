@@ -1,6 +1,6 @@
 import { MUSIC_URI, Track, trackTitle } from '../../../common/soundtracks'
-import { isIOS, isTablet } from '../../../common/helpers/detector'
-import { fetchShowboxRoomToken, LIVEKIT_URL } from '../../../common/helpers/showbox-broadcast-health'
+import { isIOS, isTablet } from '../../../client/platform'
+import { fetchShowboxRoomToken, LIVEKIT_URL } from '../../../client/broadcast/session'
 
 const appleTouch = () => isIOS() || isTablet()
 

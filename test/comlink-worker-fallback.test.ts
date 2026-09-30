@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 
-vi.mock('../common/helpers/detector', () => ({
+vi.mock('../client/platform', () => ({
   forceMainThreadWorkers: () => false,
 }))
 
@@ -24,7 +24,7 @@ vi.mock('comlink', () => ({
 
 describe('createComlinkWorker', () => {
   it('rejects when the worker fires error before ready', async () => {
-    const { createComlinkWorker } = await import('../common/helpers/comlink-worker')
+    const { createComlinkWorker } = await import('../client/workers/comlink-worker')
 
     class FakeWorker {
       listeners: Record<string, Function[]> = {}
@@ -51,7 +51,7 @@ describe('createComlinkWorker', () => {
   })
 
   it('keeps the worker when ping succeeds', async () => {
-    const { createComlinkWorker } = await import('../common/helpers/comlink-worker')
+    const { createComlinkWorker } = await import('../client/workers/comlink-worker')
 
     class OkWorker {
       listeners: Record<string, Function[]> = {}

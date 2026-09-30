@@ -1,7 +1,7 @@
 import { Component, render } from 'preact'
 import { Dictionary, groupBy, sortBy } from 'lodash'
 import type Grid from '../../grid'
-import { exitPointerLock, requestPointerLockIfNoOverlays } from '../../../common/helpers/ui-helpers'
+import { exitPointerLock, requestPointerLockIfNoOverlays } from '../../../client/ui/helpers'
 import type Parcel from '../../parcel'
 import FPSCounter from '../../components/fps-counter'
 import type Feature from '../../features/feature'

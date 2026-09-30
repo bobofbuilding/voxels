@@ -1,4 +1,4 @@
-import { isDebug, wantsAudio, wantsGateway } from '../../common/helpers/detector'
+import { isDebug, wantsAudio, wantsGateway } from '../../client/platform'
 import { startGateway } from '../gateway'
 import { decodeCoords, encodeCoords } from '../../common/helpers/utils'
 import { AudioEngine } from '../audio/audio-engine'

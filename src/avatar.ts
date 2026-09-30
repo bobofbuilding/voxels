@@ -280,7 +280,7 @@ export default class Avatar extends Entity {
     const gen = ++this._vehicleLoadGen
     this._vehicleLoadKey = key
     try {
-      const { voxImporter } = await import('../common/vox-import/vox-import')
+      const { voxImporter } = await import('../client/world/vox-import')
       const Config = (await import('../common/config')).default
       const url = payload.voxUrl ? Config.voxModelURL(payload.voxUrl, undefined, 'megavox') : `${process.env.ASSET_PATH}/models/vox-five.vox`
       const mesh = await voxImporter().import(url, {

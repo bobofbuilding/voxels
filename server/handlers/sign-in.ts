@@ -1,3 +1,4 @@
+import { getConfig } from '../config'
 import { Signature, type SignatureLike, verifyMessage } from 'ethers'
 import type { Request, Response } from 'express'
 import { SignJWT } from 'jose'
@@ -12,8 +13,7 @@ import db from '../pg'
 
 const log = named('sign_in')
 
-const JWT_SECRET = process.env.JWT_SECRET || 'secret'
-const JWT_SECRET_KEY = new TextEncoder().encode(JWT_SECRET)
+const JWT_SECRET_KEY = getConfig().jwtKey
 
 const MESSAGE = `# Terms of Service
 

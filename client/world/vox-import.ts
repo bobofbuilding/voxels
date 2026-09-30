@@ -1,5 +1,5 @@
 import { runCompute } from '../../src/mono-pool'
-import { unpackVoxelbr } from './voxelbr'
+import { unpackVoxelbr } from '../../common/vox-import/voxelbr'
 
 export interface Options {
   megavox?: boolean

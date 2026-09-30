@@ -1,6 +1,7 @@
+import { isAdminWallet } from './permissions'
 import Avatar from './avatar'
 import ParcelUserRight from './parcel-user-right'
-import { isCommonParcel, isCVTeam, isTestIsland } from './lib/helpers'
+import { isCommonParcel, isTestIsland } from './lib/helpers'
 import db from './pg'
 import Parcel, { ParcelAuthRef, ParcelRef } from './parcel'
 import { ethers } from 'ethers'
@@ -39,7 +40,7 @@ export default async function authParcel(parcel: ParcelAuthRef, user: VoxelsUser
 
   if (parcelUser?.role == 'owner') {
     return 'Owner'
-  } else if (isCVTeam(wallet ?? undefined)) {
+  } else if (isAdminWallet(wallet ?? undefined)) {
     return 'Owner'
   } else if (parcelUser?.role == 'contributor') {
     // user is a standard contributor

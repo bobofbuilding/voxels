@@ -1,5 +1,5 @@
 import { Component, JSX } from 'preact'
-import { isMobile } from '../../common/helpers/detector'
+import { isMobile } from '../../client/platform'
 import { AudioSettings } from '../audio/audio-engine'
 import { setRadioVolume } from '../../web/src/radio/global'
 import Connector from '../connector'
@@ -10,7 +10,7 @@ import { chatSettings } from './interact/chat'
 import { ghostSettings } from '../ghosts'
 import { voiceSettings } from '../voice-settings'
 import { DEFAULT_SENSITIVITY, MAX_SENSITIVITY, MIN_SENSITIVITY } from '../controls/user-control-settings'
-import { getTheme, setTheme } from '../../common/helpers/theme'
+import { getTheme, setTheme } from '../../client/ui/theme'
 
 function toReversedPercentage(value: number, min: number, max: number): number {
   return ((max - value) / (max - min)) * 100

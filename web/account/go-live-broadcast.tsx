@@ -1,9 +1,11 @@
+import { cameraError, cameraConstraints, mobileConstraints, wirePreview, cohostIdentityPrefix, cohostVideoReady, cohostVideoTrackLive } from '../../client/broadcast/media'
 import Cookies from 'js-cookie'
 import { decodeJwt } from 'jose'
 import { Room, RoomEvent, Track, createLocalTracks } from 'livekit-client'
 import { effect } from '@preact/signals'
 import { useEffect, useRef, useState } from 'preact/hooks'
 import {
+  LIVEKIT_URL,
   BROADCAST_CAMERA_ENDED_DELAY_MS,
   BROADCAST_CAMERA_STRIKES,
   BROADCAST_DISCONNECT_STRIKES,
@@ -16,11 +18,11 @@ import {
   publishedVideoTrack,
   saveShowboxPublisherIdentity,
   showboxTokenUrlWithIdentity,
-} from '../../common/helpers/showbox-broadcast-health'
-import { drawVideoCover } from '../../common/helpers/draw-video-cover'
-import { showboxAudioConstraints, showboxRoomHint, SHOWBOX_ROOM_OPTIONS, type ShowboxAudioMode } from '../../common/helpers/showbox-audio-constraints'
-import { isMobile } from '../../common/helpers/detector'
-import { consumeGuestFreshFromUrl, maybeRefreshGuestJwt } from '../../common/helpers/guest-pass-client'
+} from '../../client/broadcast/session'
+import { drawVideoCover } from '../../client/media/draw-video-cover'
+import { showboxAudioConstraints, showboxRoomHint, SHOWBOX_ROOM_OPTIONS, type ShowboxAudioMode } from '../../client/broadcast/audio'
+import { isMobile } from '../../client/platform'
+import { consumeGuestFreshFromUrl, maybeRefreshGuestJwt } from '../../client/broadcast/guest-pass'
 import { cohostPaneRects, MAX_COHOST_PANES } from '../../common/helpers/cohost-panes'
 import ParcelHelper, { showboxAudiencePlayCoordsFromRecord, showboxFanSharePlayQuery } from '../../common/helpers/parcel-helper'
 import { avatarName } from '../../common/messages/avatar-ref'
@@ -32,90 +34,15 @@ import { Spinner } from '../src/spinner'
 import { app, AppEvent } from '../src/state'
 import { fetchOptions } from '../src/utils'
 
-const LIVEKIT_URL = 'https://voxels-7pvk06qt.livekit.cloud'
 const mobile = isMobile()
-
-function showboxMobileCameraConstraints(facing: 'user' | 'environment' = 'user') {
-  return { facingMode: facing, aspectRatio: { ideal: 16 / 9 } }
-}
 
 async function restartMobileCameraTrack(track: any, facing: 'user' | 'environment') {
   if (!track?.restartTrack) return
   try {
-    await track.restartTrack(showboxMobileCameraConstraints(facing))
+    await track.restartTrack(mobileConstraints(facing, 'landscape'))
   } catch {
     await track.restartTrack({ facingMode: facing }).catch(() => {})
   }
-}
-
-function showboxCameraVideoConstraints(deviceId: string | undefined) {
-  if (mobile) return showboxMobileCameraConstraints('user')
-  const c: Record<string, any> = {}
-  if (deviceId) c.deviceId = { exact: deviceId }
-  return c
-}
-
-// livekit attach() can set width/height attrs that fight object-fit; sync the preview box to real frame size.
-function wireDockPreview(wrap: HTMLElement, el: HTMLVideoElement, mobilePreview: boolean) {
-  el.removeAttribute('width')
-  el.removeAttribute('height')
-  Object.assign(el.style, {
-    position: 'absolute',
-    top: '0',
-    left: '0',
-    width: '100%',
-    height: '100%',
-    objectFit: 'cover',
-    display: 'block',
-  })
-  const sync = () => {
-    el.removeAttribute('width')
-    el.removeAttribute('height')
-    if (mobilePreview) {
-      wrap.style.aspectRatio = '16 / 9'
-      el.style.objectFit = 'contain'
-      return
-    }
-    const w = el.videoWidth
-    const h = el.videoHeight
-    if (w <= 0 || h <= 0) return
-    wrap.style.aspectRatio = `${w} / ${h}`
-    el.style.objectFit = 'cover'
-  }
-  el.addEventListener('loadedmetadata', sync)
-  el.addEventListener('loadeddata', sync)
-  el.addEventListener('resize', sync)
-  sync()
-  let n = 0
-  const poll = () => {
-    sync()
-    if (el.videoWidth > 0 || ++n > 90) return
-    requestAnimationFrame(poll)
-  }
-  poll()
-  return sync
-}
-
-function cameraErrorMessage(e: unknown): string {
-  const name = (e as { name?: string } | null)?.name ?? ''
-  if (name === 'NotAllowedError' || name === 'SecurityError') return 'camera blocked - allow camera access in your browser, then go live again.'
-  if (name === 'NotFoundError' || name === 'OverconstrainedError') return 'no camera found - plug one in and try again.'
-  if (name === 'NotReadableError' || name === 'AbortError') return 'your camera is busy in another app - close it and try again.'
-  return 'could not start your camera - check browser permissions, then go live again.'
-}
-
-function cohostIdentityPrefix(identity: string) {
-  const i = identity.lastIndexOf('-')
-  return i > 0 ? identity.slice(0, i) : identity
-}
-
-function cohostVideoReady(el: HTMLVideoElement | null) {
-  return !!(el && el.readyState >= 1 && el.videoWidth > 0)
-}
-
-function cohostVideoTrackLive(el: HTMLVideoElement | null) {
-  const mst = (el?.srcObject as MediaStream | null)?.getVideoTracks?.()?.[0]
-  return !!mst && mst.readyState !== 'ended'
 }
 
 function guestJwtPayload(): { wallet?: string; guest_pass?: string; feature_uuid?: string } | null {
@@ -695,7 +622,7 @@ export default function GoLiveBroadcast() {
     let dead = false
     let tracks: any[] = []
     createLocalTracks({
-      video: showboxCameraVideoConstraints(camId || undefined),
+      video: cameraConstraints(camId || undefined, mobile, 'landscape'),
       audio: false,
     })
       .then((t) => {
@@ -729,7 +656,7 @@ export default function GoLiveBroadcast() {
     const wrap = previewWrap.current
     const el = previewVideo.current
     if (!wrap || !el) return
-    previewSync.current = wireDockPreview(wrap, el, mobile)
+    previewSync.current = wirePreview(wrap, el, mobile ? 'contain' : 'cover', mobile ? '16 / 9' : undefined)
   }, [live, remoteCohostLive, isCohost, loading])
 
   const refreshViewers = () => {
@@ -1145,7 +1072,7 @@ export default function GoLiveBroadcast() {
         if (gen !== cameraResumeGen.current || broadcastStopping.current || !broadcastRoom.current) return
       } else {
         const tracks = await createLocalTracks({
-          video: showboxCameraVideoConstraints(camId || undefined),
+          video: cameraConstraints(camId || undefined, mobile, 'landscape'),
           audio: false,
         })
         const newVt = tracks.find((t) => t.kind === Track.Kind.Video)
@@ -1410,11 +1337,11 @@ export default function GoLiveBroadcast() {
 
       try {
         tracks = await createLocalTracks({
-          video: showboxCameraVideoConstraints(camId || undefined),
+          video: cameraConstraints(camId || undefined, mobile, 'landscape'),
           audio: showboxAudioConstraints(audioMode, micId || undefined),
         })
       } catch (err) {
-        throw new Error(cameraErrorMessage(err))
+        throw new Error(cameraError(err))
       }
 
       const videoTrack = tracks.find((t) => t.kind === Track.Kind.Video)

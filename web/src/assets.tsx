@@ -55,7 +55,7 @@ export default function Library(props: Props) {
 
       const ac = new AbortController()
       signal.addEventListener('abort', () => ac.abort())
-      const r = await fetch(scope.toString(), fetchOptions(ac)).then((r) => r.json())
+      const r = await fetch(scope.toString(window.location.origin), fetchOptions(ac)).then((r) => r.json())
       const data = (r?.assets || []) as LibraryAsset_Type[]
       data.forEach((a) => assetCache.put(`/assets/${a.id}`, a))
       return data

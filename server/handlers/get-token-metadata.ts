@@ -10,8 +10,6 @@ export default function getTokenMetadata(req: Request, res: Response) {
   const construct = (parcel: Parcel) => {
     const external_url = `https://www.voxels.com/parcels/${parcel.id}`
 
-    // const companyParcel = parcel.owner.toLowerCase() == '0x2D891ED45C4C3EAB978513DF4B92a35Cf131d2e2'.toLowerCase()
-
     const helper = new ParcelHelper(parcel)
     const isWaterfront = helper.isWaterFront
 

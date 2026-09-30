@@ -26,7 +26,7 @@ app.use((_req, res, next) => {
   next()
 })
 
-function mountRoutes(r: express.Router | express.Express) {
+function mountRoutes(r: express.Router) {
   r.get('/health', (_req, res) => {
     res.status(200).end('up')
   })

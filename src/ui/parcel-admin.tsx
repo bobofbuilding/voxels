@@ -1,5 +1,5 @@
 import { Component, render } from 'preact'
-import { openDialog, requestPointerLockIfNoOverlays } from '../../common/helpers/ui-helpers'
+import { openDialog, requestPointerLockIfNoOverlays } from '../../client/ui/helpers'
 import { ParcelRecord } from '../../common/messages/parcel'
 
 interface Props {

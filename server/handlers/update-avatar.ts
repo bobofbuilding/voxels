@@ -3,7 +3,7 @@ import Avatar from '../avatar'
 import { ensureAvatarExists } from '../ensure-avatar-exists'
 import { isMod } from '../lib/helpers'
 import { validWallet } from '../lib/isValidWallet'
-import db, { pgp } from '../pg'
+import db from '../pg'
 import { dropConnectionsForWallet } from '../server'
 import { VoxelsUserRequest } from '../user'
 
@@ -50,15 +50,16 @@ export default function updateAvatar() {
       settings: req.body.settings ?? null,
     }
 
-    await pgp.none(
+    await db.query(
+      'account/update-profile',
       `UPDATE avatars SET
-        description   = $<description>,
-        social_link_1 = $<social_link_1>,
-        social_link_2 = $<social_link_2>,
-        home_id       = $<home_id>,
-        settings      = $<settings>
-      WHERE lower(owner) = lower($<wallet>)`,
-      params,
+        description   = $1,
+        social_link_1 = $2,
+        social_link_2 = $3,
+        home_id       = $4,
+        settings      = $5
+      WHERE lower(owner) = lower($6)`,
+      [params.description, params.social_link_1, params.social_link_2, params.home_id, params.settings, params.wallet],
     )
 
     notifyAvatarChanged(wallet)

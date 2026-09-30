@@ -1,6 +1,6 @@
 import Config from '../../common/config'
 import { MegavoxRecord, RideRecord, VoxModelRecord } from '../../common/messages/feature'
-import { Options as VoxImportOptions, voxImporter } from '../../common/vox-import/vox-import'
+import { Options as VoxImportOptions, voxImporter } from '../../client/world/vox-import'
 import { Position, Rotation, Scale, Behaviours, EditorProps } from '../../web/src/components/editor'
 import Panel from '../../web/src/components/panel'
 import { rebindGizmos } from '../tools/gizmos'

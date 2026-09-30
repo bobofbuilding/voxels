@@ -1,4 +1,4 @@
-import { isIOS } from './detector'
+import { isIOS } from '../platform'
 
 export type ShowboxAudioMode = 'voice' | 'presenter' | 'loud' | 'headphones' | 'external'
 

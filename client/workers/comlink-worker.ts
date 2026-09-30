@@ -3,7 +3,7 @@
 
 import * as Comlink from 'comlink'
 import { installAbort } from '../../src/monoworker/abort'
-import { forceMainThreadWorkers } from './detector'
+import { forceMainThreadWorkers } from '../platform'
 
 installAbort()
 

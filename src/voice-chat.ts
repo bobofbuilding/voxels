@@ -3,10 +3,10 @@ import type Persona from './persona'
 import type Avatar from './avatar'
 import { SpatialAudio } from './audio/spatial-audio'
 import { AudioBus } from './audio/audio-engine'
-import { wantsAudio } from '../common/helpers/detector'
-import { showboxAudioConstraints } from '../common/helpers/showbox-audio-constraints'
+import { wantsAudio } from '../client/platform'
+import { showboxAudioConstraints } from '../client/broadcast/audio'
 import { voiceSettings } from './voice-settings'
-import { LIVEKIT_URL } from '../common/helpers/showbox-broadcast-health'
+import { LIVEKIT_URL } from '../client/broadcast/session'
 
 const JOIN_RADIUS = 200
 

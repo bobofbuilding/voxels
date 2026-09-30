@@ -1,5 +1,5 @@
 import { duckRadio, unduckRadio } from '../../web/src/radio/global'
-import { isBatterySaver } from '../../common/helpers/detector'
+import { isBatterySaver } from '../../client/platform'
 import { ProxyAssetOpensea } from '../../common/messages/api-opensea'
 import { AudioRecord } from '../../common/messages/feature'
 import { Position, Rotation, Scale, Behaviours, EditorProps } from '../../web/src/components/editor'

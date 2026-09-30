@@ -1,3 +1,4 @@
+import { isAdminWallet } from '../permissions'
 import { createRequestHandlerForQuery, queryAndCallback } from '../lib/query-helpers'
 
 import cache, { noCache } from '../cache'
@@ -8,7 +9,7 @@ import { revertParcel, sandboxRollback } from '../handlers/update-parcel'
 import voxExport from '../handlers/vox-export'
 import { numberOfQuarterOfDaySinceGenesis } from '../lib/utils'
 import authParcel from '../auth-parcel'
-import { Db, pgp } from '../pg'
+import { Db } from '../pg'
 import { PassportStatic } from 'passport'
 import { Express } from 'express'
 import { VoxelsUser } from '../user'
@@ -385,7 +386,7 @@ export default function (db: Db, passport: PassportStatic, app: Express) {
       return
     }
 
-    if (parcel.owner.toLowerCase() != process.env.OWNER_ADDRESS!.toLowerCase() && parcel.kind != 'inner' && parcel.island !== 'Pastel') {
+    if (!isAdminWallet(parcel.owner) && parcel.kind != 'inner' && parcel.island !== 'Pastel') {
       // At the moment only inner and pastel parcels can be listed.
       // if parcel owned by CRVOX though that's fine
       res.status(200).send({ success: false, error: 'Not an Architect island or Pastel island parcel' })

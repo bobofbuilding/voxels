@@ -1,6 +1,6 @@
 import { render } from 'preact'
 import { useEffect, useState } from 'preact/hooks'
-import { openDialog } from '../../../common/helpers/ui-helpers'
+import { openDialog } from '../../../client/ui/helpers'
 import { HTMLUi } from './html-ui'
 import { NftMediaBox, mediaAspect } from './nft-view'
 

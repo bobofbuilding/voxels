@@ -1,3 +1,4 @@
+import { getConfig } from '../config'
 import { NextFunction, Response } from 'express'
 import { SignJWT } from 'jose'
 import fetch from 'node-fetch'
@@ -5,13 +6,7 @@ import log from '../lib/logger'
 import Parcel, { ParcelRef } from '../parcel'
 import db from '../pg'
 import { VoxelsUserRequest } from '../user'
-
-const JWT_SECRET = process.env.JWT_SECRET || 'secret'
-const JWT_SECRET_KEY = new TextEncoder().encode(JWT_SECRET)
-
-const makeLowerCaseSetFor = (dict: { [name: string]: string[] }) => {
-  return new Set<string>(([] as string[]).concat(...Object.values(dict)).map((wallet) => wallet.toLowerCase()))
-}
+import { isAdminWallet } from '../permissions'
 
 // Mods are now loaded from the DB instead of being hardcoded a second time here.
 
@@ -30,12 +25,8 @@ db.query('embedded/fetch-mods', 'select owner from avatars where moderator').the
 // Group of parcels that will be part of the security auditing performed by Quantum security
 const securityTeamParcels = [5067, 5064]
 
-const cryptovoxelsTeam = makeLowerCaseSetFor({
-  team: ['0x2D891ED45C4C3EAB978513DF4B92a35Cf131d2e2'],
-})
-
 export const isOwner = (req: Pick<VoxelsUserRequest, 'user'>) => {
-  return req.user && req.user.wallet && req.user.wallet.toLowerCase() === process.env.OWNER_ADDRESS?.toLowerCase()
+  return isAdminWallet(req.user?.wallet)
 }
 
 export const isMod = (req: Partial<Pick<VoxelsUserRequest, 'user'>>) => !!req.user?.wallet && mods.has(req.user.wallet.toLowerCase())
@@ -47,8 +38,6 @@ export const isSecurityTeamParcel = (parcel: Parcel | ParcelRef) => {
   return securityTeamParcels.includes(parcel.id)
 }
 
-export const isCVTeam = (wallet: string | undefined) => !!wallet && cryptovoxelsTeam.has(wallet.toLowerCase())
-
 export const isAdmin = (req: Express.Request) => {
   const wallet = req.user ? (req.user as Express.User & { wallet: string }).wallet : null
 
@@ -56,10 +45,10 @@ export const isAdmin = (req: Express.Request) => {
     return false
   }
 
-  return cryptovoxelsTeam.has(wallet.toLowerCase())
+  return isAdminWallet(wallet)
 }
 
-// Use after passport.authenticate('jwt') to gate a route to the CV team.
+// Use after passport.authenticate('jwt') to gate a route to the configured administrator.
 export const requireAdmin = (req: Express.Request, res: Response, next: NextFunction) => {
   if (!isAdmin(req)) {
     res.status(403).json({ success: false, message: 'Unauthorized' })
@@ -98,7 +87,7 @@ export const isShellParcel = (parcel: Parcel | ParcelRef) => {
 
 export async function generateOriginToken(): Promise<string> {
   const payload = { date: Date.now() }
-  return new SignJWT(payload as any).setProtectedHeader({ alg: 'HS256' }).setIssuedAt().setExpirationTime('1m').sign(JWT_SECRET_KEY)
+  return new SignJWT(payload as any).setProtectedHeader({ alg: 'HS256' }).setIssuedAt().setExpirationTime('1m').sign(getConfig().jwtKey)
 }
 
 export async function callMultiplayerApi(api: string, method: 'GET' | 'POST' | 'PUT' | 'DELETE') {

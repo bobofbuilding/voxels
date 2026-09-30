@@ -1,3 +1,4 @@
+import { isAdminWallet } from '../permissions'
 import { ethers } from 'ethers'
 import { Express, Request, Response } from 'express'
 import proxy from 'express-http-proxy'
@@ -335,8 +336,6 @@ export const openseaParcelStats = async (): Promise<{ slug: string; floor: numbe
   return { slug, floor, volume30d: Number(thirty?.volume ?? 0) }
 }
 
-const TEAM_WALLET = '0x2D891ED45C4C3EAB978513DF4B92a35Cf131d2e2'.toLowerCase()
-
 type ClassifiedItem = { id: number; name: string | null; address: string; price: number; permalink: string; seller: string }
 
 const classifieds = async (db: Db): Promise<{ floor: number; fresh: ClassifiedItem[]; secondary: ClassifiedItem[]; deals: ClassifiedItem[] }> => {
@@ -368,8 +367,8 @@ const classifieds = async (db: Db): Promise<{ floor: number; fresh: ClassifiedIt
   }
 
   const floor = Math.min(...items.map((i) => i.price))
-  const fresh = items.filter((i) => i.seller === TEAM_WALLET)
-  const secondary = items.filter((i) => i.seller !== TEAM_WALLET)
+  const fresh = items.filter((i) => isAdminWallet(i.seller))
+  const secondary = items.filter((i) => !isAdminWallet(i.seller))
   const deals = items.filter((i) => i.price <= floor * 1.1).sort((a, b) => a.price - b.price)
   return { floor, fresh, secondary, deals }
 }

@@ -1,6 +1,6 @@
 import { Component } from 'preact'
-import { exitPointerLock } from '../../common/helpers/ui-helpers'
-import { uploadMedia } from '../../common/helpers/upload-media'
+import { exitPointerLock } from '../../client/ui/helpers'
+import { uploadMedia } from '../../client/media/upload'
 import { writeCaip19 } from '../../common/helpers/nft-url'
 import type { AvatarRef } from '../../common/messages/avatar-ref'
 import { PanelType } from '../../web/src/components/panel'

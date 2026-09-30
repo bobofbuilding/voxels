@@ -1,6 +1,6 @@
 import { ComponentChildren, render } from 'preact'
 import { ProxyAssetOpensea } from '../../../common/messages/api-opensea'
-import { openDialog } from '../../../common/helpers/ui-helpers'
+import { openDialog } from '../../../client/ui/helpers'
 import OpenseaAssetHelper from '../gui/opensea-asset-helper'
 import { HTMLUi } from './html-ui'
 import type NftImage from '../../features/nft-image'

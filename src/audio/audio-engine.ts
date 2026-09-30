@@ -1,4 +1,4 @@
-import { wantsAudio } from '../../common/helpers/detector'
+import { wantsAudio } from '../../client/platform'
 import type Persona from '../persona'
 import { FootstepSounds } from './footstep-sounds'
 import { FlySound } from './fly-sound'

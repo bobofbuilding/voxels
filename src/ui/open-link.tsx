@@ -1,5 +1,5 @@
 import { render } from 'preact'
-import { openDialog } from '../../common/helpers/ui-helpers'
+import { openDialog } from '../../client/ui/helpers'
 import { isURL } from '../utils/helpers'
 import { truncate } from '../../web/src/lib/string-utils'
 

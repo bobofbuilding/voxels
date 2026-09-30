@@ -1,5 +1,5 @@
 import { Component } from 'preact'
-import { uploadWithProgress } from '../../common/helpers/upload-media'
+import { uploadWithProgress } from '../../client/media/upload'
 
 type State = {
   busy: boolean

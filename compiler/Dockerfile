@@ -14,6 +14,7 @@ RUN npm i -g pnpm@9.15.4 \
 
 COPY common/ ./common/
 COPY server/ ./server/
+COPY services/ ./services/
 COPY compiler/ ./compiler/
 COPY tsconfig.json tsconfig.prod.json ./
 

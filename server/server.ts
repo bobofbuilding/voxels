@@ -1,3 +1,4 @@
+import { getConfig } from './config'
 import fs from 'fs'
 import http from 'http'
 import https from 'https'
@@ -37,7 +38,7 @@ import ModelsController from './controllers/models'
 import RadioController from './controllers/radio'
 
 import cache, { defaultCache, noCache } from './cache'
-import db, { pgp } from './pg'
+import db from './pg'
 
 import { ethers } from 'ethers'
 import type { Express, Request, Response } from 'express'
@@ -118,7 +119,7 @@ const opts: StrategyOptions = {
   ]),
 }
 
-opts.secretOrKey = process.env.JWT_SECRET || 'secret'
+opts.secretOrKey = getConfig().jwtSecret
 
 passport.use(
   new JwtStrategy(opts, function (payload, done) {

@@ -2,7 +2,7 @@ import { render } from 'preact'
 import { getWearableGif } from '../../../web/src/helpers/wearable-helpers'
 
 import CollectibleModel from '../../features/collectible-model'
-import { openDialog } from '../../../common/helpers/ui-helpers'
+import { openDialog } from '../../../client/ui/helpers'
 import { HTMLUi } from './html-ui'
 import { NftMediaBox, mediaAspect } from './nft-view'
 import { SUPPORTED_CHAINS_BY_ID } from '../../../common/helpers/chain-helpers'

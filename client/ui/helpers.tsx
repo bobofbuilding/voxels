@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'preact/hooks'
 import { render } from 'preact'
-import { isMobileMedia } from './detector'
+import { isMobileMedia } from '../platform'
 
 // Attempt to unlock. Also blur the canvas so the pointer-lock handler doesn't re-acquire on the next click.
 export const exitPointerLock = () => {

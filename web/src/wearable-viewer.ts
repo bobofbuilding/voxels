@@ -1,4 +1,4 @@
-import { isSafari } from '../../common/helpers/detector'
+import { isSafari } from '../../client/platform'
 import { createWearableScene } from './helpers/scenes'
 import voxImport from '../../common/vox-import/sync-vox-import'
 

@@ -1,4 +1,4 @@
-import { voxImporter } from '../../common/vox-import/vox-import'
+import { voxImporter } from '../../client/world/vox-import'
 import { Feature3D } from './feature'
 import { Advanced, FeatureEditor, FeatureEditorProps, FeatureID, Sound, Toolbar } from '../ui/features'
 import { ButtonRecord } from '../../common/messages/feature'

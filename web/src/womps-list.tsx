@@ -1,5 +1,5 @@
 import { Component } from 'preact'
-import { isMobile } from '../../common/helpers/detector'
+import { isMobile } from '../../client/platform'
 import { Womp, WompTile } from './tiles/womp-tile'
 import cachedFetch from './helpers/cached-fetch'
 import { Spinner } from './spinner'

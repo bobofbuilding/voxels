@@ -4,7 +4,7 @@ import { loadWearableVox } from '../helpers/wearable-helpers'
 // we have to use require here to ensure the proper loading of modules, otherwise there will be a "BABYLON undefined error"
 require('./babylon')
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const { VoxImporter } = require('../../../common/vox-import/vox-import')
+const { VoxImporter } = require('../../../client/world/vox-import')
 
 let activeMesh: BABYLON.Mesh | undefined
 

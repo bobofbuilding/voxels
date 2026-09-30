@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'preact/hooks'
-import { isMobile } from '../../../common/helpers/detector'
+import { isMobile } from '../../../client/platform'
 import { app, AppEvent } from '../state'
 
 const STORAGE_KEY = 'controls-hint-seen'

@@ -1,6 +1,6 @@
 import { Component } from 'preact'
 import { app } from '../../../web/src/state'
-import { requestPointerLockIfNoOverlays } from '../../../common/helpers/ui-helpers'
+import { requestPointerLockIfNoOverlays } from '../../../client/ui/helpers'
 
 type State = {
   status?: string

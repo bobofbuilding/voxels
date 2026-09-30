@@ -1,7 +1,7 @@
 // ABOUTME: Singleton Comlink handle for the voxel-thumb worker + requestThumb entrypoint.
 
 import * as Comlink from 'comlink'
-import { createComlinkWorker } from '../../../common/helpers/comlink-worker'
+import { createComlinkWorker } from '../../../client/workers/comlink-worker'
 import type { VoxelThumb } from '../workers/voxel-thumb'
 
 const SIZE = 512
