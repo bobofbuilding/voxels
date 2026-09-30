@@ -1,3 +1,4 @@
+import { sharesPublicMedia, setMediaSharing } from '../../client/media-cache'
 import { Component, JSX } from 'preact'
 import { isMobile } from '../../client/platform'
 import { AudioSettings } from '../audio/audio-engine'
@@ -369,6 +370,23 @@ export class SettingsUI extends Component<Props, State> {
               <input type="checkbox" onChange={(e) => this.onToggleDark(e.target as HTMLInputElement)} checked={this.state.darkMode} />
             </dd>
           </dl>
+        </section>
+
+        <section>
+          <h3>Public media cache</h3>
+          <label>
+            <input
+              type="checkbox"
+              checked={sharesPublicMedia()}
+              onChange={(event) => {
+                setMediaSharing(event.currentTarget.checked)
+                this.forceUpdate()
+              }}
+            />
+            Help store public world media
+          </label>
+          <p>Public media you load passes through this world host, which keeps a shared copy. On Bittrees, the Pi stores up to 75 GB, then MyCloud stores the overflow. Other visitors do not connect to your device.</p>
+          <p>Your browser caches eligible small public media automatically. Private content and credentialed requests are excluded.</p>
         </section>
 
         <section>

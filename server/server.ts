@@ -1,3 +1,4 @@
+import { installMediaCache } from './media-cache/routes'
 import { installFederation } from './federation/routes'
 import { getConfig } from './config'
 import fs from 'fs'
@@ -166,6 +167,7 @@ httpServer.setTimeout(1000 * 25)
 app.use(compression())
 app.use(cookieParser())
 installFederation(app)
+installMediaCache(app)
 app.use(bodyParser.json({ limit: '50mb' }))
 
 // Add error handler for body-parser JSON errors (recommended approach)
