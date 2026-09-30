@@ -1,5 +1,5 @@
 import { PutObjectCommand, S3Client } from '@aws-sdk/client-s3'
-import { MUSIC_URI, tracks } from '../../common/soundtracks'
+import { MUSIC_URI, worldTracks } from '../../common/soundtracks'
 import { seededShuffle } from '../../common/helpers/utils'
 import { avatarName } from '../../common/messages/avatar-ref'
 import { Db } from '../pg'
@@ -75,7 +75,7 @@ export function buildSpots(day: number): Spot[] {
 
 // Deterministic per UTC day: same station for everyone, regenerates at midnight.
 export function buildSchedule(day: number): Schedule {
-  const order = seededShuffle(tracks.slice(), day + 1)
+  const order = seededShuffle(worldTracks.slice(), day + 1)
 
   const segments: Segment[] = []
   let t = 0
@@ -87,7 +87,7 @@ export function buildSchedule(day: number): Schedule {
     i++
   }
 
-  return { utcDay: day, daySeconds: DAY, musicUri: MUSIC_URI, segments, spots: buildSpots(day) }
+  return { utcDay: day, daySeconds: DAY, musicUri: MUSIC_URI, segments, spots: [] }
 }
 
 // generate text + speech, upload wav to S3, return the url + raw text.

@@ -6,7 +6,8 @@ export default class Skybox {
     material.backFaceCulling = false
     material.disableLighting = true
     material.fogEnabled = false
-    material.emissiveColor = BABYLON.Color3.White()
+    // StandardMaterial adds this color to the emissive texture; white washes out the clouds.
+    material.emissiveColor = BABYLON.Color3.Black()
     material.emissiveTexture = new BABYLON.Texture(`${process.env.ASSET_PATH || ''}/textures/neon-clouds-v1.png`, scene)
     material.diffuseColor = BABYLON.Color3.Black()
     material.specularColor = BABYLON.Color3.Black()
