@@ -185,6 +185,13 @@ export class MediaStore {
               const hash = digest.digest('hex')
               let storedTier = this.blobs.get(hash)
               if (storedTier === 'mycloud' && !(await this.coldOnline())) storedTier = undefined
+              if (storedTier) {
+                const present = await fs
+                  .stat(this.filename({ tier: storedTier, hash }))
+                  .then((stat) => stat.size === bytes)
+                  .catch(() => false)
+                if (!present) storedTier = undefined
+              }
               if (storedTier) await fs.unlink(temp)
               else {
                 await fs.rename(temp, this.filename({ tier, hash }))

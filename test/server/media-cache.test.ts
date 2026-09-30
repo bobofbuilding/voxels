@@ -84,3 +84,16 @@ test('private networks, credential-bearing URLs and active content are excluded'
   expect(parcelMediaUrls({ url: 'ugc://parcel/model.glb' })).toEqual(['https://ugc.voxels.com/parcel/model.glb'])
   expect(parcelMediaUrls({ features: [{ url: 'https://example.com/a.png', script: 'https://example.com/private' }] })).toEqual(['https://example.com/a.png'])
 })
+
+test('a missing cached payload is recovered rather than trusting a stale deduplication entry', async () => {
+  const { store } = await fixture()
+  const first = await store.begin(mediaKey('first'), 100, details)
+  await first!.write(Buffer.alloc(100, 7))
+  const entry = await first!.finish()
+  await fs.unlink(store.filename(entry!))
+  expect(await store.find(mediaKey('first'))).toBe(null)
+  const retry = await store.begin(mediaKey('retry'), 100, details)
+  await retry!.write(Buffer.alloc(100, 7))
+  const recovered = await retry!.finish()
+  expect(await fs.readFile(store.filename(recovered!))).toEqual(Buffer.alloc(100, 7))
+})
