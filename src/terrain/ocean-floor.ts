@@ -34,6 +34,7 @@ export default class OceanFloor implements ChunkObserver {
 
   createInstance(x: number, y: number): BABYLON.InstancedMesh {
     const i = this._mesh.createInstance(`ocean_floor_i_${x}_${y}`)
+    i.checkCollisions = true
     i.position.x = this.size * x + this.halfSize
     i.position.y = -6
     i.position.z = this.size * y + this.halfSize

@@ -99,6 +99,7 @@ export type FeatureMetadata = {
 
 // When a feature is added to a parcel, these templates describes initial values
 export type FeatureTemplate = {
+  collidable?: boolean
   type: PlaceableFeatureTypes
   scale: [number, number, number]
   text?: string
