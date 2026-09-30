@@ -1,3 +1,4 @@
+import { startMediaCache } from '../../client/media-cache'
 // Must be the first import
 if (process.env.NODE_ENV === 'development') {
   // Must use require here as import statements are only allowed
@@ -27,6 +28,7 @@ import { applyTheme } from '../../client/ui/theme'
 import { clearPageTool, isPageTool, pageToolEl, uiPane } from '../../src/store'
 
 applyTheme()
+void startMediaCache()
 
 class MainApp extends Component {
   componentDidMount() {

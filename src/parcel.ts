@@ -1,3 +1,4 @@
+import { registerParcelMedia } from '../client/media-cache'
 import { ethers } from 'ethers'
 import { cameraPosition } from './utils/camera'
 import { debounce, throttle } from 'lodash'
@@ -226,6 +227,7 @@ export default class Parcel extends TypedEventTarget<ParcelEventMap> {
     }
 
     this.content = record
+    if (record.visible) registerParcelMedia(Number(this.id), record)
 
     this.refreshVoxels = throttle(() => this.generate(), 10, { leading: false, trailing: true })
     this.relight = debounce(() => this.generate(), 150)
@@ -1288,6 +1290,7 @@ export default class Parcel extends TypedEventTarget<ParcelEventMap> {
 
     // debugger
 
+    if (this.summary.visible) registerParcelMedia(Number(this.id), { features: this.features, tileset: this.tileset })
     const featuresList = this.features.slice()
 
     // De-duplicate - UUIDs *must* be unique
