@@ -56,6 +56,7 @@ export class Island {
 
     const mesh = BABYLON.Mesh.MergeMeshes(meshes, true)!
     mesh.metadata = 'teleportable'
+    mesh.checkCollisions = true
     mesh.receiveShadows = true
     mesh.visibility = 0
 
