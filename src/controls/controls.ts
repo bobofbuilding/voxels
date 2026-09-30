@@ -275,7 +275,7 @@ export default abstract class Controls implements IControls {
     }
   }
 
-  // Ben's reticule pick (1c4cec3) used scene.pick() without pointerMovePredicate, so build-mode
+  // The reticule pick (1c4cec3) used scene.pick() without pointerMovePredicate, so build-mode
   // picks hit avatar/features instead of voxel colliders. Tools pass useMovePredicate=true;
   // context menu / locked click use unpredicated center ray when no tool is active.
   pickAtView(x?: number, y?: number, useMovePredicate = false, predicateOverride?: (mesh: BABYLON.AbstractMesh) => boolean): BABYLON.PickingInfo | null {

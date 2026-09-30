@@ -15,7 +15,7 @@ test('activity renders a transfer row', async () => {
           name: 'the pier',
           address: null,
           from: { owner: '0x0000000000000000000000000000000000000000' },
-          to: { owner: '0x1234567890abcdef1234567890abcdef12345678', name: 'ben' },
+          to: { owner: '0x1234567890abcdef1234567890abcdef12345678', name: 'example' },
           synced: false,
         },
       ],
@@ -25,5 +25,5 @@ test('activity renders a transfer row', async () => {
   const root = await renderView('activity', h(Activity, {}), 'ol.activity-feed li')
   expect(root.querySelector('.activity-parcel')!.textContent).toBe('the pier')
   expect(root.querySelector('.activity-people')!.textContent).toContain('Minted by')
-  expect(root.querySelector('.activity-people')!.textContent).toContain('ben')
+  expect(root.querySelector('.activity-people')!.textContent).toContain('example')
 })

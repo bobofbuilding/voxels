@@ -16,7 +16,7 @@ async function loadQueryFile(queryName: string): Promise<string> {
   let cached = QUERY_CACHE.get(queryName)
   if (cached) return cached
 
-  // /Users/ben/Projects/classic/server/queries/stats/get-worn-wearable-by-wallet.sql
+  // server/queries/stats/get-worn-wearable-by-wallet.sql
 
   const filePath = path.join(process.cwd(), 'server/queries', `${queryName}.sql`)
   const text = await readFile(filePath, 'utf8')

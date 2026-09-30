@@ -70,5 +70,5 @@ jobs:
         run: |
           s=$(( $(date +%s) - t0 ))
           if [ "$s" -gt 60 ]; then
-            echo "::warning::Warning, CI test took $((s / 60)):$(printf '%02d' $((s % 60))), ben may arbitrarily delete CI (see agents.md)"
+            echo "::warning::Warning, CI test took $((s / 60)):$(printf '%02d' $((s % 60))), maintainers may remove CI (see agents.md)"
           fi

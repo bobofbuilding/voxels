@@ -6,5 +6,5 @@
 ## sky / atmosphere
 
 - goal: make daytime feel more uplifting (less dead grey)
-- restored day fog to `#90abc0` and sky `rayleigh: 2` / `mieCoefficient: 0.03` (undo Ben's grey overcast pass)
+- restored day fog to `#90abc0` and sky `rayleigh: 2` / `mieCoefficient: 0.03` (undo the grey overcast pass)
 - if still too strong, nudge fog brighter (e.g. `#a8c0d4`)

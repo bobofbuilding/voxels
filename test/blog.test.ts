@@ -5,7 +5,7 @@ import Blog from '../web/src/blog'
 
 test('blog lists posts', async () => {
   stubFetch({
-    '/api/posts.json': { success: true, posts: [{ slug: 'cars', title: 'we added cars', body: 'vroom', author: 'ben', created_at: '2026-09-01T00:00:00Z', replies: 3 }] },
+    '/api/posts.json': { success: true, posts: [{ slug: 'cars', title: 'we added cars', body: 'vroom', author: 'example', created_at: '2026-09-01T00:00:00Z', replies: 3 }] },
   })
 
   const root = await renderView('blog', h(Blog, {}), 'tbody tr')

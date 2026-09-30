@@ -7,7 +7,7 @@ test('womp shows the photo and who took it', async () => {
   stubFetch({
     '/api/womps/9.json': {
       success: true,
-      womp: { id: 9, image_url: 'https://example.com/womp.jpg', author: { name: 'ben', owner: '0x1234' }, parcel_id: 42, parcel_name: 'the pier', created_at: '2026-09-01T00:00:00Z', coords: 'N@1E,2N', content: 'sunset' },
+      womp: { id: 9, image_url: 'https://example.com/womp.jpg', author: { name: 'example', owner: '0x1234' }, parcel_id: 42, parcel_name: 'the pier', created_at: '2026-09-01T00:00:00Z', coords: 'N@1E,2N', content: 'sunset' },
     },
   })
 

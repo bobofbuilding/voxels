@@ -3011,7 +3011,7 @@ components:
           description: |
             Which body the citizen wears. Everything but `woody` is deprecated
             and you are unlikely to meet one.
-          enum: [woody, vidda, zuck, bnolan, null]
+          enum: [woody, vidda, zuck, legacy, null]
         settings:
           type: [object, 'null']
         costume_id:

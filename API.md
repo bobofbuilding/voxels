@@ -1703,7 +1703,7 @@ A citizen.
 - `social_link_1` string or null
 - `social_link_2` string or null
 - `moderator` boolean
-- `type` string or null, one of `woody`, `vidda`, `zuck`, `bnolan`, `null`: Which body the citizen wears. Everything but `woody` is deprecated and you are unlikely to meet one.
+- `type` string or null, one of `woody`, `vidda`, `zuck`, `legacy`, `null`: Which body the citizen wears. Everything but `woody` is deprecated and you are unlikely to meet one.
 - `settings` object or null
 - `costume_id` string or null
 - `costume` [`Costume`](#costume)

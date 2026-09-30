@@ -7,7 +7,7 @@ test('events lists upcoming events', async () => {
   stubFetch({
     '/api/events.json': {
       success: true,
-      events: [{ id: 7, name: 'rave on the pier', description: 'bring glowsticks', author: { name: 'ben', owner: '0x1234' }, starts_at: '2026-10-01T20:00:00Z', parcel_name: 'the pier' }],
+      events: [{ id: 7, name: 'rave on the pier', description: 'bring glowsticks', author: { name: 'example', owner: '0x1234' }, starts_at: '2026-10-01T20:00:00Z', parcel_name: 'the pier' }],
     },
   })
 

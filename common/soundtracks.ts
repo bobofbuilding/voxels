@@ -38,7 +38,7 @@ export const tracks: Track[] = [
   { fileName: 'zenwave.webm', duration: 1256 },
   { fileName: 'glitched.webm', duration: 582 },
 
-  // nerfed by ben
+  // reduced volume
   // { fileName: 'frontier.webm', duration: 1248, volume: 0.5 },
 
   { fileName: 'electron.webm', duration: 276, volume: 0.5 },

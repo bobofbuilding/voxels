@@ -14,13 +14,12 @@ Deploy pre-job runs `npm run predeploy` (migrate).
 
 # Operations
 
-PRs are reviewed by @bnolan and if merged will be deployed to production.
+PRs are reviewed by the repository maintainers.
 
 # License
 
-This project is licensed under the [Business Source License 1.1 (BSL 1.1)](LICENSE). Please read the
-license carefully. This is not an OSI compatible license.
+This project is licensed under the [MIT License](LICENSE).
 
 ### Contributor Agreement
 
-By contributing to this repository, you agree that your contributions (commits) are licensed under this Business Source License 1.1, including the rolling transition to the MIT License three years after the date of your commit.
+By contributing to this repository, you agree that your contributions are licensed under the MIT License.

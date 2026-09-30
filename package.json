@@ -1,6 +1,6 @@
 {
   "name": "cryptovoxels",
-  "license": "BSL-1.1",
+  "license": "MIT",
   "version": "8.16.1",
   "packageManager": "pnpm@9.15.4",
   "engines": {

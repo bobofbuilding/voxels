@@ -31,7 +31,7 @@ db.query('embedded/fetch-mods', 'select owner from avatars where moderator').the
 const securityTeamParcels = [5067, 5064]
 
 const cryptovoxelsTeam = makeLowerCaseSetFor({
-  ben: ['0x2D891ED45C4C3EAB978513DF4B92a35Cf131d2e2'],
+  team: ['0x2D891ED45C4C3EAB978513DF4B92a35Cf131d2e2'],
 })
 
 export const isOwner = (req: Pick<VoxelsUserRequest, 'user'>) => {
