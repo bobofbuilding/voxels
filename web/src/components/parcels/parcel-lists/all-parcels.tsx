@@ -33,7 +33,7 @@ export default class AllParcels extends ParcelList {
   }
 
   fetchAllParcels(page = 0) {
-    let url = `${process.env.API}/parcels/search.json?q=${encodeURIComponent(this.query ?? '')}&page=${page}&limit=50&cb=${Date.now()}`
+    let url = `${process.env.API}/parcels/search?q=${encodeURIComponent(this.query ?? '')}&page=${page}&limit=50&cb=${Date.now()}`
     url += `&sort=${this.state.sort}`
     url += `&asc=${this.state.ascending}`
 

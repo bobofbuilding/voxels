@@ -4,6 +4,7 @@ import { type BBox, RBush3D } from 'rbush-3d'
 import type { FetchOptions } from '../../web/src/utils'
 import pDefer from 'p-defer'
 import { retryOnce } from '../../common/helpers/utils'
+import { packIds } from '../../common/helpers/bloom'
 import { LoadState, GridWorkerParcel } from '../grid-worker-parcel'
 import type { NdArray } from 'ndarray'
 import { vec3, type Vec3 } from './math'
@@ -210,17 +211,35 @@ class GridWorker implements GridWorkerAPI {
     // only queue up parcels to load at a time (to avoid filling the queue too fast when moving around)
     const toLoad = this.getParcelsForLoading()
     const nearestId = toLoad[0]?.parcel.id
-    let count = 0
+    const batch: GridWorkerParcel[] = []
     for (const { parcel } of toLoad) {
-      if (count >= MAX_PARCELS_TO_QUEUE_PER_CYCLE || this.parcelLoadingQueue.size >= MAX_PARCEL_QUEUE_SIZE) {
+      if (batch.length >= MAX_PARCELS_TO_QUEUE_PER_CYCLE || this.parcelLoadingQueue.size >= MAX_PARCEL_QUEUE_SIZE) {
         break
       }
       // skip if already loading or already sent for generation
       if (this.parcelLoadingQueue.has(parcel.id) || this.parcelGenerationQueue.has(parcel.id) || parcel.loadState !== LoadState.None) continue
 
       this.parcelLoadingQueue.add(parcel.id)
-      count++
-      parcel.load(parcel.id === nearestId ? 'high' : 'low').finally(() => {
+      batch.push(parcel)
+    }
+    if (batch.length) this.loadPack(batch, batch.some((p) => p.id === nearestId) ? 'high' : 'low')
+  }
+
+  // one cacheable request for the whole batch, anything missing (stale hash) falls back to /grid/parcels/:id
+  async loadPack(batch: GridWorkerParcel[], priority: FetchOptions['priority']) {
+    try {
+      const pack = packIds(batch.map((p) => `${p.id}:${p.hash}`))
+      const res = await fetch(`/grid/parcels/${pack}.pack`, { priority } as FetchOptions)
+      const json: any = res.ok ? await res.json() : null
+      for (const record of json?.parcels || []) {
+        const parcel = batch.find((p) => p.id === record.id)
+        if (parcel) Object.assign(parcel.description, record)
+      }
+    } catch {
+      // fall through to single fetches
+    }
+    for (const parcel of batch) {
+      parcel.load(priority).finally(() => {
         this.parcelLoadingQueue.delete(parcel.id)
       })
     }

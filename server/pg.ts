@@ -1,7 +1,5 @@
-import { userInfo } from 'os'
 import { performance } from 'perf_hooks'
 import { Pool, PoolClient, QueryConfig, QueryConfigValues, QueryResult, QueryResultRow } from 'pg'
-import PgPromise from 'pg-promise'
 import { named } from './lib/logger'
 
 const log = named('postgres')
@@ -30,12 +28,14 @@ const toLine = <I extends any[] = any[]>(sql: QueryConfig<I>): string => {
 
 const connectionString = process.env.DATABASE_URL || `postgres://localhost/voxels`
 
-// Convert postgresql:// to postgres:// if needed, DO uses postgresql in their connection strings
-const formattedConnectionString = connectionString.replace(/^postgresql:\/\//, 'postgres://')
+// Convert postgresql:// to postgres:// if needed, DO uses postgresql in their connection strings.
+// Drop sslmode too: pg lets the url's sslmode=require override the ssl object below, and DO's CA is self signed.
+const formattedConnectionString = connectionString.replace(/^postgresql:\/\//, 'postgres://').replace(/[?&]sslmode=[^&]*/, '')
 // Enable SSL for production databases (DigitalOcean, etc.) but disable for local development
 const isLocalhost = formattedConnectionString.includes('localhost') || formattedConnectionString.includes('127.0.0.1')
 const sslConfig = isLocalhost ? false : { rejectUnauthorized: false }
-const pool = new Pool({ connectionString: formattedConnectionString, max: 20, ssl: sslConfig })
+// slow queries starve the 20 slot pool and hang the site, kill them. long jobs SET LOCAL statement_timeout = 0
+const pool = new Pool({ connectionString: formattedConnectionString, max: 20, ssl: sslConfig, statement_timeout: 500 })
 
 // Based on https://node-postgres.com/features/pooling#examples.
 // the pool will emit an error on behalf of any idle clients
@@ -98,7 +98,7 @@ function query<R extends QueryResultRow = any, I extends any[] = any[]>(queryCon
 
 const resolveQueryConfig = <Values extends any[]>(queryConfigOrName: string | QueryConfig<Values>, queryText: string | null, values: Values | null): QueryConfig<Values> => {
   const queryName: string | undefined = typeof queryConfigOrName === 'string' ? queryConfigOrName : queryConfigOrName.name
-  const queryConfig: QueryConfig<Values> = typeof queryConfigOrName === 'string' ? { text: queryText! } : queryConfigOrName
+  const queryConfig: QueryConfig<Values> = typeof queryConfigOrName === 'string' ? { text: queryText! } : { ...queryConfigOrName }
 
   if (values) {
     queryConfig.values = values as QueryConfigValues<Values>
@@ -116,7 +116,7 @@ query: ${queryName || '(unknown)'}
 
 // drain the pool of all active clients, disconnect them, and shut down any internal timers in the pool
 function drain() {
-  pool.end()
+  return pool.end()
 }
 
 export type Db = {
@@ -132,7 +132,3 @@ const db: Db = {
 }
 
 export default db
-
-export const pgp = PgPromise()(connectionString)
-
-export type DBPromise = typeof pgp

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 
-vi.mock('../common/helpers/detector', () => ({
+vi.mock('../client/platform', () => ({
   forceMainThreadWorkers: () => false,
 }))
 
@@ -19,11 +19,12 @@ vi.mock('comlink', () => ({
       }),
   }),
   proxy: (x: any) => x,
+  transferHandlers: new Map(),
 }))
 
 describe('createComlinkWorker', () => {
-  it('falls back when the worker fires error before ready', async () => {
-    const { createComlinkWorker } = await import('../common/helpers/comlink-worker')
+  it('rejects when the worker fires error before ready', async () => {
+    const { createComlinkWorker } = await import('../client/workers/comlink-worker')
 
     class FakeWorker {
       listeners: Record<string, Function[]> = {}
@@ -44,15 +45,13 @@ describe('createComlinkWorker', () => {
     }
 
     const fallback = vi.fn(async () => ({ ping: () => true, main: true }))
-    const result = await createComlinkWorker(() => new FakeWorker() as any, fallback, { workerName: 'test' })
+    await expect(createComlinkWorker(() => new FakeWorker() as any, fallback, { workerName: 'test' })).rejects.toThrow('worker script failed to load')
 
-    expect(fallback).toHaveBeenCalled()
-    expect(result.isWorker).toBe(false)
-    expect((result.worker as any).main).toBe(true)
+    expect(fallback).not.toHaveBeenCalled()
   })
 
   it('keeps the worker when ping succeeds', async () => {
-    const { createComlinkWorker } = await import('../common/helpers/comlink-worker')
+    const { createComlinkWorker } = await import('../client/workers/comlink-worker')
 
     class OkWorker {
       listeners: Record<string, Function[]> = {}

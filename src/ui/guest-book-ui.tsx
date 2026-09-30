@@ -1,10 +1,9 @@
 import { Component, ComponentChildren, Fragment, render } from 'preact'
-import { unmountComponentAtNode } from 'preact/compat'
 import { useEffect, useState } from 'preact/hooks'
 import { getAvatarNameFromWallet } from '../../common/helpers/apis'
 import { pluralize } from '../../common/helpers/english-helper'
-import { openDialog } from '../../common/helpers/ui-helpers'
-import { copyTextToClipboard } from '../../common/helpers/utils'
+import { openDialog } from '../../client/ui/helpers'
+import { copyTextToClipboard } from '../../client/ui/clipboard'
 import { PanelType } from '../../web/src/components/panel'
 import { app, AppEvent } from '../../web/src/state'
 import GuestBook from '../features/guest-book'
@@ -173,7 +172,7 @@ export class GuestBookUi extends Component<Props, State> {
 
 export function toggleGuestBookUi(guestBook: GuestBook, scene: BABYLON.Scene) {
   if (GuestBookUi.currentElement) {
-    unmountComponentAtNode(GuestBookUi.currentElement)
+    render(null, GuestBookUi.currentElement)
     GuestBookUi.currentElement.remove()
     GuestBookUi.currentElement = null!
     if (!document.querySelector('.pointer-lock-close,.overlay')) {

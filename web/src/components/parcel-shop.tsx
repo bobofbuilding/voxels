@@ -1,3 +1,4 @@
+import { Config as deployment } from '../../../common/config'
 import { useEffect, useMemo, useState } from 'preact/hooks'
 import ParcelHelper from '../../../common/helpers/parcel-helper'
 import { ParcelWithMintednessRecord } from '../../../common/messages/parcel'
@@ -6,7 +7,7 @@ import { mintParcel } from '../helpers/mint-parcel'
 import { Fee, listOnOpensea } from '../helpers/list-opensea'
 import { app } from '../state'
 
-const TEAM = '0x2D891ED45C4C3EAB978513DF4B92a35Cf131d2e2'
+const TEAM = deployment.ownerAddress
 const CLASSIFIEDS_URL = '/api/classifieds.json'
 
 type Listing = { id: number; price: number; permalink: string }

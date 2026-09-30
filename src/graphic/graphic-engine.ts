@@ -1,4 +1,4 @@
-import { isBatterySaver } from '../../common/helpers/detector'
+import { isBatterySaver } from '../../client/platform'
 import { createEvent, TypedEventTarget } from '../utils/EventEmitter'
 import type { PostProcesses } from './post-processes'
 

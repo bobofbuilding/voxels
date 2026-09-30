@@ -1,4 +1,4 @@
-import { drawDistanceOverride, isMobile } from '../../common/helpers/detector'
+import { drawDistanceOverride, isMobile } from '../../client/platform'
 import { createEvent, TypedEventTarget } from '../utils/EventEmitter'
 import { GraphicEngine, GraphicLevels } from './graphic-engine'
 

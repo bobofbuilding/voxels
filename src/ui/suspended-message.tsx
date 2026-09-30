@@ -1,7 +1,7 @@
 import { render } from 'preact'
 import { format } from 'timeago.js'
 import { SuspendedMessage } from '../../common/messages/grid'
-import { openDialog } from '../../common/helpers/ui-helpers'
+import { openDialog } from '../../client/ui/helpers'
 
 export function displaySuspendedMessage(bannedMessage: SuspendedMessage) {
   const { el, close } = openDialog('suspended-window pointer-lock-close overlay')

@@ -1,21 +1,20 @@
 import { Component, Fragment, createRef } from 'preact'
 import { format } from 'timeago.js'
 import ParcelHelper from '../../common/helpers/parcel-helper'
-import { parcelRendererUrl } from '../../common/renderable/thumb-url'
 import { canUseDom } from '../../common/helpers/utils'
 import { FullParcelRecord, NearbyParcelRecord, ParcelWithMintednessRecord } from '../../common/messages/parcel'
 import type { VoxelsMap } from './helpers/load-voxels-map'
 import { loadVoxelsMap } from './helpers/load-voxels-map'
 import ParcelEvents from './components/parcel-events'
 import cachedFetch from './helpers/cached-fetch'
-import Head from './components/head'
 import { app, AppEvent } from './state'
 import { fetchOptions } from './utils'
 import { AvatarLink } from './components/avatar-link'
+import { ActivitySection } from './activity'
 import { ParcelMetrics as Metrics } from './components/metrics'
-import { ParcelShop } from './components/parcel-shop'
 import { getParcelIdFromPath } from './helpers/coords-nav'
 import { route } from 'preact-router'
+import { truncate } from './lib/string-utils'
 
 export interface Props {
   parcel?: ParcelWithMintednessRecord
@@ -236,7 +235,7 @@ export default class Parcel extends Component<Props, State> {
 
     return (
       <>
-        <p>
+        <div class="parcel-actions">
           {this.canEdit && (
             <a
               href={`/parcels/${this.state.parcelId}/edit`}
@@ -249,18 +248,13 @@ export default class Parcel extends Component<Props, State> {
               Edit
             </a>
           )}
-          &nbsp;
-          {this.state.querying ? (
-            <span>🐙 Update</span>
-          ) : (
-            <button type="button" onClick={() => this.updateStateFromBlockChain()}>
-              🦑 Update
-            </button>
-          )}
-        </p>
+          <button type="button" disabled={this.state.querying} onClick={() => this.updateStateFromBlockChain()}>
+            {this.state.querying ? 'Refreshing...' : 'Refresh ownership'}
+          </button>
+        </div>
         {this.state.parcel?.description && (
-          <div>
-            <h3>Description</h3>
+          <details class="inspector-section parcel-description" key={p.id}>
+            <summary>description</summary>
             <p>
               {this.state.parcel.description.split('\n').map((line: string, i: number, arr: string[]) => (
                 <Fragment key={i}>
@@ -269,22 +263,23 @@ export default class Parcel extends Component<Props, State> {
                 </Fragment>
               ))}
             </p>
-          </div>
+          </details>
         )}
-        <dl>
+        <h3>properties</h3>
+        <dl class="parcel-properties">
           <dt>Address</dt>
           <dd>
             {p.address}
-            <br />
-            {p.suburb}
-            <br />
-            <a href={`/islands/${islandSlug}`}>{p.island}</a>
+            {p.suburb && <div>{p.suburb}</div>}
+            <div>
+              <a href={`/islands/${islandSlug}`}>{p.island}</a>
+            </div>
           </dd>
           <dt>Owner</dt>
           <dd>
             <AvatarLink avatar={p.owner} />
           </dd>
-          <dt>Token ID</dt>
+          <dt>Token</dt>
           <dd>
             <a href={h.tokenUri}>#{p.id}</a>
           </dd>
@@ -296,12 +291,12 @@ export default class Parcel extends Component<Props, State> {
           ) : null}
           <dt>Dimensions</dt>
           <dd>
-            {h.width}m &times; {h.depth}m and {h.height}m tall.
+            {h.width} &times; {h.depth} &times; {h.height} m
           </dd>
           {p.y1 > 0 ? (
             <Fragment>
               <dt>Elevation</dt>
-              <dd>{p.y1}m.</dd>
+              <dd>{p.y1} m</dd>
             </Fragment>
           ) : null}
           {attrs.length > 0 ? (
@@ -323,11 +318,10 @@ export default class Parcel extends Component<Props, State> {
             </Fragment>
           ) : null}
         </dl>
-        <ParcelShop parcel={this.state.parcel} isOwner={!!this.isOwner} />
 
         {this.state.parcel?.parcel_users && this.state.parcel.parcel_users.length > 0 && (
-          <div>
-            <h3>Collaborators</h3>
+          <details class="inspector-section">
+            <summary>collaborators</summary>
             <ul>
               {this.state.parcel.parcel_users.map((u: any) => (
                 <li key={u.owner}>
@@ -335,12 +329,15 @@ export default class Parcel extends Component<Props, State> {
                 </li>
               ))}
             </ul>
-          </div>
+          </details>
         )}
         {this.state.parcel ? <ParcelEvents parcel={this.state.parcel} /> : null}
 
-        <h3>Activity</h3>
-        <Metrics parcelId={this.state.parcelId} />
+        <ActivitySection parcelId={this.state.parcelId} />
+        <details class="inspector-section">
+          <summary>metrics</summary>
+          <Metrics parcelId={this.state.parcelId} />
+        </details>
       </>
     )
   }
@@ -352,8 +349,10 @@ export default class Parcel extends Component<Props, State> {
       <>
         <ul class="sidebar-tabs">
           {tabs.map((t) => (
-            <li key={t.id} class={tab === t.id ? '-active' : ''} onClick={() => this.setTab(t.id)}>
-              {t.label}
+            <li key={t.id}>
+              <button type="button" class={tab === t.id ? 'selected' : ''} aria-pressed={tab === t.id} onClick={() => this.setTab(t.id)}>
+                {t.label}
+              </button>
             </li>
           ))}
         </ul>
@@ -371,18 +370,12 @@ export default class Parcel extends Component<Props, State> {
 
     const islandSlug = this.state.parcel.island?.toLowerCase().replace(/\s+/, '-')
     const parcelName = this.state.parcel.name ?? this.state.parcel.address ?? `Parcel #${this.state.parcelId}`
-    const location = [this.state.parcel.address, this.state.parcel.suburb, this.state.parcel.island].filter(Boolean).join(', ')
-    const parcelDesc = this.state.parcel.description || (location ? `${location}. The permanent exhibit of crypto art across thousands of galleries in an endlessly evolving world.` : '')
-    const ogImage = parcelRendererUrl(this.state.parcelId)
-
-    const head = <Head title={parcelName} description={parcelDesc} url={`/parcels/${this.state.parcelId}`} imageURL={ogImage} />
 
     return (
       <section class="parcel-page">
-        {head}
-        <header>
-          <h1>{parcelName}</h1>
-        </header>
+        <h1>{parcelName}</h1>
+        {parcelName !== this.state.parcel.address && <p class="parcel-address">{this.state.parcel.address}</p>}
+
         {this.renderSidebar(islandSlug!)}
       </section>
     )

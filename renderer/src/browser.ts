@@ -75,8 +75,8 @@ async function ensurePage(kind: PageKind) {
     console.log('[renderer] ensurePage: launching chromium')
     browser = await chromium.launch({
       headless: !HEADED,
-      devtools: HEADED,
       args: [
+        ...(HEADED ? ['--auto-open-devtools-for-tabs'] : []),
         '--no-sandbox',
         '--disable-dev-shm-usage',
         '--disable-gpu',
@@ -183,6 +183,20 @@ async function renderWearableOnce(vox: Buffer): Promise<Buffer> {
   return Buffer.from(webpB64, 'base64')
 }
 
+async function renderAvatarOnce(url: string): Promise<Buffer> {
+  const p = await ensurePage('wearable')
+  const webpB64 = await p.evaluate(
+    async ({ url, bg, size }) => {
+      const fn = (window as any).renderVrmThumb
+      if (typeof fn !== 'function') throw new Error('renderVrmThumb missing')
+      return fn(url, bg, size)
+    },
+    { url, bg: BG, size: SIZE },
+  )
+  if (typeof webpB64 !== 'string' || !webpB64) throw new Error('empty render')
+  return Buffer.from(webpB64, 'base64')
+}
+
 async function renderParcelOnce(record: Record<string, unknown>, type: string): Promise<Buffer> {
   const p = await ensurePage('parcel')
   if (HEADED) {
@@ -213,6 +227,19 @@ export function renderWearable(uuid: string, vox: Buffer): Promise<Buffer> {
   if (existing) return existing
 
   const p = enqueue(async () => withTimeout(renderWearableOnce(vox), HOLD_MS)).finally(() => {
+    inflight.delete(key)
+  })
+
+  inflight.set(key, p)
+  return p
+}
+
+/** Render VRM url to webp. Dedupes by thumb key. Throws err.code BUSY | TIMEOUT. */
+export function renderAvatar(key: string, url: string): Promise<Buffer> {
+  const existing = inflight.get(key)
+  if (existing) return existing
+
+  const p = enqueue(async () => withTimeout(renderAvatarOnce(url), HOLD_MS)).finally(() => {
     inflight.delete(key)
   })
 

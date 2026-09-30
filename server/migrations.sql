@@ -365,3 +365,41 @@ $$);
 SELECT apply_migration('posts-hash', $$
   ALTER TABLE posts ADD COLUMN IF NOT EXISTS hash text UNIQUE;
 $$);
+
+SELECT apply_migration('properties-compiled-at', $$
+  ALTER TABLE properties ADD COLUMN IF NOT EXISTS compiled_at timestamp;
+  CREATE INDEX IF NOT EXISTS properties_compiled_at_idx ON properties (compiled_at);
+$$);
+
+SELECT apply_migration('email-codes', $$
+  CREATE TABLE IF NOT EXISTS email_codes (
+    email citext PRIMARY KEY,
+    code text NOT NULL,
+    expires_at timestamptz NOT NULL,
+    attempts integer NOT NULL DEFAULT 0
+  );
+$$);
+
+SELECT apply_migration('parcel-transfers', $$
+  CREATE TABLE IF NOT EXISTS parcel_transfers (
+    hash text NOT NULL,
+    log_index integer NOT NULL,
+    block integer NOT NULL,
+    parcel_id integer NOT NULL,
+    from_wallet text NOT NULL,
+    to_wallet text NOT NULL,
+    created_at timestamptz NOT NULL,
+    PRIMARY KEY (hash, log_index)
+  );
+  CREATE INDEX IF NOT EXISTS parcel_transfers_block_idx ON parcel_transfers (block DESC, log_index DESC);
+  CREATE INDEX IF NOT EXISTS parcel_transfers_parcel_idx ON parcel_transfers (parcel_id, block DESC);
+$$);
+
+SELECT apply_migration('free-avatars', $$
+  CREATE TABLE IF NOT EXISTS free_avatars (
+    id serial PRIMARY KEY,
+    name text NOT NULL,
+    src text NOT NULL,
+    created_at timestamptz NOT NULL DEFAULT now()
+  );
+$$);

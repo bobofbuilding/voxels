@@ -1,7 +1,7 @@
 import { Component } from 'preact'
 import { Emotes } from '../../../common/messages/constant'
 import Connector from '../../connector'
-import { focusFirst, onGridArrowKeys } from '../../../web/src/helpers/keynav'
+import { onGridArrowKeys } from '../../../web/src/helpers/keynav'
 
 export class EmotePane extends Component {
   get connector(): Connector {
@@ -14,7 +14,7 @@ export class EmotePane extends Component {
   }
 
   componentDidMount() {
-    focusFirst(this.base as HTMLElement, '[tabindex]')
+    ;(this.base as HTMLElement).querySelector<HTMLElement>('[tabindex]')?.focus({ preventScroll: true })
   }
 
   emote(emoji: string) {

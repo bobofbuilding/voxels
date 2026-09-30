@@ -27,8 +27,7 @@ export default defineWorkspace([
     test: {
       name: 'server',
       include: ['server/test/**/*-test.ts'],
-      // these hit postgres with a schema that does not match, or load the db on import
-      exclude: ['server/test/favorites-test.ts', 'server/test/report-test.ts', 'server/test/suspended-avatars-test.ts', 'server/test/parcel-test.ts'],
+      exclude: ['server/test/database/**'],
       environment: 'node',
       globals: false,
       setupFiles: ['./test/vitest-tape.ts'],

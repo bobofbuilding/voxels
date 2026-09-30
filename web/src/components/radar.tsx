@@ -1,4 +1,5 @@
 import { Component } from 'preact'
+import { avatarRendererUrl } from '../../../common/renderable/thumb-url'
 import ParcelHelper from '../../../common/helpers/parcel-helper'
 import { avatarName, type AvatarRef } from '../../../common/messages/avatar-ref'
 import { AvatarLink } from './avatar-link'
@@ -64,18 +65,19 @@ export default class Radar extends Component<Props, { users: Map<string, User> }
     if (byParcel.size === 0) return null
 
     return (
-      <>
-        <h3>Radar</h3>
+      <details class="inspector-section" open>
+        <summary>nearby</summary>
         <ul class="radar">
           {[...byParcel.entries()].map(([parcelId, users]) => {
             const info = parcelId != null ? getParcel(parcelId).value : null
             const label = info?.name || info?.address || (parcelId ? `parcel ${parcelId}` : 'somewhere')
             return (
               <li key={parcelId ?? 'none'}>
-                {parcelId ? <a href={`/parcels/${parcelId}`}>{label}</a> : <span>{label}</span>}
+                {parcelId && <a href={`/parcels/${parcelId}`}>{label}</a>}
                 <ul>
                   {users.map(({ uuid, avatar }) => (
                     <li key={uuid}>
+                      <img src={avatar && typeof avatar !== 'string' ? avatarRendererUrl(avatar.id) : '/images/no-image.png'} alt="" width={24} height={24} loading="lazy" />
                       {this.props.teleportTo ? (
                         <a href="#" onClick={(e) => this.onUserClick(e, uuid, parcelId)}>
                           {avatar ? avatarName(avatar) : 'anon'}
@@ -92,7 +94,7 @@ export default class Radar extends Component<Props, { users: Map<string, User> }
             )
           })}
         </ul>
-      </>
+      </details>
     )
   }
 }

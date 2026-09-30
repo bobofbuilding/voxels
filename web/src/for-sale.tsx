@@ -1,8 +1,9 @@
+import { ActivitySection } from './activity'
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks'
 import Toggle from './components/toggle'
 import Head from './components/head'
 import { ParcelDetails } from './components/parcels/parcel-details'
-import { Womp, WompCard } from './components/womp-card'
+import { Womp, WompTile } from './tiles/womp-tile'
 import cachedFetch from './helpers/cached-fetch'
 import { fetchOptions } from './utils'
 import WorldMap from './map'
@@ -53,7 +54,7 @@ function RecentWomps({ parcelId }: { parcelId: number }) {
       <h4>recent womps</h4>
       <div class="parcel-womps-grid">
         {womps.map((w) => (
-          <WompCard key={w.id} womp={w} />
+          <WompTile key={w.id} womp={w} />
         ))}
       </div>
       {hasMore ? (
@@ -246,6 +247,7 @@ export default function ForSale(_props: { path?: string }) {
             </table>
           </>
         )}
+        <ActivitySection parcelId={view === 'detail' ? (selectedId ?? undefined) : undefined} />
       </aside>
     </section>
   )

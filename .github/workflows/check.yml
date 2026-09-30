@@ -9,6 +9,20 @@ on:
 jobs:
   check:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      TEST_DATABASE_URL: postgres://postgres:postgres@127.0.0.1:5432/postgres
     steps:
       - run: echo "t0=$(date +%s)" >> "$GITHUB_ENV"
 
@@ -57,10 +71,18 @@ jobs:
 
           exit $(( ra | rb | rc ))
 
+      # smoke test renders, click through from the run summary
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: renders
+          path: test-output/
+          if-no-files-found: ignore
+
       # AGENTS.md: CI must stay under 60s or it may get deleted
       - if: always()
         run: |
           s=$(( $(date +%s) - t0 ))
           if [ "$s" -gt 60 ]; then
-            echo "::warning::Warning, CI test took $((s / 60)):$(printf '%02d' $((s % 60))), ben may arbitrarily delete CI (see agents.md)"
+            echo "::warning::Warning, CI test took $((s / 60)):$(printf '%02d' $((s % 60))), maintainers may remove CI (see agents.md)"
           fi

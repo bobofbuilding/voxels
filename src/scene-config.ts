@@ -1,4 +1,4 @@
-import { wantsAudio } from '../common/helpers/detector'
+import { wantsAudio } from '../client/platform'
 
 export type SceneConfig = BABYLON.DeepImmutableObject<{
   isBot: boolean

@@ -123,3 +123,8 @@ export async function loadIslands(): Promise<any[]> {
   })
   return islandCache
 }
+
+export async function loadFreeAvatarSrc(id: number): Promise<string | null> {
+  const r = await pool.query<{ src: string }>(`select src from free_avatars where id = $1 limit 1`, [id])
+  return r.rows[0]?.src || null
+}

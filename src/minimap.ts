@@ -1,6 +1,6 @@
 import type Connector from './connector'
 import { createEvent, TypedEventTarget } from './utils/EventEmitter'
-import { isMobile } from '../common/helpers/detector'
+import { isMobile } from '../client/platform'
 import { SingleParcelRecord } from '../common/messages/parcel'
 import { app, AppEvent } from '../web/src/state'
 import { cameraPosition } from './utils/camera'

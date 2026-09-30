@@ -1,3 +1,4 @@
+import { loadEnv, requireSecret } from '../../services/env'
 import { createClient } from 'redis'
 import createWWWServer from './api'
 import { createConnection } from './common/pq'
@@ -7,12 +8,7 @@ import createWebsocketServer from './ws'
 import createShards from './ws/shards/shards'
 import type { RadarEvent } from './ws/shards/shards'
 
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const dotenv = require('dotenv')
-const result = dotenv.config()
-if (result.error && result.error.code !== 'ENOENT') {
-  throw result.error
-}
+loadEnv()
 
 process.on('uncaughtException', (err) => console.error('uncaughtException', err))
 process.on('unhandledRejection', (err) => console.error('unhandledRejection', err))
@@ -24,18 +20,12 @@ process.once('SIGINT', () => {
   process.once('SIGINT', () => process.exit(0))
 })
 
-function ensureEnv(name: string): string {
-  const value = process.env[name]
-  if (!value) throw new Error(`Environment variable '${name}' is required`)
-  return value
-}
-
 const RADAR_CHANNEL = 'radar:updates'
 const RADAR_TTL = 60
 const RADAR_HEARTBEAT_MS = 30_000
 
 async function start(signal: AbortSignal) {
-  const jwtSecret = ensureEnv('JWT_SECRET')
+  const jwtSecret = requireSecret()
 
   const connection = createConnection(APP_NAME)
   const server = createServer()
