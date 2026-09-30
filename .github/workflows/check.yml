@@ -38,6 +38,8 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
+      - run: python3 -m unittest discover -s selfhost/media -p 'test_*.py'
+
       # None of these three needs the others, so run them at once and pay for
       # the slowest instead of the sum. Buffered so the logs read one at a time.
       - run: |
