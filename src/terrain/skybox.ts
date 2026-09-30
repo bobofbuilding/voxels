@@ -1,47 +1,32 @@
 export default class Skybox {
   private readonly _mesh: BABYLON.Mesh
-  private material: BABYLON.SkyMaterial
 
   constructor(scene: BABYLON.Scene) {
-    const material = new BABYLON.SkyMaterial('skybox/sky-material', scene)
-    material.backFaceCulling = false // leave
-    material.useSunPosition = true
-    material.fogEnabled = false // we set out fog kinda thick so we can't enable it for the sky
-    material.turbidity = 1 // smearing of the sun local to the sun itself
-    material.rayleigh = 2 // smearing of the sun across the sky in general
-    material.mieCoefficient = 0.03 // smearing that obscures the sun's shape
-    // material.dithering = true // needed to overcome precision issues introduced by shader pipeline
-    material.freeze()
-    this.material = material
+    const material = new BABYLON.StandardMaterial('skybox/neon-clouds', scene)
+    material.backFaceCulling = false
+    material.disableLighting = true
+    material.fogEnabled = false
+    material.emissiveColor = BABYLON.Color3.White()
+    material.emissiveTexture = new BABYLON.Texture(`${process.env.ASSET_PATH || ''}/textures/neon-clouds-v1.png`, scene)
+    material.diffuseColor = BABYLON.Color3.Black()
+    material.specularColor = BABYLON.Color3.Black()
 
-    const mesh = BABYLON.MeshBuilder.CreateSphere('skybox', { segments: 16, diameter: 1 }, scene)
-
-    const updateScale = (drawDistance: number) => {
-      mesh.scaling.setAll(drawDistance * 1.96)
-    }
-
+    const mesh = BABYLON.MeshBuilder.CreateSphere('skybox', { segments: 32, diameter: 1 }, scene)
+    const updateScale = (distance: number) => mesh.scaling.setAll(distance * 1.96)
+    const onDistance = (event: CustomEvent<number>) => updateScale(event.detail)
     updateScale(window.draw.distance)
-    window.draw.addEventListener('distance-changed', (e) => updateScale(e.detail))
-
+    window.draw.addEventListener('distance-changed', onDistance)
+    mesh.onDisposeObservable.addOnce(() => {
+      window.draw.removeEventListener('distance-changed', onDistance)
+      material.dispose(false, true)
+    })
     mesh.material = material
     mesh.infiniteDistance = true
     mesh.isPickable = false
-    mesh.alphaIndex = 0 // render behind all other alpha blended meshes
-
     this._mesh = mesh
   }
 
   get mesh(): BABYLON.Mesh {
     return this._mesh
-  }
-
-  update(sunPosition: BABYLON.Vector3, luminance: number) {
-    if (this.material.sunPosition.equals(sunPosition) && this.material.luminance === luminance) {
-      return
-    }
-    this.material.unfreeze()
-    this.material.sunPosition = sunPosition
-    this.material.luminance = luminance
-    this.material.freeze()
   }
 }

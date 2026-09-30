@@ -230,7 +230,7 @@ export default abstract class Controls implements IControls {
       this.updateVehicle()
       // let persona update its position from the body
       this.persona.update(cameraPosition(this.scene), cameraRotation(this.scene), this)
-      this.swimming = this.persona.isSwimming(SWIM_LEVEL) ?? this.swimming
+      this.swimming = false // The public world now has solid grid terrain instead of water.
       this.firstOrThirdPersonAdjustment()
     })
 

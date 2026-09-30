@@ -43,7 +43,8 @@ export default function renderComponent(component: VNode) {
 <html>
 <head>
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=overlays-content">
-  <link rel="shortcut icon" href="/favicon.png" />
+  <link rel="icon" type="image/png" href="/favicon.png?v=neon-1" />
+  <link rel="icon" type="image/svg+xml" href="/favicon-neon.svg" />
   <link rel="prefetch" href="${BABYLON_BUNDLE_URL}" as="script">
   <link href='/${currentVersion}-app.css' rel="stylesheet" />
   ${head}

@@ -32,3 +32,18 @@ Retro switched player movement from Babylon's ellipsoid collision coordinator to
 This deployment restores Babylon collision-based player movement, uses the full Babylon renderer for every world entry, and enables solid cubes, loaded voxel models, opaque/glass parcel blocks, island ground and ocean floor. Saved `collidable: false` values do not disable these solid objects in this deployment. Archive records are unchanged. Cube placement is available in the normal and minimal feature budgets. Loading drafts and failed model placeholders do not create invisible obstacles.
 
 The existing Babylon 9 rendering version, current world APIs, ownership policy and multiplayer protocol are retained. Rapier remains for ancillary object simulation and the inactive experimental Lite source; it no longer controls normal player movement. Collision vertices remain available on mobile. Automated tests exercise Babylon's real collision coordinator, mesh transforms, instances, jumping, sliding, ceiling contact and geometry disposal.
+
+
+## Neon environment
+
+The public world uses an original blue-black cloud panorama, black ground with blue emissive-looking grid lines, and a matching cube favicon. The sky is a bundled static texture; no image-generation service is called at runtime. Former ocean and lake surfaces are now opaque, collidable grid ground at street height. Coastline clipping retains all polygon holes so underground parcel access remains open. Player swimming and underwater fog are disabled for this dry world. Parcel build contents and archive records are unchanged.
+
+`dist/textures/neon-clouds-v1.png` was generated with the built-in image-generation tool using a prompt requesting: “A seamless 2:1 equirectangular sky-only texture for a digital voxel world, TRON: Legacy-inspired deep blue-black storm clouds, restrained electric-blue light in the cloud edges, thin cyan horizon glow, dark zenith and nadir, no buildings, ground, logos, text or watermark.” The two accompanying concept images are references, not screenshots of the running world. The favicon is an original SVG cube in `dist/favicon-neon.svg`; its PNG fallback is rasterized from that source.
+
+## Community sharing direction (not enabled yet)
+
+Automatic public-build caching and opt-in uploading are the agreed browser behavior. IP privacy requires relays: direct WebRTC and ordinary BitTorrent peers can see each other's addresses. Use relay-only WebRTC with independently operated, open-source [coturn](https://github.com/coturn/coturn) servers, short-lived credentials and upload limits. Never silently fall back to direct peers. Relay operators still see connecting addresses; relay-only is not anonymity from the operator.
+
+This avoids a mandatory paid TURN provider, but hardware, power and bandwidth are contributed by operators. With only the Pi/MyCloud host, the service is not yet decentralized. Multiple independent archive seeds and relays are needed. The existing public website also depends on Cloudflare's tunnel; independently reachable node endpoints would reduce that dependency. GitHub distributes software and signed manifests, not the live player traffic or bulk archive.
+
+Browser shares must contain only hash-verified public parcel objects, with a bounded evictable cache. Account details, chat, telemetry and private parcels are excluded. Timestamped signed snapshots establish freshness; content hashes establish integrity. The existing archive torrent is for node operators and is not a private browser-sharing transport. No paid TURN service or public relay listener is provisioned by this visual update.
