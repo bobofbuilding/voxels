@@ -1,4 +1,4 @@
-import { submitFederatedEdit } from './federated-edits'
+import { submitFederatedEdit } from '../client/federated-edits'
 import { cameraPosition } from './utils/camera'
 import { markLoaded } from './utils/loading-done'
 import Parcel, { ParcelActivationState } from './parcel'

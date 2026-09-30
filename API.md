@@ -25,7 +25,7 @@ Generated from `server/openapi.yaml` by `npm run docs:api`. Edit the spec, not t
 - [ghosts](#ghosts), 1 route
 - [chat](#chat), 1 route
 - [account](#account), 5 routes
-- [federation](#federation), 7 routes
+- [federation](#federation), 8 routes
 - [schemas](#schemas), 28 shapes
 
 ## parcels
@@ -1476,6 +1476,7 @@ JWT required. `wallet` must be the signed-in identity or one linked to it. Sets 
 
 ## federation
 
+- [`GET /federation/edit/{id}`](#get-federationeditid) Review a retained public signed edit
 - [`GET /federation/info`](#get-federationinfo) Shared-world identity and editor policy
 - [`GET /federation/parcel/{id}`](#get-federationparcelid) Read the public parcel genesis hash and latest causal revision
 - [`POST /federation/edits`](#post-federationedits) Verify and durably apply a wallet-signed public build edit
@@ -1483,6 +1484,19 @@ JWT required. `wallet` must be the signed-in identity or one linked to it. Sets 
 - [`GET /federation/events`](#get-federationevents) Read a bounded feed of committed public edits
 - [`GET /federation/presence`](#get-federationpresence) Read anonymous, short-lived host-signed player poses
 - [`POST /federation/presence`](#post-federationpresence) Relay host-signed player poses
+
+### GET /federation/edit/{id}
+
+Review a retained public signed edit
+
+**parameters**
+
+- `id` (path, required) string
+
+**answers**
+
+- `200` The complete signed edit or permission change
+- `404` Public edit not found
 
 ### GET /federation/info
 
@@ -1504,14 +1518,14 @@ Read the public parcel genesis hash and latest causal revision
 
 **answers**
 
-- `200` Base hash, clock and parent edit identifier (null at genesis)
+- `200` Base hash, causal clock, parent, active parcel permission revision, preserved edit IDs and pending review IDs
 - `400` Invalid or non-public parcel
 
 ### POST /federation/edits
 
 Verify and durably apply a wallet-signed public build edit
 
-Requires the configured world editor's personal-message signature. Legacy account tokens do not authorize edits. See selfhost/node/README.md and common/federation/edit.ts for canonical signing, supported patches and bounds. Requests are limited to 2 MiB; signed envelopes to 1,900,000 UTF-8 bytes.
+Version 2 requires a parcel owner, manager or builder wallet signature bound to a permission revision. Hosts independently verify archived authority and signed permission changes. Conflicting manager branches pause writes until the parcel owner resolves them. Superseded-authority edits remain pending unless explicitly preserved or approved. Version 1 remains restricted to the network owner for compatibility. Legacy account tokens do not authorize edits. See selfhost/node/README.md and common/federation/edit.ts for canonical signing, supported patches and bounds. Requests are limited to 2 MiB; signed envelopes to 1,900,000 UTF-8 bytes.
 
 **body**
 

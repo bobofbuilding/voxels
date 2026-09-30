@@ -13,7 +13,7 @@ DATABASE_URL=postgresql:///voxels_world EXPECTED_PARCELS=8807 \
   node selfhost/world/import-world.mjs /path/to/extracted-inventory
 ```
 
-Install repository dependencies first. The importer refuses a database that already contains parcels and commits the entire import atomically. It imports only visible builds, their public owner/name profiles, bounds, suburbs and island geometry. It does not import account credentials or contributor/moderator permissions. Keep saved historical versions on archive storage. This archive is not the Ethereum snapshot used for migration claims.
+Install repository dependencies first. The importer refuses a database that already contains parcels and commits the entire import atomically. It imports only visible builds, their public owner/name profiles, bounds, suburbs and island geometry. It preserves archived parcel manager/builder assignments, but does not import account credentials or global moderator privileges. Keep saved historical versions on archive storage. This archive is not the Ethereum snapshot used for migration claims.
 
 ## Build and runtime
 
@@ -21,7 +21,7 @@ Build with `API=/api ASSET_PATH='' PUBLIC_URL=your.hostname NODE_ENV=production 
 
 Configure `OWNER_ADDRESS`, a randomly generated `JWT_SECRET`, `DATABASE_URL`, `CONTRACT_ADDRESS`, `PUBLIC_URL`, `BIND_HOST=127.0.0.1`, `PORT=19000`, `DATABASE_STATEMENT_TIMEOUT_MS=5000` for the node, and `REDIS_URL` for a private Redis instance. The multiplayer process must use the same database and signing secret, and listen on loopback port 13780. The public gateway forwards `/mp/socket` to multiplayer and `/grid/socket` to the world server. Put HTTPS in front of its loopback port 8787.
 
-For the migration launch, set `PARCEL_EDIT_POLICY=admin` and `RUN_BACKGROUND_JOBS=false`. This preserves administrator editing while preventing old snapshot ownership from granting editing authority. It also keeps legacy scheduled jobs, including metrics truncation and external chain synchronization, disabled. The existing legacy contract address does not imply a new migration contract has been deployed. Enable external integrations only after configuring and verifying their credentials and contracts.
+For the original owner-only migration launch, use `PARCEL_EDIT_POLICY=admin` and `RUN_BACKGROUND_JOBS=false`. Shared-world nodes that preserve archived delegated rights use `PARCEL_EDIT_POLICY=parcel`; see the node installer migration instructions. This preserves administrator editing while preventing old snapshot ownership from granting editing authority. It also keeps legacy scheduled jobs, including metrics truncation and external chain synchronization, disabled. The existing legacy contract address does not imply a new migration contract has been deployed. Enable external integrations only after configuring and verifying their credentials and contracts.
 
 Keep the writable world database on the node's SSD. Store dated private database backups outside the public `seed/` directory on the NAS. Never put session secrets, accounts, chat or telemetry in public snapshots. Public snapshots should export only reviewed public parcel builds/history. Archive publication is explicit; no recurring snapshot or destructive retention schedule is installed by these tools.
 
