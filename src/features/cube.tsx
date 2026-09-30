@@ -15,6 +15,7 @@ export default class Cube extends Feature3D<CubeRecord> {
 
   static template: FeatureTemplate = {
     type: 'cube',
+    collidable: true,
     scale: [0.5, 0.5, 0.5],
     url: '',
   }
@@ -28,6 +29,11 @@ export default class Cube extends Feature3D<CubeRecord> {
     } catch (e) {
       return null
     }
+  }
+
+  afterSetCommon = () => {
+    this.mesh?.computeWorldMatrix(true)
+    if (this.mesh) this.mesh.checkCollisions = this.mesh.getTotalVertices() > 0
   }
 
   whatIsThis() {
@@ -107,7 +113,7 @@ class Editor extends FeatureEditor<Cube> {
     this.state = {
       id: props.feature.description.id,
       color: props.feature.description.color || '#ffffff',
-      collidable: props.feature.description.collidable,
+      collidable: true,
     }
   }
 
@@ -137,8 +143,8 @@ class Editor extends FeatureEditor<Cube> {
             <div className="f">
               <form>
                 <label>
-                  <input type="checkbox" name="collidable" onChange={(e) => this.setState({ collidable: e.currentTarget.checked })} checked={this.state.collidable}></input>
-                  Enable Collision
+                  <input type="checkbox" name="collidable" disabled checked></input>
+                  Collisions enabled
                 </label>
               </form>
             </div>

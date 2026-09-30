@@ -31,8 +31,15 @@ export default class VoxModel<Description extends VoxModelRecord | MegavoxRecord
   }
   static template: FeatureTemplate = {
     type: 'vox-model',
+    collidable: true,
     scale: [0.5, 0.5, 0.5],
     url: '',
+  }
+
+  private collisionReady = false
+  public override afterSetCommon = () => {
+    this.mesh?.computeWorldMatrix(true)
+    if (this.mesh) this.mesh.checkCollisions = this.collisionReady && !this.importError && this.mesh.getTotalVertices() > 0
   }
 
   private _importError: string | null = null
@@ -70,6 +77,7 @@ export default class VoxModel<Description extends VoxModelRecord | MegavoxRecord
     this.mesh = root.mesh.createInstance(this.uniqueEntityName('instance')) as unknown as MeshExtended
     // pivot (the 0.02 vox scale) is per-node, instances do not inherit it from the source
     this.mesh.setPreTransformMatrix(root.mesh.getPivotMatrix())
+    this.collisionReady = true
     this.afterGenerate()
   }
 
@@ -89,6 +97,7 @@ export default class VoxModel<Description extends VoxModelRecord | MegavoxRecord
   private applyImportedMesh(imported: BABYLON.Mesh) {
     this.mesh?.dispose()
     this.mesh = imported
+    this.collisionReady = true
     this.mesh.isPickable = true
     this.mesh.name = this.uniqueEntityName('mesh')
     this.mesh.id = this.mesh.name
@@ -96,6 +105,7 @@ export default class VoxModel<Description extends VoxModelRecord | MegavoxRecord
   }
 
   public override async generate() {
+    this.collisionReady = false
     this.generateDraft()
     this.loading = this.loadContent()
   }
@@ -220,7 +230,7 @@ class Editor extends FeatureEditor<VoxModel> {
       type: props.feature.description.type,
       link: props.feature.description.link,
       cubescale: props.feature.description.cubescale,
-      collidable: props.feature.description.collidable,
+      collidable: true,
       importError: props.feature.importError,
     }
   }
@@ -271,9 +281,9 @@ class Editor extends FeatureEditor<VoxModel> {
             )}
 
             <>
-              <dt>Enable Collision</dt>
+              <dt>Collisions enabled</dt>
               <dd>
-                <input type="checkbox" name="collidable" onChange={(e) => this.setState({ collidable: e.currentTarget.checked })} checked={this.state.collidable} />
+                <input type="checkbox" name="collidable" disabled checked />
               </dd>
             </>
 
@@ -635,7 +645,7 @@ Ride.Editor = class RideEditor extends Editor {
               <small> reset to the saved park spot (kicks a driver if needed).</small>
             </dd>
 
-            <dt>Enable Collision</dt>
+            <dt>Collisions enabled</dt>
             <dd>
               <input type="checkbox" name="collidable" disabled checked />
             </dd>

@@ -120,6 +120,9 @@ export default class Parcel extends TypedEventTarget<ParcelEventMap> {
   private regeneratingFeatures = false
   private colliderVoxels: Int32Array | null = null
   physicsRegistered = false
+  get collisionsReady() {
+    return !!this.voxelMesh && !this.voxelMesh.isDisposed()
+  }
   private activated = false
   private activationState = ParcelActivationState.Inactive
   private fieldUpdateTimeout: NodeJS.Timeout | null = null
@@ -1329,7 +1332,7 @@ export default class Parcel extends TypedEventTarget<ParcelEventMap> {
     this.activationState = ParcelActivationState.Active
 
     if (isMobile()) {
-      this.scene.clearCachedVertexData()
+      // Babylon collision and picking need CPU vertex data after loading.
       this.scene.cleanCachedTextureBuffer()
     }
 
@@ -1420,6 +1423,7 @@ export default class Parcel extends TypedEventTarget<ParcelEventMap> {
     opaque.parent = this.transform
     opaque.position.set(off[0], off[1], off[2])
     opaque.isPickable = true
+    opaque.checkCollisions = opaque.getTotalVertices() > 0
     opaque.freezeWorldMatrix()
     this.ensureOcclusionProbe()
     this.setGlassMesh(glass, { pickable: true })
@@ -1538,6 +1542,7 @@ export default class Parcel extends TypedEventTarget<ParcelEventMap> {
 
   private setCommonMeshProperties(mesh: BABYLON.Mesh, cfg?: { pickable: boolean }) {
     mesh.parent = this.transform
+    mesh.checkCollisions = mesh.getTotalVertices() > 0
     mesh.isPickable = cfg?.pickable || false
     mesh.setEnabled(true)
   }

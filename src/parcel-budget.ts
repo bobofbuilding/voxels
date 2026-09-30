@@ -41,6 +41,7 @@ export const featureBudget: BudgetLimits = {
 }
 
 export const minimalBudget: BudgetLimits = {
+  cube: 1000,
   audio: 80,
   sign: 100,
   image: 500,
