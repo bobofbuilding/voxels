@@ -116,7 +116,9 @@ export default function RadioController(db: Db, app: Express) {
 
   app.get('/api/radio/live', async (req, res) => {
     res.setHeader('Content-Type', 'text/event-stream')
-    res.setHeader('Cache-Control', 'no-cache')
+    // Compression buffers small SSE updates; intermediaries must stream them immediately.
+    res.setHeader('Cache-Control', 'no-cache, no-transform')
+    res.setHeader('X-Accel-Buffering', 'no')
     res.setHeader('Connection', 'keep-alive')
     res.flushHeaders()
 
