@@ -10,6 +10,7 @@ import { FeatureRecord } from '../common/messages/feature'
 import { ParcelAuthResult } from '../common/messages/parcel'
 
 export default async function authParcel(parcel: ParcelAuthRef, user: VoxelsUser | null): Promise<ParcelAuthResult> {
+  if (process.env.PARCEL_EDIT_POLICY === 'admin' && !isAdminWallet(user?.wallet)) return false
   if (parcel.sandbox === true) {
     if (!user) return 'Sandbox'
   }
@@ -71,6 +72,7 @@ export type AuthFeatureResultSuccess = {
 export type AuthFeatureResult = AuthFeatureResultSuccess | false
 
 export async function authFeature(parcelId: number, featureUuid: string, currentParcelId: number, user: VoxelsUser | null): Promise<AuthFeatureResult> {
+  if (process.env.PARCEL_EDIT_POLICY === 'admin' && !isAdminWallet(user?.wallet)) return false
   const parcel = await Parcel.load(parcelId)
   if (!parcel) {
     return false

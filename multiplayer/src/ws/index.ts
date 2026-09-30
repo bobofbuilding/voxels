@@ -8,7 +8,7 @@ import { Shards } from './shards/shards'
 import type { MultiplayerServer, WsLike } from '../createServer'
 
 export default function createWebsocketServer(server: MultiplayerServer, httpServer: http.Server, shards: Shards) {
-  const wss = new WebSocketServer({ server: httpServer, path: '/socket' })
+  const wss = new WebSocketServer({ server: httpServer, path: '/socket', maxPayload: 65536 })
 
   const makeWsLike = (
     wsId: symbol,

@@ -13,3 +13,9 @@ export function requireSecret(env: NodeJS.ProcessEnv = process.env): string {
   if (!value || value.trim().length < 32) throw new Error('JWT_SECRET must contain at least 32 characters. Generate one with pnpm run setup:env for local development.')
   return value
 }
+
+export function readDatabaseTimeout(env: NodeJS.ProcessEnv = process.env): number {
+  const value = Number(env.DATABASE_STATEMENT_TIMEOUT_MS ?? 500)
+  if (!Number.isInteger(value) || value < 100 || value > 30000) throw new Error('DATABASE_STATEMENT_TIMEOUT_MS must be an integer from 100 to 30000')
+  return value
+}
