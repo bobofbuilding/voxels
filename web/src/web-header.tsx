@@ -354,7 +354,7 @@ export default class WebHeader extends Component<Props, State> {
                 </ul>
               </F>
               <F name="Settings">
-                <ul title="I have altered the indentation, pray I do not alter it further - Darth Nolan">
+                <ul>
                   <F name="Settings">
                     <ul>
                       <A to="/settings">Settings</A>
@@ -422,7 +422,7 @@ export default class WebHeader extends Component<Props, State> {
 
               <li>
                 <br />
-                <small>&copy; 2018-2026 Nolan Consulting Limited</small>
+                <small>Voxels</small>
               </li>
             </ul>
           </nav>

@@ -8,7 +8,7 @@ TERMS OF SERVICE
 
 OVERVIEW
 
-This website is operated by Nolan Consulting Limited. Throughout the site, the terms “we”, “us” and “our” refer to the voxels site. Nolan Consulting offers this website, including all information, tools and services available from this site to you, the user, conditioned upon your acceptance of all terms, conditions, policies and notices stated here.
+This website is operated by the Voxels site operators. Throughout the site, the terms “we”, “us” and “our” refer to the voxels site. We offer this website, including all information, tools and services available from this site to you, the user, conditioned upon your acceptance of all terms, conditions, policies and notices stated here.
 
 Please read these Terms of Service carefully before accessing or using our website. By accessing or using any part of the site, you agree to be bound by these Terms of Service. If you do not agree to all the terms and conditions of this agreement, then you may not access the website or use any services.
 
@@ -62,7 +62,7 @@ SECTION 7 - OWNERSHIP AND DATA USE
 
 You own your content. You can export your data at any time.
 
-You grant us permission to display your content as part of the Voxels experience. However, no third party may download, rehost, or display your content on any other website or platform without explicit written permission from Nolan Consulting Limited.
+You grant us permission to display your content as part of the Voxels experience. However, no third party may download, rehost, or display your content on any other website or platform without explicit written permission from the site operators.
 
 We do not sell or give away your personal data.
 
