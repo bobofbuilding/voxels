@@ -20,7 +20,7 @@ SET client_min_messages = warning;
 SET row_security = off;
 
 --
--- Data for Name: costumes; Type: TABLE DATA; Schema: public; Owner: ben
+-- Data for Name: costumes; Type: TABLE DATA; Schema: public; Owner: voxels
 --
 
 COPY public.costumes (id, wallet, attachments, skin, name, default_color) FROM stdin;
@@ -109,7 +109,7 @@ COPY public.costumes (id, wallet, attachments, skin, name, default_color) FROM s
 
 
 --
--- Name: costumes_id_seq; Type: SEQUENCE SET; Schema: public; Owner: ben
+-- Name: costumes_id_seq; Type: SEQUENCE SET; Schema: public; Owner: voxels
 --
 
 SELECT pg_catalog.setval('public.costumes_id_seq', 1, true);

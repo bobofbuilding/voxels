@@ -1,7 +1,7 @@
 import { ethers, verifyMessage } from 'ethers'
 import Config from '../../common/config'
 import { GuestBookRecord } from '../../common/messages/feature'
-import { voxImporter } from '../../common/vox-import/vox-import'
+import { voxImporter } from '../../client/world/vox-import'
 import { provider } from '../../web/src/auth/state-login'
 import { Position, Rotation, Scale, EditorProps } from '../../web/src/components/editor'
 import Panel from '../../web/src/components/panel'

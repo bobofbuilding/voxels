@@ -44,9 +44,6 @@ export enum MessageType {
   point = 66,
 
   // Thrown wearable objects (client-simulated, relayed)
-  yeet = 67,
-  yeetState = 68,
-  nerf = 69,
 
   // Lua behaviour state sync (parallel to grid; ephemeral, parcel-scoped)
   behaviourState = 70,
@@ -211,33 +208,6 @@ export type PointMessage = {
 }
 
 export const PointMessageEncoder = encoderCreator<PointMessage>()
-
-export type YeetMessage = {
-  type: MessageType.yeet
-  uuid: string
-  id: string
-  wid: string
-  position: [number, number, number]
-  orientation: [number, number, number, number]
-}
-export const YeetEncoder = encoderCreator<YeetMessage>()
-
-export type YeetStateMessage = {
-  type: MessageType.yeetState
-  uuid: string
-  objects: any[]
-}
-export const YeetStateEncoder = encoderCreator<YeetStateMessage>()
-
-export type NerfMessage = {
-  type: MessageType.nerf
-  uuid: string
-  yeetId: string
-  kind: 'avatar' | 'field'
-  target?: string
-  position: [number, number, number]
-}
-export const NerfEncoder = encoderCreator<NerfMessage>()
 
 export type CreateAvatarMessage = {
   type: MessageType.createAvatar
@@ -600,7 +570,7 @@ export namespace Message {
   /**
    * A type of message that is used for maintaining state by the client and the server.
    */
-  type StateRelayMessage = NewCostumeMessage | TypingMessage | ChatMessage | VoiceStateMessage | AvatarEmoteMessage | PointMessage | YeetMessage | YeetStateMessage | NerfMessage | BehaviourStateMessage | BehaviourSignalMessage
+  type StateRelayMessage = NewCostumeMessage | TypingMessage | ChatMessage | VoiceStateMessage | AvatarEmoteMessage | PointMessage | BehaviourStateMessage | BehaviourSignalMessage
 
   /**
    * A type of message that is sent by a client to update the avatar's state in-world.
@@ -616,9 +586,6 @@ export namespace Message {
     [MessageType.updateAvatar]: null,
     [MessageType.metric]: null,
     [MessageType.point]: null,
-    [MessageType.yeet]: null,
-    [MessageType.yeetState]: null,
-    [MessageType.nerf]: null,
     [MessageType.behaviourState]: null,
     [MessageType.behaviourSignal]: null,
   })
@@ -641,9 +608,6 @@ export namespace Message {
     [MessageType.avatarChanged]: null,
     [MessageType.worldState]: null,
     [MessageType.point]: null,
-    [MessageType.yeet]: null,
-    [MessageType.yeetState]: null,
-    [MessageType.nerf]: null,
     [MessageType.behaviourState]: null,
     [MessageType.behaviourSignal]: null,
   })

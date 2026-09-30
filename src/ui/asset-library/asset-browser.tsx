@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'preact/hooks'
-import { requestPointerLock } from '../../../common/helpers/ui-helpers'
+import { requestPointerLock } from '../../../client/ui/helpers'
 import Pagination from '../../../web/src/components/pagination'
 import { featureTemplates, PlaceableFeatureTypes } from '../../features/_metadata'
 import { LibraryAsset } from '../../library-asset'

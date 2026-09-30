@@ -3,7 +3,7 @@ import { ethers } from 'ethers'
 import { PassportStatic } from 'passport'
 import cache from '../cache'
 import { createRequestHandlerForQuery } from '../lib/query-helpers'
-import { Db, pgp } from '../pg'
+import { Db } from '../pg'
 import { VoxelsUserRequest } from '../user'
 
 export default function (db: Db, passport: PassportStatic, app: Express) {
@@ -26,7 +26,8 @@ export default function (db: Db, passport: PassportStatic, app: Express) {
       orderBy = 'c.created_at asc'
     }
 
-    const results = await pgp.any(
+    const results = await db.query(
+      'collections/search',
       `
         select
           c.id,
@@ -48,26 +49,21 @@ export default function (db: Db, passport: PassportStatic, app: Express) {
         left join
           wearables w on w.collection_id = c.id
         where
-          c.name ilike $<search>
-          ${owner ? 'and c.owner = $<owner>' : ''}
+          c.name ilike $1
+          and ($2::text is null or c.owner = $2)
         group by
           c.id
         order by
           ${orderBy}
         limit
-          coalesce($<limit>, 15)
+          coalesce($3, 15)
         offset
-          $<page> * coalesce($<limit>, 15)
+          $4 * coalesce($3, 15)
         `,
-      {
-        search,
-        limit,
-        page,
-        owner,
-      },
+      [search, owner, limit, page],
     )
 
-    res.json({ success: true, collections: results })
+    res.json({ success: true, collections: results.rows })
   })
 
   app.get(

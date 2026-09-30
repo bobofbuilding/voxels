@@ -1,3 +1,5 @@
+import { Config as deployment } from '../../common/config'
+import { clearCache } from './helpers/cached-fetch'
 import { signal } from '@preact/signals'
 import { EventEmitter } from 'events'
 import Cookies from 'js-cookie'
@@ -17,8 +19,6 @@ export interface Message {
   createdAt?: Date
   data?: string
 }
-
-const VOXELS_TEAM = ['0x2D891ED45C4C3EAB978513DF4B92a35Cf131d2e2', '0x86b6Dcc9eb556e55485d627e5D4393b616A8Afb8', '0xa13b052759aC009D4b7643f61E77FeC54492f446', '0x0fA074262d6AF761FB57751d610dc92Bac82AEf9'].map((w) => w.toLowerCase())
 
 const MESSAGE_CHANNEL = 'channel'
 
@@ -42,6 +42,8 @@ export enum AppEvent {
 export interface StateObject {
   loading?: boolean
   wallet: string | null
+  /** Identity that signed in, set only while acting as a linked wallet or email account. */
+  account?: string | null
   moderator?: boolean
   name?: string
   unverifiedWallet?: string
@@ -117,7 +119,7 @@ export class Appstate extends State {
   }
 
   isAdmin() {
-    return VOXELS_TEAM.includes(this.state.wallet?.toLowerCase() ?? '')
+    return !!deployment.ownerAddress && this.state.wallet?.toLowerCase() === deployment.ownerAddress
   }
 
   get hasMetamask(): boolean {
@@ -176,6 +178,7 @@ export class Appstate extends State {
   }
 
   async setKey(key: string) {
+    clearCache()
     try {
       const payload = decodeJwt(key) as any
       const wallet: string | undefined = payload?.wallet?.toLowerCase()
@@ -183,6 +186,7 @@ export class Appstate extends State {
       this.setState({
         key,
         wallet,
+        account: payload?.account?.toLowerCase() ?? null,
       })
 
       let fetchPing, resultPing
@@ -212,6 +216,7 @@ export class Appstate extends State {
   }
 
   signout() {
+    clearCache()
     this.localStorage?.removeItem('cv-wearables-owned')
     try {
       sessionStorage.removeItem('showbox_guest_pass')
@@ -221,6 +226,7 @@ export class Appstate extends State {
 
     this.setState({
       wallet: null!,
+      account: null,
       key: null!,
       moderator: false,
       name: null!,
@@ -325,7 +331,7 @@ export class Appstate extends State {
       return
     }
     const wallet = payload.wallet.toLowerCase()
-    this.setState({ key, name: name ?? undefined, wallet })
+    this.setState({ key, name: name ?? undefined, wallet, account: payload.account?.toLowerCase() ?? null })
     this.loadAvatar()
     this.emit(AppEvent.Login, isNewUser)
   }
@@ -377,6 +383,21 @@ export class Appstate extends State {
 }
 
 export const app = new Appstate()
+
+// which sidebar folders are open, persisted like the other local settings
+export const navOpen = signal<Record<string, boolean>>({ Exploring: true })
+try {
+  const v = localStorage.getItem('navOpen')
+  if (v) navOpen.value = JSON.parse(v)
+} catch {}
+
+export function toggleFolder(name: string, open: boolean) {
+  if (!!navOpen.value[name] === open) return
+  navOpen.value = { ...navOpen.value, [name]: open }
+  try {
+    localStorage.setItem('navOpen', JSON.stringify(navOpen.value))
+  } catch {}
+}
 
 // For debugging
 if (typeof window !== 'undefined') {

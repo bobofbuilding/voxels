@@ -49,7 +49,8 @@ export default function Events(props: Props) {
   }, [controls.sort])
 
   return (
-    <section class="columns">
+    <section>
+      <h1>Events</h1>
       <article>
         {controlsEl}
         <table class="events">
@@ -67,7 +68,7 @@ export default function Events(props: Props) {
           <tbody>
             {!loaded ? (
               <tr>
-                <td colSpan={4}>
+                <td colSpan={3}>
                   <Spinner />
                 </td>
               </tr>
@@ -101,7 +102,9 @@ export default function Events(props: Props) {
         </table>
       </article>
       <aside>
-        <a href="/events/new">New event</a>
+        <a class="buttonish" href="/events/new">
+          New event
+        </a>
       </aside>
     </section>
   )

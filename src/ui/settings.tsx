@@ -1,5 +1,5 @@
 import { Component, JSX } from 'preact'
-import { isMobile } from '../../common/helpers/detector'
+import { isMobile } from '../../client/platform'
 import { AudioSettings } from '../audio/audio-engine'
 import { setRadioVolume } from '../../web/src/radio/global'
 import Connector from '../connector'
@@ -7,9 +7,10 @@ import { FOV } from '../graphic/field-of-view'
 import { type GraphicEngine, GraphicLevels, GraphicSettings } from '../graphic/graphic-engine'
 import type { MinimapSettings } from '../minimap'
 import { chatSettings } from './interact/chat'
+import { ghostSettings } from '../ghosts'
 import { voiceSettings } from '../voice-settings'
 import { DEFAULT_SENSITIVITY, MAX_SENSITIVITY, MIN_SENSITIVITY } from '../controls/user-control-settings'
-import { getTheme, setTheme } from '../../common/helpers/theme'
+import { getTheme, setTheme } from '../../client/ui/theme'
 
 function toReversedPercentage(value: number, min: number, max: number): number {
   return ((max - value) / (max - min)) * 100
@@ -264,10 +265,10 @@ export class SettingsUI extends Component<Props, State> {
   render() {
     return (
       <section class="settings">
-        <h2>Settings</h2>
+        <h1>Settings</h1>
 
         <section>
-          <h3>gfx</h3>
+          <h3>graphics</h3>
           <dl class="props">
             {!isMobile() && (
               <>
@@ -288,14 +289,14 @@ export class SettingsUI extends Component<Props, State> {
         <section>
           <h3>general</h3>
           <dl class="props">
-            <dt>Field of view: {Math.round((this.state.fov * 180) / Math.PI)}</dt>
+            <dt>Field of view</dt>
             <dd>
               <input type="range" min={30} max={100} step={1} value={Math.round((this.state.fov * 180) / Math.PI)} onInput={this.onFOVChange.bind(this) as any} />
             </dd>
 
             {!isMobile() && (
               <>
-                <dt>Mouse sensitivity: {Math.round(this.state.mouseSensitivityPercentage)}</dt>
+                <dt>Mouse sensitivity</dt>
                 <dd>
                   <input list="sensitivity-markers" type="range" step={1} max={100} min={1} value={this.state.mouseSensitivityPercentage} onInput={this.onSensitivityChange.bind(this) as any} />
                   <datalist id="sensitivity-markers">
@@ -307,7 +308,7 @@ export class SettingsUI extends Component<Props, State> {
 
             {!!(navigator as any).gpu && (
               <>
-                <dt>Experimental renderer (babylon lite, webgpu)</dt>
+                <dt>WebGPU renderer (experimental)</dt>
                 <dd>
                   <input
                     type="checkbox"
@@ -323,7 +324,7 @@ export class SettingsUI extends Component<Props, State> {
 
             {this.state.showMinimapSettings && (
               <>
-                <dt>Enable mini map</dt>
+                <dt>Mini map</dt>
                 <dd>
                   <input type="checkbox" onChange={(e) => this.onToggleMinimap(e.target as HTMLInputElement)} checked={!!this.state.minimap?.enabled} />
                 </dd>
@@ -351,6 +352,18 @@ export class SettingsUI extends Component<Props, State> {
               <input type="checkbox" onChange={(e) => this.onToggleChat(e.target as HTMLInputElement)} checked={chatSettings.enabled} />
             </dd>
 
+            <dt>Show ghosts</dt>
+            <dd>
+              <input
+                type="checkbox"
+                onChange={(e) => {
+                  ghostSettings.enabled = (e.target as HTMLInputElement).checked
+                  this.forceUpdate()
+                }}
+                checked={ghostSettings.enabled}
+              />
+            </dd>
+
             <dt>Dark mode</dt>
             <dd>
               <input type="checkbox" onChange={(e) => this.onToggleDark(e.target as HTMLInputElement)} checked={this.state.darkMode} />
@@ -370,7 +383,7 @@ export class SettingsUI extends Component<Props, State> {
         <section>
           <h3>voice chat</h3>
           <dl class="props">
-            <dt>Enable voice chat</dt>
+            <dt>Voice chat</dt>
             <dd>
               <input type="checkbox" onChange={(e) => this.onToggleVoice(e.target as HTMLInputElement)} checked={this.state.voiceEnabled} />
             </dd>
@@ -386,17 +399,10 @@ export class SettingsUI extends Component<Props, State> {
                   </select>
                 </dd>
 
-                <dt>
-                  Pitch: {this.state.voicePitch > 0 ? '+' : ''}
-                  {Math.round(this.state.voicePitch)}
-                </dt>
+                <dt>Pitch</dt>
                 <dd>
                   <input type="range" min={-12} max={12} step={1} value={this.state.voicePitch} onInput={this.onVoicePitchChange.bind(this) as any} />
                 </dd>
-                <dd class="full">
-                  <small>Slide down for a deeper voice, up for higher.</small>
-                </dd>
-
                 <dt>Monitor yourself</dt>
                 <dd>
                   <input type="checkbox" onChange={(e) => this.onToggleVoiceMonitor(e.target as HTMLInputElement)} checked={this.state.voiceMonitor} />
@@ -434,8 +440,7 @@ function VolumeControl({ channel, settingsUI, label, minVolume, maxVolume }: { c
     settingsUI.onVolumeChange(channel, 1)
   }
 
-  const percentage = value <= min ? 0 : Math.round(((value - min) / (max - min)) * 100)
-  const display = value <= min ? `${label} (muted)` : `${label}: ${percentage}%`
+  const display = value <= min ? `${label} (muted)` : label
 
   return (
     <>

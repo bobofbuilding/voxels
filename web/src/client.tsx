@@ -1,18 +1,22 @@
 import { Component, createRef } from 'preact'
 import ParcelHelper from '../../common/helpers/parcel-helper'
 import { canUseDom } from '../../common/helpers/utils'
-import { wantsLite, wantsNoUI } from '../../common/helpers/detector'
+import { wantsLite, wantsNoUI } from '../../client/platform'
 import type { BootResult } from '../../src'
 import { pushSpaceHistory, realmSavedCoords, saveRealmCoords } from '../../src/init/realm'
 import { spaceW } from '../../src/utils/space-w'
 import cachedFetch from './helpers/cached-fetch'
 import { getCoords, getParcelIdFromPath, getSpaceIdFromPath, isSpacePath, isSpacePlayPath, syncParcelUrl } from './helpers/coords-nav'
 import { app, AppEvent } from './state'
+import { currentOrNearestParcel } from '../../src/store'
 
-function boot(): Promise<BootResult | null> {
+/** Memoised engine boot; safe to await from anywhere that needs window.persona / window.grid. */
+export function worldBoot(): Promise<BootResult | null> {
   if (wantsLite()) return import('../../src/lite').then((m) => m.bootLite())
-  return import(/* webpackMode: "eager" */ '../../src').then((m) => m.bootEngine())
+  return import('../../src').then((m) => m.bootEngine())
 }
+
+const boot = worldBoot
 
 type FrameProps = {
   coords: string
@@ -28,7 +32,6 @@ export class Client extends Component<FrameProps, FrameState> {
 
   componentDidMount() {
     if (!canUseDom) return
-    document.body.classList.add('in-world')
     void boot()
       .then((ui) => {
         this.setState({ ui })
@@ -37,7 +40,6 @@ export class Client extends Component<FrameProps, FrameState> {
       .then(() => this.adopt())
       .catch((e) => {
         console.error('[boot]', e)
-        window.graphic?.postProcesses?.reveal()
         this.adopt()
       })
     app.on(AppEvent.Exploring, this.onExplore)
@@ -55,7 +57,6 @@ export class Client extends Component<FrameProps, FrameState> {
   componentWillUnmount() {
     this.observer?.disconnect()
     app.removeListener(AppEvent.Exploring, this.onExplore)
-    document.body.classList.remove('in-world')
   }
 
   private syncRealm(path?: string, prevPath?: string): Promise<void> {
@@ -102,7 +103,8 @@ export class Client extends Component<FrameProps, FrameState> {
   }
 
   private gotoParcel(id: number) {
-    if (window.grid?.currentParcel()?.id === id) return
+    // already here or next to it (location label click), don't teleport
+    if (window.grid?.currentParcel()?.id === id || currentOrNearestParcel.value?.id === id) return
     void cachedFetch(`/api/parcels/${id}.json`)
       .then((r) => r.json())
       .then((d) => {

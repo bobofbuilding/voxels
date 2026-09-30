@@ -1,4 +1,4 @@
-import { isIOS, isMobile, isSafari, isTablet, wantsGateway } from '../common/helpers/detector'
+import { isIOS, isMobile, isSafari, isTablet, wantsGateway } from '../client/platform'
 import type Controls from './controls/controls'
 import { isLoaded, markLoaded } from './utils/loading-done'
 

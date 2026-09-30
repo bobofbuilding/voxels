@@ -22,8 +22,8 @@ export default class Scope {
     return (this.page - 1) * this.limit
   }
 
-  toURL(): URL {
-    const url = new URL(window.location.origin + this.url)
+  toURL(origin: string): URL {
+    const url = new URL(this.url, origin)
 
     if (this.query) {
       url.searchParams.set('q', this.query)
@@ -44,8 +44,8 @@ export default class Scope {
     return url
   }
 
-  toString(): string {
-    return this.toURL().toString()
+  toString(origin: string): string {
+    return this.toURL(origin).toString()
   }
 
   static parse(path: string, query: URLSearchParams | any): Scope {

@@ -86,9 +86,9 @@ dump_table "costumes" "
   LIMIT 500
 "
 
-# bnolan wearables (costumes already captured above via Poneke dump)
-dump_table "wearables" "SELECT DISTINCT ON (w.id) w.* FROM wearables w JOIN (SELECT e->>'wid' AS wid FROM costumes c JOIN avatars a ON lower(a.owner) = lower(c.wallet) CROSS JOIN LATERAL jsonb_array_elements(c.attachments::jsonb) e WHERE a.name = 'bnolan') wids ON w.id::text = wids.wid LIMIT 500"
-dump_table "collections" "SELECT DISTINCT ON (col.id) col.* FROM collections col JOIN wearables w ON w.collection_id = col.id JOIN (SELECT e->>'wid' AS wid FROM costumes c JOIN avatars a ON lower(a.owner) = lower(c.wallet) CROSS JOIN LATERAL jsonb_array_elements(c.attachments::jsonb) e WHERE a.name = 'bnolan') wids ON w.id::text = wids.wid LIMIT 500"
+# Wearables used by costumes from the selected island
+dump_table "wearables" "SELECT DISTINCT ON (w.id) w.* FROM wearables w JOIN (SELECT e->>'wid' AS wid FROM costumes c CROSS JOIN LATERAL jsonb_array_elements(c.attachments::jsonb) e WHERE lower(c.wallet) IN (SELECT lower(owner) FROM properties WHERE island = '$ISLAND_NAME' UNION SELECT lower(author) FROM womps w JOIN properties p ON w.parcel_id = p.id WHERE p.island = '$ISLAND_NAME')) wids ON w.id::text = wids.wid LIMIT 500"
+dump_table "collections" "SELECT DISTINCT ON (col.id) col.* FROM collections col JOIN wearables w ON w.collection_id = col.id JOIN (SELECT e->>'wid' AS wid FROM costumes c CROSS JOIN LATERAL jsonb_array_elements(c.attachments::jsonb) e WHERE lower(c.wallet) IN (SELECT lower(owner) FROM properties WHERE island = '$ISLAND_NAME' UNION SELECT lower(author) FROM womps w JOIN properties p ON w.parcel_id = p.id WHERE p.island = '$ISLAND_NAME')) wids ON w.id::text = wids.wid LIMIT 500"
 dump_table "parcel_users" "SELECT pu.* FROM parcel_users pu JOIN properties p ON pu.parcel_id = p.id WHERE p.island = '$ISLAND_NAME' LIMIT 500"
 dump_table "asset_library" "SELECT * FROM asset_library WHERE name ILIKE '%fish%' OR name ILIKE '%toilet%' LIMIT 500"
 dump_table "spaces" "

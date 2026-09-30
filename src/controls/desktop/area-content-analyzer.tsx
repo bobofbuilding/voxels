@@ -1,8 +1,7 @@
 import { Component, render } from 'preact'
-import { unmountComponentAtNode } from 'preact/compat'
 import { Dictionary, groupBy, sortBy } from 'lodash'
 import type Grid from '../../grid'
-import { exitPointerLock, requestPointerLockIfNoOverlays } from '../../../common/helpers/ui-helpers'
+import { exitPointerLock, requestPointerLockIfNoOverlays } from '../../../client/ui/helpers'
 import type Parcel from '../../parcel'
 import FPSCounter from '../../components/fps-counter'
 import type Feature from '../../features/feature'
@@ -289,7 +288,7 @@ export class AreaContentAnalyzer extends Component<Props, State> {
 
 export function showAreaContentAnalyzeUI(scene: BABYLON.Scene) {
   if (!!AreaContentAnalyzer.currentElement) {
-    unmountComponentAtNode(AreaContentAnalyzer.currentElement) // unmount the component
+    render(null, AreaContentAnalyzer.currentElement) // unmount the component
     AreaContentAnalyzer.currentElement = null!
   } else {
     const div = document.createElement('div')
@@ -300,7 +299,7 @@ export function showAreaContentAnalyzeUI(scene: BABYLON.Scene) {
       <AreaContentAnalyzer
         scene={scene}
         onClose={() => {
-          !!AreaContentAnalyzer.currentElement && unmountComponentAtNode(AreaContentAnalyzer.currentElement)
+          !!AreaContentAnalyzer.currentElement && render(null, AreaContentAnalyzer.currentElement)
           AreaContentAnalyzer.currentElement = null!
           requestPointerLockIfNoOverlays()
           div?.remove()

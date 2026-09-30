@@ -2,10 +2,9 @@ import { render } from 'preact'
 import { getWearableGif } from '../../../web/src/helpers/wearable-helpers'
 
 import CollectibleModel from '../../features/collectible-model'
-import { openDialog } from '../../../common/helpers/ui-helpers'
+import { openDialog } from '../../../client/ui/helpers'
 import { HTMLUi } from './html-ui'
-import { NftMediaBox } from './nft-view'
-import { unmountComponentAtNode } from 'preact/compat'
+import { NftMediaBox, mediaAspect } from './nft-view'
 import { SUPPORTED_CHAINS_BY_ID } from '../../../common/helpers/chain-helpers'
 import { avatarName } from '../../../common/messages/avatar-ref'
 
@@ -130,13 +129,7 @@ export class CollectibleHTMLUi extends HTMLUi<Props, State> {
               <NftMediaBox dialogEl={this.props.dialogEl} aspect={this.aspect} onDismiss={() => this.close()}>
                 {(setAr) => (
                   <>
-                    <img
-                      src={getWearableGif(this.asset)}
-                      onLoad={(e) => {
-                        const t = e.currentTarget
-                        if (t.naturalWidth && t.naturalHeight) setAr(t.naturalWidth / t.naturalHeight)
-                      }}
-                    />
+                    <img src={getWearableGif(this.asset)} onLoad={mediaAspect(setAr)} />
                     {this.isTriable && (
                       <div className="overlay-large-button" onClick={() => (this.isWearing ? this.onTakeOffCollectible() : this.enteredParcel && this.onTryCollectible())}>
                         <h1>{this.isWearing ? 'Remove' : 'Try it on'}</h1>
@@ -200,7 +193,7 @@ export class CollectibleHTMLUi extends HTMLUi<Props, State> {
 
 export default function showCollectibleHTMLUi(collectible: CollectibleModel, scene: BABYLON.Scene) {
   if (!!CollectibleHTMLUi.currentElement) {
-    unmountComponentAtNode(CollectibleHTMLUi.currentElement)
+    render(null, CollectibleHTMLUi.currentElement)
     CollectibleHTMLUi.currentElement = null!
     CollectibleHTMLUi.close()
   }

@@ -1,3 +1,4 @@
+import { isAdminWallet } from '../permissions'
 import { createRequestHandlerForQuery, queryAndCallback } from '../lib/query-helpers'
 
 import cache, { noCache } from '../cache'
@@ -8,7 +9,7 @@ import { revertParcel, sandboxRollback } from '../handlers/update-parcel'
 import voxExport from '../handlers/vox-export'
 import { numberOfQuarterOfDaySinceGenesis } from '../lib/utils'
 import authParcel from '../auth-parcel'
-import { Db, pgp } from '../pg'
+import { Db } from '../pg'
 import { PassportStatic } from 'passport'
 import { Express } from 'express'
 import { VoxelsUser } from '../user'
@@ -63,122 +64,31 @@ export default function (db: Db, passport: PassportStatic, app: Express) {
     })
   })
 
-  // Route to Obtain the content of every parcels the user owns.
-  app.get('/api/parcels/search.json', cache('5 minutes'), async (req, res) => {
-    let limit: number | undefined = undefined
-
-    if (typeof req.query.limit === 'string') {
-      limit = parseInt(req.query.limit, 10)
-
-      if (isFinite(limit)) {
-        limit = Math.min(50, limit)
-      } else {
-        limit = 50
-      }
-    }
-
-    let page: number | undefined
-
-    if (typeof req.query.page === 'string') {
-      page = parseInt(req.query.page, 10)
-
-      if (!isFinite(page)) {
-        page = undefined
-      }
-    }
-
-    let query: string
-
-    if (typeof req.query.q !== 'string') {
-      res.status(400).send({ success: false })
-
-      return
-    } else if (isAddress(req.query.q!)) {
-      query = req.query.q?.toString()
-    } else if ((req.query.q as any).match(/^[0-9]+$/)) {
-      // is a parcel id
-      const id = parseInt(req.query.q!, 10)
-      const params = [id, limit, page, req.query.sort ? req.query.sort : 'id', req.query.asc === 'true']
-
-      queryAndCallback(db, 'parcels/search-parcels-by-id', 'parcels', params, (response) => {
-        res.status(200).send(response)
-      })
-
-      return
-    } else {
-      query = '%' + (req.query.q as any)?.toString().slice(0, 1024) + '%'
-    }
-
-    const sort = typeof req.query.sort === 'string' ? req.query.sort : 'id'
+  // hot path: no joins, no window count, prefix-only ilike on name/address
+  app.get('/api/parcels/search', cache('5 minutes'), async (req, res) => {
+    const q = typeof req.query.q === 'string' ? req.query.q.slice(0, 256) : ''
+    const limit = Math.min(50, parseInt(req.query.limit as string, 10) || 50)
+    const page = Math.max(0, parseInt(req.query.page as string, 10) || 0)
     const direction = req.query.asc === 'true' ? 'ASC' : 'DESC'
 
-    let orderBy = ''
+    let orderBy = `id ${direction}`
+    if (req.query.sort === 'name') orderBy = `name ${direction}`
+    if (req.query.sort === 'height') orderBy = `y2 - y1 ${direction}`
+    if (req.query.sort === 'island') orderBy = `island ${direction}`
+    if (req.query.sort === 'distance') orderBy = `distance_to_center ${direction}`
 
-    switch (sort.toLowerCase()) {
-      case 'id':
-        orderBy = `properties.id ${direction}`
-        break
-      case 'name':
-        orderBy = `properties.name ${direction}`
-        break
-      case 'height':
-        orderBy = `properties.y2-properties.y1 ${direction}`
-        break
-      case 'island':
-        orderBy = `properties.island ${direction}`
-        break
-      case 'distance':
-        orderBy = `properties.distance_to_center ${direction}`
-        break
-      default:
-        orderBy = `properties.id DESC`
-    }
+    const wallet = isAddress(q as any)
+    const filter = wallet ? 'lower(owner) = lower($1)' : '(name ILIKE $1 OR address ILIKE $1)'
+    const param = wallet ? q : q.replace(/[\\%_]/g, '\\$&') + '%'
 
     const sql = `
-      select
-        properties.id as id,
-        y2 - y1 as height,
-        address,
-        properties.kind,
-        suburbs.name as suburb,
-        properties.island,
-        properties.name as name,
-        geometry_json as geometry,
-        CAST(distance_to_center as double precision),
-        CAST(distance_to_ocean as double precision),
-        CAST(distance_to_closest_common as double precision),
-        COALESCE(
-          (SELECT row_to_json(sub) FROM (SELECT a.id, a.name, a.owner, a.created_at FROM avatars a WHERE lower(a.owner) = lower(properties.owner) LIMIT 1) sub),
-          to_json(lower(properties.owner))
-        ) as owner,
-        properties.x1,
-        properties.x2,
-        y1,
-        label,
-        y2 - y1 as y2,
-        properties.z1,
-        properties.z2,
-        memoized_hash as hash,
-        count(*) OVER() AS pagination_count
-      from
-        properties
-      left join suburbs on suburbs.id = properties.suburb_id
-        where (is_common <> true)
-      and
-        (minted = true)
-      and
-        (address ILIKE $1  or  properties.island ILIKE $1 or properties.name ILIKE $1 or lower(properties.owner)=lower($1) or EXISTS (SELECT 1 FROM avatars av WHERE lower(av.owner)=lower(properties.owner) AND av.name ILIKE $1))
-      order by
-        ${orderBy}
-      limit
-        $2
-      offset
-        coalesce(($2::integer * $3::integer),0);
-  `
+      select id, name, address, island, kind, x1, x2, y1, y2, z1, z2, y2 - y1 as height
+      from properties
+      where minted and is_common <> true and ${filter}
+      order by ${orderBy}
+      limit $2 offset $3`
 
-    const params = [query, limit, page]
-    const result = await db.query('parcels/search', sql, params)
-
+    const result = await db.query('parcels/search', sql, [param, limit, page * limit])
     res.status(200).send({ success: true, parcels: result.rows })
   })
 
@@ -476,7 +386,7 @@ export default function (db: Db, passport: PassportStatic, app: Express) {
       return
     }
 
-    if (parcel.owner.toLowerCase() != process.env.OWNER_ADDRESS!.toLowerCase() && parcel.kind != 'inner' && parcel.island !== 'Pastel') {
+    if (!isAdminWallet(parcel.owner) && parcel.kind != 'inner' && parcel.island !== 'Pastel') {
       // At the moment only inner and pastel parcels can be listed.
       // if parcel owned by CRVOX though that's fine
       res.status(200).send({ success: false, error: 'Not an Architect island or Pastel island parcel' })

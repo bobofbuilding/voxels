@@ -8,7 +8,7 @@ export const ApiAvatar = t.type(
     id: t.string,
     owner: t.string,
     name: t.union([t.string, t.null]),
-    type: t.union([t.literal('woody'), t.literal('vidda'), t.literal('zuck'), t.literal('bnolan')]), // all but woody are deprecated
+    type: t.union([t.literal('woody'), t.literal('vidda'), t.literal('zuck'), t.literal('legacy')]), // all but woody are deprecated
     description: t.union([t.string, t.null]),
     names: t.union([t.array(t.string), t.null]),
     moderator: t.boolean,

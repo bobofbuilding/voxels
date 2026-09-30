@@ -1,6 +1,7 @@
 import { render } from 'preact-render-to-string'
 import ParcelHelper from '../../common/helpers/parcel-helper'
-import { copyTextToClipboard, encodeCoords } from '../../common/helpers/utils'
+import { encodeCoords } from '../../common/helpers/utils'
+import { copyTextToClipboard } from '../../client/ui/clipboard'
 import { MapParcelRecord } from '../../common/messages/api-parcels'
 import type { ParcelData, VoxelsMap } from './helpers/load-voxels-map'
 import { PanelType } from './components/panel'

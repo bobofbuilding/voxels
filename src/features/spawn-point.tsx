@@ -1,5 +1,5 @@
 import { SpawnPointRecord } from '../../common/messages/feature'
-import { voxImporter } from '../../common/vox-import/vox-import'
+import { voxImporter } from '../../client/world/vox-import'
 import { Position, Rotation, Behaviours, EditorProps } from '../../web/src/components/editor'
 import { Advanced, FeatureEditor, FeatureEditorProps, FeatureID, Toolbar } from '../ui/features'
 import { FeatureMetadata, FeatureTemplate } from './_metadata'

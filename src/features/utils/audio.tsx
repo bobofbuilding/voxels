@@ -11,7 +11,7 @@ export interface AudioFeature {
   play: () => void
   volume: number
   playing: boolean
-  radioTitle?: () => string
+  src?: string
 }
 
 export const audioFadeOutAndStop = (feature: AudioFeature) => {
@@ -34,7 +34,7 @@ export const audioFadeInAndPlay = (feature: AudioFeature) => {
   feature.autoStopTimeout && clearTimeout(feature.autoStopTimeout)
 
   if (feature.playing) {
-    feature.volume > 0 && duckRadio(feature, feature.radioTitle?.())
+    feature.volume > 0 && duckRadio(feature, feature.src)
     // fade it back in!
     feature.fadeIn(AUTOPLAY_FADE_TIME)
   } else {

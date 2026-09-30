@@ -1,6 +1,7 @@
 import { cameraPosition } from './utils/camera'
+import { markLoaded } from './utils/loading-done'
 import Parcel, { ParcelActivationState } from './parcel'
-import { isMobile, wantsIsolate } from '../common/helpers/detector'
+import { isMobile, wantsIsolate } from '../client/platform'
 import { sortBy, throttle } from 'lodash'
 import { distanceToAABB } from './utils/boundaries'
 import Cookies from 'js-cookie'
@@ -8,7 +9,7 @@ import { SocketClient } from './utils/socket-client'
 import { displaySuspendedMessage } from './ui/suspended-message'
 import ndarray, { type NdArray } from 'ndarray'
 import { GridClientMessage, GridMessage, ParcelAuthMessage, ParcelMetaMessage, ParcelScriptMessage, PatchErrorMessage, PatchMessage, PatchStateMessage, SuspendedMessage } from '../common/messages/grid'
-import { createMessageHandler } from '../common/helpers/comlink-worker'
+import { createMessageHandler } from '../client/workers/comlink-worker'
 import { GridWorkerAPI, GridWorkerOutput, GridWorkerParcelLoaded, GridWorkerParcelUnloaded, GridWorkerQueryResponse } from './mono'
 import { getGridMono } from './mono-pool'
 import { app, AppEvent } from '../web/src/state'
@@ -68,6 +69,12 @@ export default class Grid extends SocketClient {
   currentSpaceId: string | undefined
   private worldLive = false
   private switching = false
+
+  /** Open world is mounted and no realm switch is in flight - safe to naviport without being overridden. */
+  get openWorldReady() {
+    return this.currentW === 0 && this.worldLive && !this.switching
+  }
+
   private readonly parcelLoaded: (event: TypedEvent<'MeshLoaded', ParcelEventMap['MeshLoaded']>) => void
   private readonly parcelUnloaded: (event: TypedEvent<'MeshUnloading', ParcelEventMap['MeshUnloading']>) => void
 
@@ -90,6 +97,10 @@ export default class Grid extends SocketClient {
   private pingInterval?: number
   private _workerInterval?: number // You'd think "ReturnType<typeof setInterval>" would work, wouldn't you.
   private readonly isolateMode: boolean
+
+  get isolating() {
+    return this.isolateMode
+  }
   private intervals: number[] = []
   private _queryJobs = new Map<number, DeferredPromise<number[]>>()
   private _nextQueryId = 0
@@ -101,7 +112,9 @@ export default class Grid extends SocketClient {
     this.parcelLoaded = (event) => {
       if (!event.detail) return
       if (this.currentW === 0) parcelMeshesAdded([event.detail])
-      window.graphic?.postProcesses?.reveal()
+      // first parcel mesh = world is up. this used to live in reveal(); "Fix reveal"
+      // deleted it and the coords-in-URL writer never ran again (it gates on isLoaded).
+      markLoaded()
     }
 
     this.parcelUnloaded = (event) => {
@@ -132,6 +145,8 @@ export default class Grid extends SocketClient {
     this.addInterval(this.refreshActiveParcels.bind(this), isMobile() ? 2e3 : DEFAULT_UPDATE_INTERVAL_MS)
     this.addInterval(this.refreshEnteredParcel.bind(this), DEFAULT_UPDATE_INTERVAL_MS)
     this.addInterval(this.refreshNearestParcels.bind(this), isMobile() ? 5e3 : 1e3)
+
+    this.scene.onBeforeRenderObservable.add(this.occlusionTick)
 
     if (this.seeksConnection) {
       this.listenToLeaveWorld()
@@ -597,7 +612,6 @@ export default class Grid extends SocketClient {
 
       this.currentW = w
       this.currentSpaceId = spaceId
-      window.graphic?.postProcesses?.cover()
 
       if (w === 0) {
         await createWorldScene(this.scene)
@@ -624,7 +638,6 @@ export default class Grid extends SocketClient {
         if (c) window.persona?.naviport(c)
       }
     } finally {
-      setTimeout(() => window.graphic?.postProcesses?.reveal(), this.currentW > 0 ? 500 : 3e3)
       this.switching = false
     }
   }
@@ -812,6 +825,21 @@ export default class Grid extends SocketClient {
     return this.getNearest(8, this.getCameraPosition()).filter((p) => p.kind == 'inner')[0]
   }
 
+  private occlusionTick = () => {
+    const current = this.currentOrNearestParcel()
+    this.parcels.forEach((p) => {
+      // standing inside the probe thrashs the query — never treat current as occluded
+      if (p === current || !p.occlusionProbe) {
+        p.occludedFrames = 0
+        p.setFeaturesHidden(false)
+        return
+      }
+      if (p.occlusionProbe.isOccluded) p.occludedFrames++
+      else p.occludedFrames = 0
+      p.setFeaturesHidden(p.occluded)
+    })
+  }
+
   private refreshActiveParcels() {
     // Reprioritize pump queue based on current camera position
     const camPos = this.getCameraPosition()
@@ -820,7 +848,15 @@ export default class Grid extends SocketClient {
     const currentParcel = this.currentOrNearestParcel()
 
     // get parcels near camera (to prioritize things close to player)
-    const allNearest = this.getNearest(this.activePoolSize, camPos)
+    // occluded parcels never start dressing; already-active ones stay until occluded ~10s
+    const allNearest = this.getNearest(this.activePoolSize * 2, camPos)
+      .filter((p) => {
+        if (p === currentParcel) return true
+        if (!p.occluded) return true
+        if (this.activeParcelPool.includes(p) && p.occludedFrames <= 600) return true
+        return false
+      })
+      .slice(0, this.activePoolSize)
 
     const filteredNearest: Parcel[] = []
     const cap = Math.floor(this.activePoolSize / 2)
@@ -841,6 +877,12 @@ export default class Grid extends SocketClient {
 
     if (currentParcel) {
       newPool.unshift(currentParcel)
+    }
+
+    // drop pool members that have been occluded for ~10s
+    for (let i = newPool.length - 1; i >= 0; i--) {
+      const p = newPool[i]
+      if (p !== currentParcel && p.occludedFrames > 600) newPool.splice(i, 1)
     }
 
     newPool.length = Math.min(newPool.length, this.activePoolSize)

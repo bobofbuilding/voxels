@@ -1,7 +1,7 @@
 import Controls from './controls'
 import { EYE } from './utils/player-body'
 import { xrHeight } from '../utils/camera'
-import { wantsGateway } from '../../common/helpers/detector'
+import { wantsGateway } from '../../client/platform'
 import { getWorldTerrain, worldSceneEvents, worldSceneLoaded } from '../init/world-scene'
 
 const MOVE_SPEED = 3.5
