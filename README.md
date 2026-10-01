@@ -1,7 +1,8 @@
 # Retro Voxels
 
-This is the live code to retro.voxels.com. PRs are welcome. Read agents.md for coding
-guidelines.
+This is the live code to retro.voxels.com. PRs are welcome. Read
+[CONTRIBUTING.md](CONTRIBUTING.md) for proposal and merge requirements and
+[AGENTS.md](AGENTS.md) for coding guidelines.
 
 # Getting started
 
