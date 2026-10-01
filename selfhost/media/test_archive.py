@@ -169,6 +169,50 @@ class ArchiveTests(unittest.TestCase):
         self.assertEqual(self.job.used, 6)
         self.assertEqual(list(Path(self.args.state).glob('staging-*')), [])
 
+    def test_rolling_queue_commits_ready_files_and_refills_before_slow_source(self):
+        import threading
+        self.staging(workers=2)
+        slow_release = threading.Event()
+        started = []
+        completed = []
+        original_finish = self.job.finish
+        for i in range(5):
+            self.row(f'https://example.org/{i}')
+        def finish(row, status, **fields):
+            if status == 'done':
+                completed.append(row['url'])
+                if row['url'].endswith('/3'):
+                    slow_release.set()
+            return original_finish(row, status, **fields)
+        def opened(url, headers):
+            started.append(url)
+            if url.endswith('/0'):
+                if not slow_release.wait(timeout=5):
+                    raise AssertionError('Ready peers or replacement downloads blocked behind slow source')
+            return io.BytesIO(), Response(url.encode()), url
+        with patch.object(a, 'open_source', side_effect=opened), patch.object(self.job, 'finish', side_effect=finish):
+            try:
+                self.assertEqual(self.job.run(), 0)
+            finally:
+                slow_release.set()
+        self.assertLess(completed.index('https://example.org/3'), completed.index('https://example.org/0'))
+        self.assertEqual(len(completed), 5)
+        self.assertEqual(len(started), 5)
+
+    def test_rolling_refill_counts_outstanding_space_reservations(self):
+        from concurrent.futures import Future
+        from collections import namedtuple
+        self.staging(workers=2, limit=64)
+        first = self.row('https://example.org/0')
+        self.row('https://example.org/1')
+        self.job.stage_futures[first['id']] = Future()
+        self.job.stage_progress[first['id']] = {'bytes': 4}
+        self.job.pool = unittest.mock.Mock()
+        usage = namedtuple('usage', 'total used free')(1000, 900, 100)
+        with patch.object(a.shutil, 'disk_usage', return_value=usage), self.assertRaises(a.StorageFull):
+            self.job.prepare_stages(first)  # 60 outstanding + 64 new + headroom cannot fit.
+        self.job.pool.submit.assert_not_called()
+
     def test_staged_queue_preserves_scope_and_type_order(self):
         self.staging()
         self.job.import_csv(self.priority_csv())
