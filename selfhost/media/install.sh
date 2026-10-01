@@ -32,7 +32,10 @@ state, mount = sys.argv[1:]
 args = ['/usr/bin/python3', state+'/archive.py', 'run', '--root', mount+'/media', '--state', state, '--mount', mount,
         '--max-bytes', os.environ.get('MEDIA_ARCHIVE_MAX_BYTES', '1350000000000'),
         '--rate', os.environ.get('MEDIA_ARCHIVE_RATE', '8000000'),
-        '--connections', os.environ.get('MEDIA_ARCHIVE_CONNECTIONS', '4')]
+        '--connections', os.environ.get('MEDIA_ARCHIVE_CONNECTIONS', '4'),
+        '--workers', os.environ.get('MEDIA_ARCHIVE_WORKERS', '4'),
+        '--stage-file-bytes', os.environ.get('MEDIA_ARCHIVE_STAGE_FILE_BYTES', '256000000'),
+        '--checkpoint-seconds', os.environ.get('MEDIA_ARCHIVE_CHECKPOINT_SECONDS', '3600')]
 if os.environ.get('MEDIA_ARCHIVE_RESUME', '1') == '0':
     args.append('--no-resume')
 quote = lambda value: json.dumps(value.replace('%', '%%'))
@@ -47,7 +50,7 @@ RestartPreventExitStatus=75
 RestartSec=300
 TimeoutStopSec=300
 MemoryMax=384M
-CPUQuota=50%
+CPUQuota=100%
 Nice=10
 UMask=0077
 [Install]

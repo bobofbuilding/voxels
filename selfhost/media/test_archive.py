@@ -138,6 +138,143 @@ class ArchiveTests(unittest.TestCase):
         self.assertEqual(self.job.used, 0)
         self.assertTrue((Path(self.args.state) / 'last-error.json').exists())
 
+    def staging(self, workers=4, limit=64):
+        self.args.workers = workers
+        self.args.stage_file_bytes = limit
+        self.args.checkpoint_seconds = 3600
+
+    def test_parallel_payloads_and_single_archive_writer_deduplicate(self):
+        import threading
+        self.staging()
+        for i in range(4):
+            self.row(f'https://example.org/{i}')
+        barrier = threading.Barrier(4)
+        main_thread = threading.get_ident()
+        original = Path.open
+        class ParallelResponse(Response):
+            def read(self, size=-1):
+                if self.tell() == 0:
+                    barrier.wait(timeout=3)
+                return super().read(size)
+        def opened(url, headers):
+            return io.BytesIO(), ParallelResponse(b'abcdef'), url
+        def guarded_open(path, mode='r', *args, **kwargs):
+            if path.is_relative_to(self.root) and any(c in mode for c in 'wax'):
+                self.assertEqual(threading.get_ident(), main_thread)
+                self.assertNotIn('a', mode)
+            return original(path, mode, *args, **kwargs)
+        with patch.object(a, 'open_source', side_effect=opened), patch.object(Path, 'open', guarded_open):
+            self.assertEqual(self.job.run(), 0)
+        self.assertEqual(self.job.db.execute("SELECT COUNT(*) FROM assets WHERE status='done'").fetchone()[0], 4)
+        self.assertEqual(self.job.used, 6)
+        self.assertEqual(list(Path(self.args.state).glob('staging-*')), [])
+
+    def test_staged_queue_preserves_scope_and_type_order(self):
+        self.staging()
+        self.job.import_csv(self.priority_csv())
+        calls = []
+        def opened(url, headers):
+            calls.append(url.rsplit('/', 1)[-1])
+            return io.BytesIO(), Response(b'abcdef'), url
+        with patch.object(a, 'open_source', side_effect=opened):
+            self.assertEqual(self.job.run(), 0)
+        self.assertEqual(calls, ['current-small', 'current-large', 'current-unknown', 'history'])
+
+    def test_staged_unknown_size_overflow_falls_back_without_skipping(self):
+        self.staging(workers=2, limit=4)
+        row = self.row()
+        self.job.db.execute('UPDATE assets SET expected=NULL')
+        self.job.db.commit()
+        sizes = []
+        def opened(url, headers):
+            sizes.extend(p.stat().st_size for p in Path(self.args.state).glob('staging-*/*.stage'))
+            return io.BytesIO(), Response(b'abcdef', headers={'Content-Length': None}), url
+        with patch.object(a, 'open_source', side_effect=opened) as source:
+            self.assertEqual(self.job.run(), 0)
+        self.assertEqual(source.call_count, 2)
+        self.assertTrue(all(n <= 4 for n in sizes))
+        self.assertEqual(self.job.used, 6)
+
+    def test_staged_budget_failure_retains_completed_archive(self):
+        self.staging(workers=2)
+        self.args.max_bytes = 6
+        for i in range(2):
+            self.row(f'https://example.org/{i}')
+        def opened(url, headers):
+            return io.BytesIO(), Response(b'abcdef' if url.endswith('0') else b'ghijkl'), url
+        with patch.object(a, 'open_source', side_effect=opened):
+            self.assertEqual(self.job.run(), 75)
+        self.assertEqual(self.job.used, 6)
+        self.assertEqual(self.job.db.execute("SELECT COUNT(*) FROM assets WHERE status='done'").fetchone()[0], 1)
+        path = self.job.db.execute('SELECT path FROM blobs').fetchone()[0]
+        self.assertEqual((self.root / path).read_bytes(), b'abcdef')
+
+    def test_staging_reserves_local_space_before_network(self):
+        self.staging()
+        for i in range(4):
+            self.row(f'https://example.org/{i}')
+        from collections import namedtuple
+        usage = namedtuple('usage', 'total used free')(1000, 900, 100)
+        with patch.object(a.shutil, 'disk_usage', return_value=usage), patch.object(a, 'open_source') as source:
+            self.assertEqual(self.job.run(), 75)
+        source.assert_not_called()
+
+    def test_staged_source_timeout_is_retried_and_terminal(self):
+        self.staging()
+        self.row()
+        with patch.object(a, 'open_source', side_effect=TimeoutError('source timeout')), patch.object(a.time, 'sleep'):
+            self.assertEqual(self.job.run(), 0)
+        self.assertEqual(self.job.db.execute('SELECT status,tries FROM assets').fetchone()[:], ('failed', 3))
+
+    def test_staged_stop_preserves_archive_and_pending_work(self):
+        self.staging()
+        self.row()
+        job = self.job
+        class StopResponse(Response):
+            def read(self, size=-1):
+                job.stopping = True
+                return super().read(size)
+        with patch.object(a, 'open_source', side_effect=lambda *args: (io.BytesIO(), StopResponse(b'abcdef'), args[0])):
+            self.assertEqual(self.job.run(), 0)
+        self.assertEqual(self.job.db.execute('SELECT status FROM assets').fetchone()[0], 'pending')
+        self.assertEqual(self.job.used, 0)
+        self.assertEqual(list(Path(self.args.state).glob('staging-*')), [])
+
+    def test_aggregate_rate_budget_is_shared(self):
+        self.args.rate = 1000
+        self.job.rate_next = 0
+        sleeps = []
+        clock = [100.0]
+        def sleep(seconds):
+            sleeps.append(seconds)
+            clock[0] += seconds
+        with patch.object(a.time, 'monotonic', side_effect=lambda: clock[0]), patch.object(a.time, 'sleep', side_effect=sleep):
+            self.job.throttle(100)
+            self.job.throttle(200)
+        self.assertAlmostEqual(sum(sleeps), 0.3)
+
+    def test_custom_checkpoint_interval(self):
+        self.args.checkpoint_seconds = 3600
+        self.job.report = a.Archive.report.__get__(self.job)
+        self.job.last_snapshot = a.time.monotonic() - 1000
+        with patch.object(self.job, 'snapshot') as snapshot:
+            self.job.report(force=True)
+            snapshot.assert_not_called()
+            self.job.last_snapshot -= 3600
+            self.job.report()
+            snapshot.assert_called_once()
+
+    def test_staging_rejects_private_and_truncated_responses(self):
+        for headers, expected in [({'Cache-Control': 'private'}, 'skipped'), ({'Content-Length': '8'}, 'failed')]:
+            with self.subTest(headers=headers):
+                self.staging()
+                row = self.row('https://example.org/' + expected)
+                self.job.stopping = False
+                with patch.object(a, 'open_source', side_effect=lambda *args: (io.BytesIO(), Response(b'abcdef', headers=headers), args[0])), patch.object(a.time, 'sleep'):
+                    self.assertEqual(self.job.run(), 0)
+                self.assertEqual(self.job.db.execute('SELECT status FROM assets WHERE id=?', (row['id'],)).fetchone()[0], expected)
+        self.assertEqual(self.job.used, 0)
+
     def test_hash_dedup_and_portable_paths(self):
         for url in ['https://example.org/a', 'https://example.org/b']:
             with self.source(Response(b'abcdef')):

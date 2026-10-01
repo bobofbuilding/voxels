@@ -2,7 +2,7 @@
 """Resumable public-media archive. Python 3 standard library; never serves downloaded files."""
 import argparse
 import csv
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeout
 import errno
 import fcntl
 import gzip
@@ -22,6 +22,8 @@ import ssl
 import sys
 import time
 import traceback
+import tempfile
+import threading
 from urllib.parse import parse_qsl, quote, urlencode, urljoin, urlsplit, urlunsplit
 
 TLS_CONTEXT = ssl.create_default_context()
@@ -139,12 +141,18 @@ class Archive:
             self.db.execute('ALTER TABLE assets ADD COLUMN priority INTEGER NOT NULL DEFAULT 1')
         self.db.execute('CREATE INDEX IF NOT EXISTS priority_queue ON assets(status,priority,phase,rank,expected,id)')
         self.db.commit()
+        self.stage_futures = {}
+        self.stage_progress = {}
+        self.stage_lock = threading.Lock()
+        self.rate_lock = threading.Lock()
+        self.rate_next = 0.0
+        self.stage_dir = None
         self.prepared = {}
         self.pool = None
         self.db.execute('PRAGMA journal_mode=WAL')
         self.db.execute('PRAGMA synchronous=FULL')
         self.stopping = False
-        self.last_status = self.last_snapshot = time.monotonic() - 901
+        self.last_status = self.last_snapshot = float('-inf')
         self.current = None
         self.used = self.db.execute('SELECT COALESCE(SUM(bytes),0) FROM blobs').fetchone()[0]
 
@@ -254,7 +262,7 @@ class Archive:
         self.last_snapshot = time.monotonic()
 
     def report(self, state='running', force=False, error=None, allow_checkpoint=True):
-        checkpoint_due = time.monotonic() - self.last_snapshot > 900
+        checkpoint_due = time.monotonic() - self.last_snapshot > getattr(self.args, 'checkpoint_seconds', 3600)
         if not force and time.monotonic() - self.last_status < 30 and not (allow_checkpoint and checkpoint_due):
             return
         counts = dict(self.db.execute('SELECT status,COUNT(*) FROM assets GROUP BY status'))
@@ -268,6 +276,8 @@ class Archive:
                  'limit_bytes': self.args.max_bytes, 'current': self.current, 'groups': groups, 'error': error,
                  'priority_counts': [dict(r) for r in self.db.execute('SELECT priority,status,COUNT(*) urls FROM assets GROUP BY priority,status')],
                  'source_sha256': self.db.execute("SELECT value FROM meta WHERE key='source_sha256'").fetchone()[0]}
+        with self.stage_lock:
+            value['staging'] = [dict(v) for v in self.stage_progress.values()]
         for folder in ((self.state, self.root) if allow_checkpoint else (self.state,)):
             try:
                 if folder == self.root:
@@ -380,9 +390,12 @@ class Archive:
                     digest.update(data)
                     self.current['bytes'] = size
                     self.report(allow_checkpoint=False)
-                    delay = (size - offset) / self.args.rate - (time.monotonic() - started)
-                    if delay > 0:
-                        time.sleep(min(delay, 2))
+                    if getattr(self.args, 'workers', 1) > 1:
+                        self.throttle(len(data))
+                    else:
+                        delay = (size - offset) / self.args.rate - (time.monotonic() - started)
+                        if delay > 0:
+                            time.sleep(min(delay, 2))
                     if time.monotonic() - started > 24 * 3600:
                         raise Unavailable('Download time limit reached', code)
             if total is not None and size != total:
@@ -407,6 +420,150 @@ class Archive:
             response.close()
             conn.close()
 
+    def throttle(self, size):
+        # One aggregate payload budget across workers, with at most one chunk per worker in flight.
+        with self.rate_lock:
+            now_mono = time.monotonic()
+            self.rate_next = max(now_mono, self.rate_next) + size / self.args.rate
+            delay = self.rate_next - now_mono
+        until = time.monotonic() + delay
+        while time.monotonic() < until:
+            if self.stopping:
+                raise InterruptedError('Stopping local staging')
+            time.sleep(min(0.1, max(0, until - time.monotonic())))
+
+    def fetch_stage(self, row):
+        """Workers touch only disposable local files; SQLite and archive writes stay on the main thread."""
+        limit = min(self.args.stage_file_bytes, self.args.max_file_bytes)
+        path = self.stage_dir / (str(row['id']) + '.stage')
+        conn, response, final_url = open_source(row['url'], {})
+        try:
+            code = response.status
+            if code != 200:
+                raise Unavailable('HTTP ' + str(code), code, code == 429 or code >= 500)
+            kind = media_type(response.getheader('Content-Type'))
+            if 'private' in response.getheader('Cache-Control', '').lower() or kind in ('text/html', 'text/html,text/html', 'application/xhtml+xml'):
+                raise Unavailable('Private or HTML response is not archived', code)
+            if response.getheader('Content-Encoding', 'identity').lower() not in ('', 'identity'):
+                raise Unavailable('Source ignored identity encoding', code)
+            length = response.getheader('Content-Length')
+            total = int(length) if length and length.isdigit() else None
+            if total is not None and total > self.args.max_file_bytes:
+                raise Unavailable('File exceeds configured maximum', code)
+            if total is not None and total > limit:
+                return None  # Use the bounded sequential streaming path for large files.
+            digest, size, started = hashlib.sha256(), 0, time.monotonic()
+            with path.open('wb') as output:
+                while True:
+                    if self.stopping:
+                        raise InterruptedError('Stopping local staging')
+                    data = response.read(min(256 * 1024, limit - size + 1))
+                    if not data:
+                        break
+                    if size + len(data) > limit:
+                        return None  # Unknown or changed sizes must never overflow the staging reservation.
+                    self.throttle(len(data))
+                    if shutil.disk_usage(self.state).free < self.args.free_bytes + len(data):
+                        raise StorageFull('Local staging free-space headroom reached')
+                    output.write(data)
+                    digest.update(data)
+                    size += len(data)
+                    with self.stage_lock:
+                        self.stage_progress[row['id']] = {'id': row['id'], 'bytes': size, 'expected_bytes': total,
+                                                          'type': row['type'], 'scope': 'current' if row['priority'] == 0 else 'historical'}
+                    if time.monotonic() - started > 24 * 3600:
+                        raise Unavailable('Download time limit reached', code)
+            if total is not None and size != total:
+                raise Unavailable('Truncated response', code, True)
+            return {'path': path, 'bytes': size, 'sha256': digest.hexdigest(), 'kind': kind, 'final_url': final_url}
+        finally:
+            response.close()
+            conn.close()
+
+    def prepare_stages(self, first):
+        if self.stage_futures:
+            return
+        rows = [first] + self.db.execute(f"SELECT * FROM assets WHERE status='pending' ORDER BY {QUEUE_ORDER} LIMIT ?",
+                                        (self.args.workers - 1,)).fetchall()
+        batch = []
+        for row in rows:
+            if (row['priority'], row['phase'], row['type']) != (first['priority'], first['phase'], first['type']):
+                break
+            if row['expected'] is not None and row['expected'] > self.args.stage_file_bytes:
+                break
+            batch.append(dict(row))
+        # Reserve the worst case per worker, including unknown sizes, before dispatch.
+        required = len(batch) * min(self.args.stage_file_bytes, self.args.max_file_bytes)
+        if batch and shutil.disk_usage(self.state).free < required + self.args.free_bytes:
+            raise StorageFull('Insufficient local space for bounded staging queue')
+        for row in batch:
+            self.stage_futures[row['id']] = self.pool.submit(self.fetch_stage, row)
+
+    def download_staged(self, row):
+        self.prepare_stages(row)
+        future = self.stage_futures.get(row['id'])
+        if future is None:
+            return self.download(row)
+        try:
+            while True:
+                try:
+                    result = future.result(timeout=1)
+                    break
+                except FutureTimeout:
+                    if future.done():
+                        raise  # A source timeout is a failed attempt, not an unfinished future.
+                    self.report(allow_checkpoint=False)
+                    if self.stopping:
+                        raise InterruptedError('Stopping local staging')
+            if result is None:
+                return self.download(row)
+            self.check_mount()
+            size, sha = result['bytes'], result['sha256']
+            existing = self.db.execute('SELECT * FROM blobs WHERE sha256=?', (sha,)).fetchone()
+            if not existing and self.used + size > self.args.max_bytes:
+                raise StorageFull('Archive byte budget reached')
+            extension = mimetypes.guess_extension(result['kind']) or '.bin'
+            rel = existing['path'] if existing else f'files/{type_dir(result["kind"])}/{sha[:2]}/{sha}{extension}'
+            target = self.root / rel
+            self.current = {'id': row['id'], 'type': row['type'], 'host': urlsplit(result['final_url']).hostname,
+                            'bytes': 0, 'expected_bytes': size, 'scope': 'current' if row['priority'] == 0 else 'historical',
+                            'phase': 'archive-write'}
+            if not target.exists() or target.stat().st_size != size:
+                part = self.root / '.partial' / (hashlib.sha256(row['url'].encode()).hexdigest() + '.part')
+                digest = hashlib.sha256()
+                last_check = time.monotonic()
+                with result['path'].open('rb') as source, part.open('wb') as output:
+                    for block in iter(lambda: source.read(256 * 1024), b''):
+                        if self.stopping:
+                            raise InterruptedError('Stopping archive write')
+                        if time.monotonic() - last_check > 10:
+                            self.check_mount()
+                            last_check = time.monotonic()
+                        output.write(block)
+                        digest.update(block)
+                        self.current['bytes'] += len(block)
+                        self.report(allow_checkpoint=False)
+                if digest.hexdigest() != sha or self.current['bytes'] != size:
+                    raise StorageFull('Local staged payload changed before archive commit')
+                target.parent.mkdir(parents=True, exist_ok=True)
+                os.replace(part, target)
+            with self.db:
+                self.db.execute('INSERT OR IGNORE INTO blobs VALUES(?,?,?)', (sha, size, rel))
+            if not existing:
+                self.used += size
+            old_part = self.root / '.partial' / (hashlib.sha256(row['url'].encode()).hexdigest() + '.part')
+            old_part.unlink(missing_ok=True)
+            old_part.with_suffix('.json').unlink(missing_ok=True)
+            self.finish(row, 'done', bytes=size, sha256=sha, path=rel, actual_type=result['kind'],
+                        final_url=result['final_url'], http_status=200, error=None)
+        finally:
+            # Only remove a staging file once its worker has exited; never touch completed archive files.
+            if future.done():
+                self.stage_futures.pop(row['id'], None)
+                (self.stage_dir / (str(row['id']) + '.stage')).unlink(missing_ok=True)
+                with self.stage_lock:
+                    self.stage_progress.pop(row['id'], None)
+
     def close_prepared(self):
         for future in self.prepared.values():
             try:
@@ -418,13 +575,19 @@ class Archive:
         self.prepared.clear()
 
     def run(self):
-        with ThreadPoolExecutor(max_workers=getattr(self.args, 'connections', 4)) as pool:
-            self.pool = pool
-            try:
-                return self.run_queue()
-            finally:
-                self.close_prepared()
-                self.pool = None
+        workers = getattr(self.args, 'workers', 1)
+        with tempfile.TemporaryDirectory(prefix='staging-', dir=self.state) as stage_dir:
+            self.stage_dir = Path(stage_dir)
+            with ThreadPoolExecutor(max_workers=workers if workers > 1 else getattr(self.args, 'connections', 4)) as pool:
+                self.pool = pool
+                try:
+                    return self.run_queue()
+                finally:
+                    self.stopping = True
+                    for future in self.stage_futures.values():
+                        future.cancel()
+                    self.close_prepared()
+                    self.pool = None
 
     def run_queue(self):
         self.check_mount()
@@ -441,8 +604,11 @@ class Archive:
             with self.db:
                 self.db.execute("UPDATE assets SET status='downloading',tries=tries+1 WHERE id=?", (row['id'],))
             try:
-                self.prepare_sources(row)
-                self.download(row)
+                if getattr(self.args, 'workers', 1) > 1:
+                    self.download_staged(row)
+                else:
+                    self.prepare_sources(row)
+                    self.download(row)
             except InterruptedError:
                 with self.db:
                     self.db.execute("UPDATE assets SET status='pending' WHERE id=?", (row['id'],))
@@ -483,6 +649,9 @@ def parser():
     p.add_argument('--csv', help='Public inventory assets.csv with current_references, for import/prioritize')
     p.add_argument('--no-resume', action='store_true', help='Restart incomplete files for storage that cannot append (e.g. rclone VFS cache off)')
     p.add_argument('--connections', type=int, choices=range(1, 5), default=4, help='Concurrent small-file connection setups (bodies remain sequential)')
+    p.add_argument('--workers', type=int, choices=range(1, 5), default=1, help='Parallel local payload downloads; 1 keeps direct streaming')
+    p.add_argument('--stage-file-bytes', type=int, default=256_000_000, help='Local staging reservation per worker; larger files stream sequentially')
+    p.add_argument('--checkpoint-seconds', type=int, default=3600, help='Interval between archive catalog snapshots')
     p.add_argument('--mount', help='Require this separate storage mount before writing')
     p.add_argument('--max-bytes', type=int, default=1_350_000_000_000)
     p.add_argument('--max-file-bytes', type=int, default=50_000_000_000)
@@ -496,7 +665,7 @@ def main():
     if args.command == 'status':
         print((Path(args.state) / 'status.json').read_text())
         return 0
-    if min(args.max_bytes, args.max_file_bytes, args.free_bytes, args.rate) <= 0:
+    if min(args.max_bytes, args.max_file_bytes, args.free_bytes, args.rate, args.stage_file_bytes, args.checkpoint_seconds) <= 0:
         raise ValueError('Limits must be positive')
     archive = Archive(args)
     for sig in (signal.SIGINT, signal.SIGTERM):
