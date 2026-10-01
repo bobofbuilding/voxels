@@ -56,7 +56,7 @@ Archive data, including SVG/scripts and other active formats, must not be served
 
 ## Performance and limits
 
-Source latency and per-file filesystem operations can limit speed even when bandwidth is available. Four workers fetch complete payloads to local temporary files while one writer copies them sequentially to the archive. Workers never write SQLite or the archive mount. Content hashes are verified again while copying, duplicates avoid a second archive write, and a URL becomes completed only after its archive write closes and its catalog record commits. Current/history and type-group boundaries are preserved; completed staging files are committed in queue order.
+Source latency and per-file filesystem operations can limit speed even when bandwidth is available. Four workers fetch complete payloads to local temporary files while one writer copies them sequentially to the archive. Workers never write SQLite or the archive mount. Content hashes are verified again while copying, duplicates avoid a second archive write, and a URL becomes completed only after its archive write closes and its catalog record commits. Current/history and type-group boundaries are preserved; ready staging files can be committed out of size order within the same scope/type group so slow sources do not block their peers. New work is still selected smallest-first.
 
 | Installer setting | Default | Purpose |
 | --- | --- | --- |
@@ -77,9 +77,28 @@ MEDIA_ARCHIVE_RESUME=0 MEDIA_ARCHIVE_WORKERS=4 MEDIA_ARCHIVE_CHECKPOINT_SECONDS=
   sh selfhost/media/install.sh /path/to/assets.csv.gz /mnt/archive
 ```
 
-Set these variables on upgrades as well. The direct CLI defaults to one worker for compatibility; use `--workers 4 --stage-file-bytes 256000000 --checkpoint-seconds 3600` to enable staging. Smaller hosts can choose two workers or smaller staging slots. Completed local staging files waiting for the archive writer apply backpressure: no new batch begins until the previous batch is consumed.
+Set these variables on upgrades as well. The direct CLI defaults to one worker for compatibility; use `--workers 4 --stage-file-bytes 256000000 --checkpoint-seconds 3600` to enable staging. Smaller hosts can choose two workers or smaller staging slots. The bounded queue refills each freed slot after an archive commit. Completed local files waiting for the single archive writer still occupy their slots, applying backpressure without leaving every worker idle behind one slow source.
 
 Catalog checkpoints run at startup, between archive writes when the interval is due, and shutdown. Staging downloads can continue within their reservation during a checkpoint. A growing `media/catalog.sqlite.pending` indicates checkpoint progress. Hourly archive backups reduce pauses but increase how much work might need reconciling if local state is lost; the local catalog still records every completed URL. Compare completed URLs and unique bytes over several intervals. Throughput depends on source hosts, duplication, file sizes and storage; four workers do not guarantee a fourfold gain.
+
+## Compare connection counts, identities and network routes
+
+`benchmark.py` measures source downloads separately from archive writes. Prepare a JSON array of 1–8 public asset URLs (use the same manifest on every route):
+
+```json
+["https://example.org/public-asset.bin"]
+```
+
+```sh
+python3 selfhost/media/benchmark.py --urls public-test-urls.json \
+  --route-label current-network --output current-network-test.json
+```
+
+The test compares one and four connections with the normal downloader user-agent and an explicitly labeled diagnostic user-agent. It reads at most 2 MB per URL per case by default (four cases; at most 64 MB with eight URLs), discards payloads, and reports response time, total throughput, sampled content hashes, status codes, cache and rate-limit headers. It never changes archive files, credentials, proxies, firewall settings or network routes. It stops remaining cases on HTTP 429 or HTTP 503 with Retry-After; it does not rotate identities to continue past that response. Already running requests stop at their next read boundary.
+
+For an **IP/route comparison**, run the exact command and manifest on another host or network you control, with a different descriptive `--route-label` and a new output path. The label does not select a route or prove a different public IP. Confirm the different egress independently. Keep sample limits the same. These reports contain source URLs; review them before sharing. Existing output files are never overwritten.
+
+Compare matching sample lengths and hashes, cache-hit/miss headers and total wall-clock throughput. Alternate case ordering reduces simple warm-cache bias but does not eliminate it. Tests run beside the live downloader share its bandwidth; for a cleaner comparison, stop only the downloader gracefully and let its checkpoint complete first. Do not infer IP throttling from one run or compare source-only sample throughput directly with deduplicated archive growth. A route can differ in congestion, latency and CDN routing as well as rate limits. There is no automatic production IP rotation.
 
 ## Upgrade an existing queue
 

@@ -2,7 +2,7 @@
 """Resumable public-media archive. Python 3 standard library; never serves downloaded files."""
 import argparse
 import csv
-from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeout
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeout, wait, FIRST_COMPLETED
 import errno
 import fcntl
 import gzip
@@ -481,10 +481,14 @@ class Archive:
             conn.close()
 
     def prepare_stages(self, first):
-        if self.stage_futures:
+        slots = self.args.workers - len(self.stage_futures)
+        if slots <= 0:
             return
-        rows = [first] + self.db.execute(f"SELECT * FROM assets WHERE status='pending' ORDER BY {QUEUE_ORDER} LIMIT ?",
-                                        (self.args.workers - 1,)).fetchall()
+        excluded = list(self.stage_futures)
+        rows = [] if first['id'] in self.stage_futures else [first]
+        excluded.append(first['id'])
+        rows += self.db.execute(f"SELECT * FROM assets WHERE status='pending' AND id NOT IN ({','.join('?' for _ in excluded)}) ORDER BY {QUEUE_ORDER} LIMIT ?",
+                                (*excluded, slots - len(rows))).fetchall()
         batch = []
         for row in rows:
             if (row['priority'], row['phase'], row['type']) != (first['priority'], first['phase'], first['type']):
@@ -492,15 +496,30 @@ class Archive:
             if row['expected'] is not None and row['expected'] > self.args.stage_file_bytes:
                 break
             batch.append(dict(row))
-        # Reserve the worst case per worker, including unknown sizes, before dispatch.
-        required = len(batch) * min(self.args.stage_file_bytes, self.args.max_file_bytes)
+        # Include outstanding workers' unused reservations, not just the new downloads.
+        limit = min(self.args.stage_file_bytes, self.args.max_file_bytes)
+        with self.stage_lock:
+            required = len(batch) * limit + sum(max(0, limit - self.stage_progress.get(id, {}).get('bytes', 0))
+                                               for id in self.stage_futures)
         if batch and shutil.disk_usage(self.state).free < required + self.args.free_bytes:
             raise StorageFull('Insufficient local space for bounded staging queue')
         for row in batch:
             self.stage_futures[row['id']] = self.pool.submit(self.fetch_stage, row)
 
+    def next_staged_row(self, first):
+        self.prepare_stages(first)
+        while self.stage_futures:
+            if self.stopping:
+                raise InterruptedError('Stopping local staging')
+            # Futures retain queue insertion order, but a slow source cannot block ready peers.
+            for id, future in self.stage_futures.items():
+                if future.done():
+                    return self.db.execute('SELECT * FROM assets WHERE id=?', (id,)).fetchone()
+            wait(self.stage_futures.values(), timeout=1, return_when=FIRST_COMPLETED)
+            self.report(allow_checkpoint=False)
+        return first  # Oversized files retain the sequential streaming fallback.
+
     def download_staged(self, row):
-        self.prepare_stages(row)
         future = self.stage_futures.get(row['id'])
         if future is None:
             return self.download(row)
@@ -601,9 +620,11 @@ class Archive:
                 self.current = None
                 self.report('complete', True)
                 return 0
-            with self.db:
-                self.db.execute("UPDATE assets SET status='downloading',tries=tries+1 WHERE id=?", (row['id'],))
             try:
+                if getattr(self.args, 'workers', 1) > 1:
+                    row = self.next_staged_row(row)
+                with self.db:
+                    self.db.execute("UPDATE assets SET status='downloading',tries=tries+1 WHERE id=?", (row['id'],))
                 if getattr(self.args, 'workers', 1) > 1:
                     self.download_staged(row)
                 else:
