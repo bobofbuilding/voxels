@@ -1,7 +1,11 @@
 # ABOUTME: Parcel compiler worker - rehosts parcel assets to UGC on a loop.
 # ABOUTME: App Platform: DATABASE_URL + UGC_ACCESS + UGC_SECRET + texture bucket creds optional.
 
-FROM node:25-bookworm-slim
+FROM node:24.22.1-bookworm-slim
+# Refresh the OS store; fail the build if the distrust update is unavailable.
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates \
+  && dpkg --compare-versions "$(dpkg-query -W -f='${Version}' ca-certificates)" ge '20250419~deb12u2' \
+  && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
