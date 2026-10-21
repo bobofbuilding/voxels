@@ -14,7 +14,7 @@ import { CreateError, Texture } from './texture'
 import { app } from './www'
 import sharp from 'sharp'
 
-process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0'
+if (process.env.NODE_TLS_REJECT_UNAUTHORIZED === '0') throw new Error('TLS certificate verification must remain enabled')
 
 const s3 = config.space.client()
 
