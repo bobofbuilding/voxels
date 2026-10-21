@@ -4,7 +4,7 @@
   "version": "8.16.1",
   "packageManager": "pnpm@9.15.4",
   "engines": {
-    "node": "25",
+    "node": ">=24.22.1 <25",
     "pnpm": "9.15.4"
   },
   "pnpm": {
@@ -26,8 +26,8 @@
   "scripts": {
     "setup:env": "node scripts/setup-env.mjs",
     "mp": "concurrently -k \"npm run watch-css\" \"npm run client:dev\" \"npm run multiplayer:dev\"",
-    "dev": "NODE_TLS_REJECT_UNAUTHORIZED=0 NODE_ENV=development concurrently -k \"npm run watch-css\" \"npm run server:dev\" \"npm run client:dev\" \"npm run multiplayer:dev\"",
-    "dev:stable": "NODE_TLS_REJECT_UNAUTHORIZED=0 NODE_ENV=development concurrently -k \"npm run watch-css\" \"npm run server:dev\" \"npm run client:dev\" \"npm run multiplayer:dev\"",
+    "dev": "NODE_ENV=development concurrently -k \"npm run watch-css\" \"npm run server:dev\" \"npm run client:dev\" \"npm run multiplayer:dev\"",
+    "dev:stable": "NODE_ENV=development concurrently -k \"npm run watch-css\" \"npm run server:dev\" \"npm run client:dev\" \"npm run multiplayer:dev\"",
     "server:dev": "tsx --watch server/boot.ts",
     "server:start": "tsx server/boot.ts",
     "build": "npm run compile-css && node scripts/bundle-node.mjs",
@@ -37,7 +37,7 @@
     "build:check": "node scripts/precommit-build-check.mjs",
     "docs:api": "node scripts/build-api-docs.mjs",
     "precommit": "tsc --noEmit --project tsconfig.precommit.json && npm run build:check && prettier --write --log-level warn .",
-    "test": "pnpm run test:unit && pnpm run test:node && pnpm run test:db",
+    "test": "pnpm run test:tls && pnpm run test:unit && pnpm run test:node && pnpm run test:db",
     "test:watch": "vitest watch",
     "test:ui": "vitest --ui",
     "typescript:check": "tsc --noEmit --project tsconfig.check.json",
@@ -46,7 +46,7 @@
     "css": "lessc web/src/style/app.less dist/app.css",
     "watch-css": "less-watch-compiler web/src/style dist app.less",
     "compile-css": "lessc web/src/style/app.less dist/app.css",
-    "migrate": "NODE_TLS_REJECT_UNAUTHORIZED=0 tsx server/migration/main.ts",
+    "migrate": "tsx server/migration/main.ts",
     "predeploy": "npm run migrate",
     "prettier": "prettier --write .",
     "prettier:check": "prettier --check .",
@@ -73,7 +73,8 @@
     "typecheck:compressor": "tsc --noEmit --project compressor/tsconfig.json",
     "typecheck:renderer": "tsc --noEmit --project renderer/tsconfig.json",
     "node:setup": "node selfhost/node/setup.mjs",
-    "test:node": "node --test selfhost/node/setup.test.mjs selfhost/seed/gateway.test.mjs selfhost/world/parcel-rights.test.mjs"
+    "test:node": "node --test selfhost/node/setup.test.mjs selfhost/seed/gateway.test.mjs selfhost/world/parcel-rights.test.mjs",
+    "test:tls": "node --experimental-strip-types --test services/database-tls.test.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.472.0",
