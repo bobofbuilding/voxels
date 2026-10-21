@@ -1,5 +1,5 @@
 import { Pool, PoolClient, QueryConfig, QueryConfigValues, QueryResult, QueryResultRow } from 'pg'
-import { ConnectionOptions } from 'tls'
+import { databaseConnectionOptions } from '../../../services/database-tls'
 import { performance } from 'perf_hooks'
 import assert from 'assert'
 
@@ -14,20 +14,9 @@ export type ConnectionHandle = {
 }
 
 export function createConnection(appName: string): ConnectionHandle {
-  const connectionString = process.env.DATABASE_URL || ''
-
-  let sslSettings: boolean | ConnectionOptions = false
-  if (process.env.CA_CERT) {
-    sslSettings = {
-      rejectUnauthorized: false,
-      ca: process.env.CA_CERT,
-    }
-  }
-
   const pool = new Pool({
-    connectionString,
+    ...databaseConnectionOptions(),
     max: 10,
-    ssl: sslSettings,
     connectionTimeoutMillis: 5000,
     idleTimeoutMillis: 10000,
   })

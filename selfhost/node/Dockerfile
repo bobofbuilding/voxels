@@ -1,4 +1,8 @@
-FROM node:24.21.0-bookworm-slim AS build
+FROM node:24.22.1-bookworm-slim AS build
+# Refresh the OS store; fail the build if the distrust update is unavailable.
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates \
+  && dpkg --compare-versions "$(dpkg-query -W -f='${Version}' ca-certificates)" ge '20250419~deb12u2' \
+  && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 RUN npm install -g pnpm@9.15.4
 COPY package.json pnpm-lock.yaml ./
@@ -11,7 +15,11 @@ ENV BUILD_NUM=$BUILD_NUM OWNER_ADDRESS=$OWNER_ADDRESS FEDERATION_WORLD=$FEDERATI
 RUN pnpm exec lessc web/src/style/app.less dist/app.css && node scripts/bundle-node.mjs web && node scripts/bundle-node.mjs mp
 RUN node selfhost/node/build-bootstrap.mjs
 
-FROM node:24.21.0-bookworm-slim
+FROM node:24.22.1-bookworm-slim
+# Refresh the OS store; fail the build if the distrust update is unavailable.
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates \
+  && dpkg --compare-versions "$(dpkg-query -W -f='${Version}' ca-certificates)" ge '20250419~deb12u2' \
+  && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 ENV NODE_ENV=production
 COPY --from=build /app/dist ./dist
