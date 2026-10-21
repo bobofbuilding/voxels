@@ -3,12 +3,12 @@
   "dockerComposeFile": "docker-compose.yml",
   "service": "app",
   "workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
-  
+
   "features": {
     "ghcr.io/devcontainers/features/node:1": {
       // engines.node in package.json, so this follows the repo
-      "version": "25",
-      "pnpmVersion": "latest"
+      "version": "24.22.1",
+      "pnpmVersion": "9.15.4"
     }
   },
 
@@ -18,7 +18,7 @@
   // Set env var so psql knows which DB to connect to by default
   "containerEnv": {
     "PGDATABASE": "voxels",
-    "PGHOST": "db", 
+    "PGHOST": "db",
     "PGUSER": "postgres"
   },
 
